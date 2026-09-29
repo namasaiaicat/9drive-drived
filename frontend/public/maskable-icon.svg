@@ -1,6 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="9Drive">
-  <rect width="512" height="512" fill="#2563eb"/>
-  <circle cx="256" cy="256" r="214" fill="#1d4ed8"/>
-  <path fill="#fff" d="M256 88c69 0 124 52 124 116 0 92-84 160-207 222-17 8-35-10-26-28l54-102c-45-19-69-54-69-92 0-64 55-116 124-116Zm0 62c-32 0-58 24-58 54s26 54 58 54 58-24 58-54-26-54-58-54Z"/>
-  <path fill="#bfdbfe" d="M305 314c-20 11-43 22-71 36l-19 35c65-34 115-70 144-111-14 14-33 26-54 40Z"/>
+  <rect width="512" height="512" fill="#FFFFFF"/>
+  <g transform="translate(107.59, 123.4) scale(3.4)">
+    <defs>
+      <filter id="pwaShadowMaskable" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="1.2" stdDeviation="1.5" flood-opacity="0.25" flood-color="#000000" />
+      </filter>
+      <linearGradient id="pwaBlueGradMaskable" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#1A73E8" />
+        <stop offset="100%" stop-color="#0B57D0" />
+      </linearGradient>
+    </defs>
+    <path d="M29.9 1.2h27.5L84.9 47H57.4L29.9 1.2z" fill="#FFBA00" />
+    <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 10.15 7.9 13.65z" fill="#EA4335" />
+    <path d="M13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.4 4.5-1.2L59.8 53H27.5L13.75 76.8z" fill="#00AC47" />
+    <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066DA" />
+    <path d="M27.5 53l-13.75 23.8c-1.35-.8-2.5-1.9-3.3-3.3L.05 51.5c-.8-1.4-.8-2.95 0-4.5L24.05 3c.8-1.4 1.95-2.5 3.3-3.3l13.8 23.9L27.5 53z" fill="#2684FC" />
+    <path d="M43.65 25L29.9 1.2c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44c-.8 1.4-1.2 2.95-1.2 4.5h27.5L43.65 25z" fill="#00AC47" opacity="0.18" />
+    <circle cx="43.65" cy="43.8" r="16.5" fill="#FFFFFF" stroke="#E2E7EE" stroke-width="0.8" filter="url(#pwaShadowMaskable)" />
+    <text x="43.65" y="44.2" text-anchor="middle" dominant-baseline="central" font-family="'Product Sans', 'Google Sans', 'Roboto', 'Segoe UI', system-ui, sans-serif" font-size="22" font-weight="800" fill="url(#pwaBlueGradMaskable)">9</text>
+  </g>
 </svg>
