@@ -17,6 +17,7 @@ import { apiFetch } from '@/lib/api'
 import { getStoredUser, type AuthUser } from '@/lib/auth'
 import { getGravatarUrl } from '@/lib/gravatar'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/context/ToastContext'
 
 export type ShareFileTarget = {
   id?: string
@@ -59,6 +60,7 @@ export function ShareModal({
   onClose: () => void
 }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
+  const { toast } = useToast()
   const [avatarUrl, setAvatarUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [updating, setUpdating] = useState(false)
@@ -252,6 +254,7 @@ export function ShareModal({
     if (!url) return
     await navigator.clipboard.writeText(url)
     setCopied(true)
+    toast.success('Link copied to clipboard!')
     setTimeout(() => setCopied(false), 2500)
   }
 
@@ -323,7 +326,7 @@ export function ShareModal({
               type="button"
               className="flex h-9 w-9 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
               title="Settings"
-              onClick={() => alert('Editors can change permissions and share. Viewers and commenters can see the option to download, print, and copy.')}
+              onClick={() => toast.info('Editors can change permissions and share. Viewers and commenters can see the option to download, print, and copy.')}
             >
               <Settings className="h-4 w-4" />
             </button>

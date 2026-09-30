@@ -367,6 +367,125 @@ export async function getGoogleRecentFiles(accountId: string, userId: string) {
   })
 }
 
+export async function getGoogleSharedFiles(accountId: string, userId: string) {
+  const account = await prisma.connectedAccount.findFirstOrThrow({
+    where: { id: accountId, userId, provider: 'google_drive', status: 'connected' },
+  })
+  const auth = await getAuthedGoogleClient(account)
+  const drive = google.drive({ version: 'v3', auth })
+
+  const response = await drive.files.list({
+    q: 'sharedWithMe = true and trashed = false',
+    orderBy: 'sharedWithMeTime desc',
+    spaces: 'drive',
+    fields: 'files(id,name,mimeType,size,parents,createdTime,modifiedTime,sharedWithMeTime,sharingUser(displayName,emailAddress,photoLink),owners(displayName,emailAddress,photoLink),webViewLink,iconLink)',
+    pageSize: 100,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  })
+
+  const rawItems = response.data.files ?? []
+  const rawFolders = rawItems.filter((f) => f.mimeType === googleDriveFolderMimeType)
+  const rawFiles = rawItems.filter((f) => f.mimeType !== googleDriveFolderMimeType)
+
+  // Find or create DB records for shared folders
+  const folderByProviderId = new Map()
+  for (const rf of rawFolders) {
+    if (!rf.id || !rf.name) continue
+    let dbFolder = await prisma.folder.findFirst({
+      where: { userId, connectedAccountId: account.id, providerFolderId: rf.id },
+    })
+    if (!dbFolder) {
+      dbFolder = await prisma.folder.create({
+        data: {
+          userId,
+          connectedAccountId: account.id,
+          provider: 'google_drive',
+          providerFolderId: rf.id,
+          name: rf.name,
+          color: 'text-blue-500',
+        },
+      })
+    }
+    folderByProviderId.set(rf.id, dbFolder)
+  }
+
+  // Find or create DB records for shared files (needed for preview & download streaming)
+  const fileByProviderId = new Map()
+  for (const rf of rawFiles) {
+    if (!rf.id || !rf.name) continue
+    let dbFile = await prisma.file.findFirst({
+      where: { userId, connectedAccountId: account.id, providerFileId: rf.id },
+      include: { folder: { select: { id: true, name: true } } },
+    })
+    if (!dbFile) {
+      dbFile = await prisma.file.create({
+        data: {
+          userId,
+          connectedAccountId: account.id,
+          provider: 'google_drive',
+          providerFileId: rf.id,
+          name: rf.name,
+          mimeType: rf.mimeType ?? 'application/octet-stream',
+          sizeBytes: BigInt(rf.size ?? 0),
+          status: 'active',
+        },
+        include: { folder: { select: { id: true, name: true } } },
+      })
+    }
+    fileByProviderId.set(rf.id, dbFile)
+  }
+
+  const folders = rawFolders.map((f) => {
+    const dbFolder = f.id ? folderByProviderId.get(f.id) : null
+    const ownerName =
+      f.sharingUser?.displayName ||
+      f.sharingUser?.emailAddress ||
+      f.owners?.[0]?.displayName ||
+      f.owners?.[0]?.emailAddress ||
+      'Shared'
+    return {
+      id: dbFolder?.id ?? f.id ?? '',
+      name: f.name ?? 'Untitled Folder',
+      updated: (f as any).sharedWithMeTime ?? f.modifiedTime ?? f.createdTime ?? new Date().toISOString(),
+      color: 'text-blue-500',
+      iconUrl: (f as any).iconLink ?? null,
+      providerFolderId: f.id ?? null,
+      driveUrl: (f as any).webViewLink ?? (f.id ? `https://drive.google.com/drive/folders/${f.id}` : undefined),
+      owner: ownerName,
+      connectedAccount: { id: account.id, email: account.email, provider: 'google_drive' },
+    }
+  })
+
+  const files = rawFiles.map((f) => {
+    const dbFile = f.id ? fileByProviderId.get(f.id) : null
+    const ownerName =
+      f.sharingUser?.displayName ||
+      f.sharingUser?.emailAddress ||
+      f.owners?.[0]?.displayName ||
+      f.owners?.[0]?.emailAddress ||
+      'Shared'
+    return {
+      id: dbFile?.id ?? f.id ?? '',
+      providerFileId: f.id ?? '',
+      name: f.name ?? 'Untitled',
+      mimeType: f.mimeType ?? 'application/octet-stream',
+      sizeBytes: String(f.size ?? '0'),
+      createdAt: f.createdTime ?? new Date().toISOString(),
+      updatedAt: f.modifiedTime ?? f.createdTime ?? new Date().toISOString(),
+      sharedWithMeTime: (f as any).sharedWithMeTime ?? f.modifiedTime ?? f.createdTime ?? new Date().toISOString(),
+      owner: ownerName,
+      folderId: dbFile?.folderId ?? null,
+      folder: dbFile?.folder ?? null,
+      connectedAccount: { id: account.id, email: account.email, provider: 'google_drive' },
+      driveUrl: (f as any).webViewLink ?? (f.id ? `https://drive.google.com/file/d/${f.id}/view?usp=sharing` : null),
+    }
+  })
+
+  return { files, folders }
+}
+
+
 export async function setGoogleFileStarred(accountId: string, userId: string, providerFileId: string, starred: boolean) {
   const account = await prisma.connectedAccount.findFirstOrThrow({ where: { id: accountId, userId, provider: 'google_drive', status: 'connected' } })
   const auth = await getAuthedGoogleClient(account)

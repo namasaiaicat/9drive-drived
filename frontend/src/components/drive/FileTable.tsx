@@ -5,6 +5,7 @@ import { FileIcon } from '@/components/drive/FileIcon'
 import type { FileItem } from '@/data/drive-data'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/context/ToastContext'
 
 export function FileTable({
   files,
@@ -27,6 +28,7 @@ export function FileTable({
   onFileDoubleClick?: (file: FileItem) => void
   onShare?: (file: FileItem) => void
 }) {
+  const { toast } = useToast()
   const [copiedFileId, setCopiedFileId] = useState<string | null>(null)
 
   return (
@@ -264,9 +266,10 @@ export function FileTable({
                               }
                               await navigator.clipboard.writeText(url)
                               setCopiedFileId(file.id ?? null)
+                              toast.success('Link copied to clipboard!')
                               setTimeout(() => setCopiedFileId(null), 2000)
                             } catch {
-                              /* ignore */
+                              toast.error('Failed to copy link.')
                             }
                           }}
                           className="flex h-8 w-8 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"

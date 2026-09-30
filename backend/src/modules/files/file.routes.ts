@@ -5,7 +5,7 @@ import { prisma } from '../../config/prisma.js'
 import { env } from '../../config/env.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
 import { hashToken, randomToken } from '../../utils/crypto.js'
-import { getAuthedGoogleClient, syncGoogleAppFolderFiles, syncGoogleQuota, getGoogleStarredFiles, getGoogleRecentFiles, setGoogleFileStarred, findInheritedPermissionOrigin } from '../google/google.service.js'
+import { getAuthedGoogleClient, syncGoogleAppFolderFiles, syncGoogleQuota, getGoogleStarredFiles, getGoogleRecentFiles, getGoogleSharedFiles, setGoogleFileStarred, findInheritedPermissionOrigin } from '../google/google.service.js'
 import { deleteS3Object, syncS3Quota, createS3Client, getS3ConfigForAccount } from '../s3/s3.service.js'
 import { streamProviderFile } from './stream-file.js'
 import { googleDownloadExportMimeTypes, normalizeHeaders, withExtension } from './stream-google-file.js'
@@ -34,6 +34,116 @@ fileRouter.get('/preview/:token', async (req, res, next) => {
 
 fileRouter.use(requireAuth)
 
+fileRouter.get('/suggestions', async (req: AuthRequest, res, next) => {
+  try {
+    const query = z.object({
+      q: z.string().trim().max(255).optional(),
+      kind: z.enum(['image', 'video', 'pdf', 'doc', 'archive']).optional(),
+      accountId: z.string().optional(),
+      limit: z.coerce.number().min(1).max(20).default(8),
+      modified: z.enum(['today', '7d', '30d', 'year']).optional(),
+    }).parse(req.query)
+
+    const q = query.q || ''
+    if (!q && !query.kind && !query.modified) {
+      return res.json({ files: [], folders: [] })
+    }
+
+    const typeFilters: Record<string, string[]> = {
+      image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
+      video: ['video/mp4', 'video/mpeg', 'video/ogg', 'video/quicktime', 'video/webm'],
+      pdf: ['application/pdf'],
+      doc: ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
+      archive: ['application/zip', 'application/x-rar-compressed', 'application/x-tar', 'application/x-7z-compressed']
+    }
+
+    let modifiedDateFilter: Date | undefined
+    if (query.modified) {
+      const now = new Date()
+      if (query.modified === 'today') {
+        modifiedDateFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      } else if (query.modified === '7d') {
+        modifiedDateFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      } else if (query.modified === '30d') {
+        modifiedDateFilter = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      } else if (query.modified === 'year') {
+        modifiedDateFilter = new Date(now.getFullYear(), 0, 1)
+      }
+    }
+
+    const fileWhere: any = {
+      userId: req.user!.id,
+      status: 'active',
+      ...(q ? { name: { contains: q } } : {}),
+      ...(query.accountId && query.accountId !== 'all' ? { connectedAccountId: query.accountId } : {}),
+      ...(query.kind ? { mimeType: { in: typeFilters[query.kind] || [] } } : {}),
+      ...(modifiedDateFilter ? { updatedAt: { gte: modifiedDateFilter } } : {})
+    }
+
+    const folderWhere: any = {
+      userId: req.user!.id,
+      deletedAt: null,
+      ...(q ? { name: { contains: q } } : {}),
+      ...(query.accountId && query.accountId !== 'all' ? { connectedAccountId: query.accountId } : {}),
+      ...(modifiedDateFilter ? { updatedAt: { gte: modifiedDateFilter } } : {})
+    }
+
+    const [files, folders] = await Promise.all([
+      prisma.file.findMany({
+        where: fileWhere,
+        take: query.limit,
+        select: {
+          id: true,
+          name: true,
+          mimeType: true,
+          sizeBytes: true,
+          folderId: true,
+          provider: true,
+          providerFileId: true,
+          updatedAt: true,
+          createdAt: true,
+          connectedAccount: {
+            select: { id: true, email: true, provider: true, displayName: true }
+          },
+          folder: {
+            select: { id: true, name: true }
+          }
+        },
+        orderBy: { updatedAt: 'desc' }
+      }),
+      !query.kind ? prisma.folder.findMany({
+        where: folderWhere,
+        take: 3,
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          iconUrl: true,
+          updatedAt: true,
+          createdAt: true,
+          connectedAccount: {
+            select: { id: true, email: true, provider: true, displayName: true }
+          }
+        },
+        orderBy: { updatedAt: 'desc' }
+      }) : Promise.resolve([])
+    ])
+
+    return res.json({
+      files: files.map((file) => ({
+        ...file,
+        sizeBytes: file.sizeBytes.toString(),
+        driveUrl: file.provider === 'google_drive' && file.providerFileId
+          ? `https://drive.google.com/file/d/${file.providerFileId}/view?usp=sharing`
+          : null,
+      })),
+      folders
+    })
+  } catch (error) {
+    return next(error)
+  }
+})
+
 fileRouter.get('/', async (req: AuthRequest, res, next) => {
   try {
     const query = z.object({
@@ -44,7 +154,8 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
       minSize: z.coerce.number().optional(),
       maxSize: z.coerce.number().optional(),
       startDate: z.string().datetime().optional(),
-      endDate: z.string().datetime().optional()
+      endDate: z.string().datetime().optional(),
+      limit: z.coerce.number().min(1).max(500).optional(),
     }).parse(req.query)
 
     const typeFilters: Record<string, string[]> = {
@@ -60,7 +171,7 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
       status: 'active',
       ...(query.folderId ? { folderId: query.folderId } : {}),
       ...(query.q ? { name: { contains: query.q } } : {}),
-      ...(query.accountId ? { connectedAccountId: query.accountId } : {}),
+      ...(query.accountId && query.accountId !== 'all' ? { connectedAccountId: query.accountId } : {}),
       ...(query.kind ? { mimeType: { in: typeFilters[query.kind] || [] } } : {}),
       ...(query.minSize !== undefined || query.maxSize !== undefined ? {
         sizeBytes: {
@@ -78,6 +189,7 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
 
     const files = await prisma.file.findMany({
       where,
+      take: query.limit ?? 250,
       include: {
         connectedAccount: { select: { id: true, email: true, provider: true } },
         folder: { select: { id: true, name: true } }
@@ -131,12 +243,16 @@ fileRouter.delete('/batch', async (req: AuthRequest, res, next) => {
 
 fileRouter.get('/trash', async (req: AuthRequest, res, next) => {
   try {
-    const query = z.object({ q: z.string().trim().max(255).optional() }).parse(req.query)
+    const query = z.object({
+      q: z.string().trim().max(255).optional(),
+      accountId: z.string().optional()
+    }).parse(req.query)
     const files = await prisma.file.findMany({
       where: {
         userId: req.user!.id,
         status: 'deleted',
-        ...(query.q ? { name: { contains: query.q } } : {})
+        ...(query.q ? { name: { contains: query.q } } : {}),
+        ...(query.accountId ? { connectedAccountId: query.accountId } : {})
       },
       include: {
         connectedAccount: { select: { id: true, email: true, provider: true } },
@@ -152,8 +268,14 @@ fileRouter.get('/trash', async (req: AuthRequest, res, next) => {
 
 fileRouter.get('/starred', async (req: AuthRequest, res, next) => {
   try {
+    const accountId = req.query.accountId as string | undefined
     const googleAccounts = await prisma.connectedAccount.findMany({
-      where: { userId: req.user!.id, provider: 'google_drive', status: 'connected' },
+      where: {
+        userId: req.user!.id,
+        provider: 'google_drive',
+        status: 'connected',
+        ...(accountId ? { id: accountId } : {})
+      },
     })
     const files: any[] = []
     for (const account of googleAccounts) {
@@ -172,8 +294,14 @@ fileRouter.get('/starred', async (req: AuthRequest, res, next) => {
 
 fileRouter.get('/recent', async (req: AuthRequest, res, next) => {
   try {
+    const accountId = req.query.accountId as string | undefined
     const googleAccounts = await prisma.connectedAccount.findMany({
-      where: { userId: req.user!.id, provider: 'google_drive', status: 'connected' },
+      where: {
+        userId: req.user!.id,
+        provider: 'google_drive',
+        status: 'connected',
+        ...(accountId ? { id: accountId } : {})
+      },
     })
     const files: any[] = []
     for (const account of googleAccounts) {
@@ -186,7 +314,11 @@ fileRouter.get('/recent', async (req: AuthRequest, res, next) => {
     }
     if (files.length === 0) {
       const dbFiles = await prisma.file.findMany({
-        where: { userId: req.user!.id, status: 'active' },
+        where: {
+          userId: req.user!.id,
+          status: 'active',
+          ...(accountId ? { connectedAccountId: accountId } : {})
+        },
         include: {
           connectedAccount: { select: { id: true, email: true, provider: true } },
           folder: { select: { id: true, name: true } },
@@ -203,6 +335,34 @@ fileRouter.get('/recent', async (req: AuthRequest, res, next) => {
       )
     }
     return res.json({ files })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+fileRouter.get('/shared', async (req: AuthRequest, res, next) => {
+  try {
+    const accountId = req.query.accountId as string | undefined
+    const googleAccounts = await prisma.connectedAccount.findMany({
+      where: {
+        userId: req.user!.id,
+        provider: 'google_drive',
+        status: 'connected',
+        ...(accountId ? { id: accountId } : {})
+      },
+    })
+    const files: any[] = []
+    const folders: any[] = []
+    for (const account of googleAccounts) {
+      try {
+        const result = await getGoogleSharedFiles(account.id, req.user!.id)
+        files.push(...result.files)
+        folders.push(...result.folders)
+      } catch (err: any) {
+        console.error('Failed to get shared files for account', account.id, err.message)
+      }
+    }
+    return res.json({ files, folders })
   } catch (error) {
     return next(error)
   }

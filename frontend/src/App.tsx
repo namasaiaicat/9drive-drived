@@ -17,12 +17,16 @@ import { ApiManagementPage } from '@/pages/ApiManagementPage'
 import { TrashPage } from '@/pages/TrashPage'
 import { ActivityLogPage } from '@/pages/ActivityLogPage'
 import { UploadProvider } from '@/context/UploadContext'
+import { DriveFilterProvider } from '@/context/DriveFilterContext'
+import { ToastProvider } from '@/context/ToastContext'
 
 
 function App() {
   return (
-    <UploadProvider>
-      <Routes>
+    <ToastProvider>
+      <DriveFilterProvider>
+        <UploadProvider>
+          <Routes>
       <Route path="login" element={<LoginPage />} />
       <Route path="register" element={<RegisterPage />} />
       <Route path="google-auth" element={<GoogleAuthPage />} />
@@ -46,7 +50,9 @@ function App() {
       </Route>
       <Route path="*" element={<Navigate to="/all-files" replace />} />
       </Routes>
-    </UploadProvider>
+      </UploadProvider>
+    </DriveFilterProvider>
+    </ToastProvider>
   )
 }
 

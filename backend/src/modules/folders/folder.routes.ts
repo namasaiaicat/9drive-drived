@@ -19,12 +19,14 @@ const createSchema = z.object({
   color: colorSchema.optional(),
   iconUrl: iconUrlSchema.nullable().optional(),
   parentId: z.string().nullable().optional(),
+  accountId: z.string().optional(),
 })
 
-function serializeFolder(folder: { id: string; name: string; color: string; iconUrl?: string | null; parentId?: string | null; providerFolderId?: string | null; createdAt: Date; updatedAt: Date }) {
+function serializeFolder(folder: { id: string; name: string; color: string; iconUrl?: string | null; parentId?: string | null; providerFolderId?: string | null; connectedAccountId?: string | null; createdAt: Date; updatedAt: Date }) {
   return {
     ...folder,
     providerFolderId: folder.providerFolderId ?? null,
+    connectedAccountId: folder.connectedAccountId ?? null,
     driveUrl: folder.providerFolderId ? `https://drive.google.com/drive/folders/${folder.providerFolderId}` : null,
     createdAt: folder.createdAt.toISOString(),
     updatedAt: folder.updatedAt.toISOString(),
@@ -86,10 +88,20 @@ async function ensureProviderFolderIds(
 
 folderRouter.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const query = z.object({ parentId: z.string().nullable().optional(), all: z.string().optional() }).parse(req.query)
+    const query = z.object({
+      parentId: z.string().nullable().optional(),
+      all: z.string().optional(),
+      accountId: z.string().optional()
+    }).parse(req.query)
+
     const folders = await prisma.folder.findMany({
-      where: { userId: req.user!.id, deletedAt: null, ...(query.all === '1' ? {} : { parentId: query.parentId ?? null }) },
-      select: { id: true, name: true, color: true, iconUrl: true, parentId: true, providerFolderId: true, createdAt: true, updatedAt: true },
+      where: {
+        userId: req.user!.id,
+        deletedAt: null,
+        ...(query.all === '1' ? {} : { parentId: query.parentId ?? null }),
+        ...(query.accountId ? { connectedAccountId: query.accountId } : {}),
+      },
+      select: { id: true, name: true, color: true, iconUrl: true, parentId: true, providerFolderId: true, connectedAccountId: true, createdAt: true, updatedAt: true },
       orderBy: { updatedAt: 'desc' },
     })
     await ensureProviderFolderIds(folders, req.user!.id)
@@ -102,9 +114,14 @@ folderRouter.get('/', async (req: AuthRequest, res, next) => {
 folderRouter.get('/recent', async (req: AuthRequest, res, next) => {
   try {
     const limit = Math.min(Number(req.query.limit ?? 4), 4)
+    const accountId = req.query.accountId as string | undefined
     const folders = await prisma.folder.findMany({
-      where: { userId: req.user!.id, deletedAt: null },
-      select: { id: true, name: true, color: true, iconUrl: true, parentId: true, providerFolderId: true, createdAt: true, updatedAt: true },
+      where: {
+        userId: req.user!.id,
+        deletedAt: null,
+        ...(accountId ? { connectedAccountId: accountId } : {})
+      },
+      select: { id: true, name: true, color: true, iconUrl: true, parentId: true, providerFolderId: true, connectedAccountId: true, createdAt: true, updatedAt: true },
       orderBy: { updatedAt: 'desc' },
       take: limit,
     })
@@ -125,9 +142,14 @@ folderRouter.post('/', async (req: AuthRequest, res, next) => {
       })
     }
 
-    const connectedAccount = await prisma.connectedAccount.findFirst({
-      where: { userId: req.user!.id, provider: 'google_drive', status: 'connected' }
-    })
+    const targetAccountId = body.accountId || parentFolder?.connectedAccountId
+    const connectedAccount = targetAccountId
+      ? await prisma.connectedAccount.findFirst({
+          where: { id: targetAccountId, userId: req.user!.id, status: 'connected' }
+        })
+      : await prisma.connectedAccount.findFirst({
+          where: { userId: req.user!.id, provider: 'google_drive', status: 'connected' }
+        })
 
     let providerFolderId: string | null = null
     if (connectedAccount) {
@@ -164,7 +186,7 @@ folderRouter.post('/', async (req: AuthRequest, res, next) => {
         providerFolderId,
         connectedAccountId: connectedAccount?.id ?? null
       },
-      select: { id: true, name: true, color: true, iconUrl: true, parentId: true, providerFolderId: true, createdAt: true, updatedAt: true },
+      select: { id: true, name: true, color: true, iconUrl: true, parentId: true, providerFolderId: true, connectedAccountId: true, createdAt: true, updatedAt: true },
     })
     await createAuditLog(req.user!.id, 'CREATE_FOLDER', 'folder', folder.id, { name: folder.name })
     return res.status(201).json({ folder: serializeFolder(folder) })

@@ -18,9 +18,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { API_URL, apiFetch, formatBytes, formatDate } from '@/lib/api'
+import { useToast } from '@/context/ToastContext'
 import { getAccessToken } from '@/lib/auth'
 import { getPreviewKind, officeViewerUrl } from '@/lib/preview'
 import type { FileItem, FolderItem } from '@/data/drive-data'
+import { useDriveFilter } from '@/context/DriveFilterContext'
 
 type BackendFile = {
   id: string
@@ -70,6 +72,7 @@ function mapFile(file: BackendFile): FileItem {
 }
 
 export function StarredPage() {
+  const { selectedAccountId } = useDriveFilter()
   const [fileList, setFileList] = useState<FileItem[]>([])
   const [allFolders, setAllFolders] = useState<FolderItem[]>([])
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
@@ -97,11 +100,15 @@ export function StarredPage() {
   const [previewUrl, setPreviewUrl] = useState('')
   const [previewError, setPreviewError] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
-  const [message, setMessage] = useState('')
+  const { toast } = useToast()
 
   async function loadStarred() {
+    setLoading(true)
     try {
-      const data = await apiFetch<{ files: BackendFile[] }>('/files/starred')
+      const path = selectedAccountId && selectedAccountId !== 'all'
+        ? `/files/starred?accountId=${selectedAccountId}`
+        : '/files/starred'
+      const data = await apiFetch<{ files: BackendFile[] }>(path)
       if (data.files && data.files.length > 0) {
         setFileList(data.files.map(mapFile))
       } else {
@@ -138,11 +145,16 @@ export function StarredPage() {
       window.removeEventListener('9drive:starred-changed', handleStarredChanged)
       window.removeEventListener('9drive:storage-changed', handleStorageChanged)
     }
-  }, [])
+  }, [selectedAccountId])
 
   function showNotification(text: string) {
-    setMessage(text)
-    setTimeout(() => setMessage(''), 3000)
+    if (text.toLowerCase().includes('success') || text.toLowerCase().includes('copied') || text.toLowerCase().includes('renamed') || text.toLowerCase().includes('moved')) {
+      toast.success(text)
+    } else if (text.toLowerCase().includes('failed') || text.toLowerCase().includes('error')) {
+      toast.error(text)
+    } else {
+      toast.info(text)
+    }
   }
 
   const filteredFiles = fileList.filter((file) => {
@@ -674,19 +686,7 @@ export function StarredPage() {
         </div>
       </DummyModal>
 
-      {/* Floating Notification */}
-      {message ? (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-[#1E1F20] px-4 py-2.5 text-sm text-white shadow-lg dark:bg-[#E3E3E3] dark:text-[#1E1F20]">
-          <span>{message}</span>
-          <button
-            type="button"
-            onClick={() => setMessage('')}
-            className="ml-2 text-xs opacity-70 hover:opacity-100"
-          >
-            ✕
-          </button>
-        </div>
-      ) : null}
+
     </div>
   )
 }

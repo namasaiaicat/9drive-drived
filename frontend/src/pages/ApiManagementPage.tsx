@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { DummyModal } from '@/components/drive/DummyModal'
 import { API_URL, apiFetch, formatDate } from '@/lib/api'
+import { useToast } from '@/context/ToastContext'
 
 type ApiKey = {
   id: string
@@ -39,7 +40,7 @@ export function ApiManagementPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [keyName, setKeyName] = useState('')
   const [secret, setSecret] = useState('')
-  const [message, setMessage] = useState('')
+  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
 
   async function load() {
@@ -48,13 +49,12 @@ export function ApiManagementPage() {
   }
 
   useEffect(() => {
-    load().catch((error) => setMessage(error instanceof Error ? error.message : 'Failed to load API keys'))
+    load().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to load API keys'))
   }, [])
 
   async function createKey(event: FormEvent) {
     event.preventDefault()
     setLoading(true)
-    setMessage('')
     try {
       const data = await apiFetch<{ apiKey: ApiKey; secret: string }>('/api-keys', {
         method: 'POST',
@@ -63,9 +63,10 @@ export function ApiManagementPage() {
       setSecret(data.secret)
       setKeyName('')
       setCreateOpen(false)
+      toast.success('API key created successfully.')
       await load()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to create API key')
+      toast.error(error instanceof Error ? error.message : 'Failed to create API key')
     } finally {
       setLoading(false)
     }
@@ -79,8 +80,8 @@ export function ApiManagementPage() {
   function copy(value: string) {
     navigator.clipboard
       .writeText(value)
-      .then(() => setMessage('Copied to clipboard.'))
-      .catch(() => setMessage('Failed to copy.'))
+      .then(() => toast.success('Copied to clipboard.'))
+      .catch(() => toast.error('Failed to copy.'))
   }
 
   const activeKeys = apiKeys.filter((apiKey) => apiKey.status === 'active').length
@@ -108,18 +109,7 @@ export function ApiManagementPage() {
         </Button>
       </div>
 
-      {message && (
-        <div className="flex items-center justify-between rounded-xl bg-[#EDF2FC] dark:bg-[#004A77]/30 px-4 py-2.5 text-xs text-[#0B57D0] dark:text-[#A8C7FA]">
-          <span>{message}</span>
-          <button
-            type="button"
-            onClick={() => setMessage('')}
-            className="text-xs font-semibold hover:underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
+
 
       {secret && (
         <Card className="rounded-2xl border border-[#0B57D0]/30 bg-[#EDF2FC] dark:bg-[#004A77]/20 p-5">

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { RotateCcw, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { RotateCcw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/drive/PageHeader'
 import { FileIcon } from '@/components/drive/FileIcon'
 import { apiFetch, formatBytes } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useDriveFilter } from '@/context/DriveFilterContext'
+import { useToast } from '@/context/ToastContext'
 
 type TrashFile = {
   id: string
@@ -20,20 +22,22 @@ type TrashFile = {
 }
 
 export function TrashPage() {
+  const { selectedAccountId } = useDriveFilter()
   const [files, setFiles] = useState<TrashFile[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
-  const [messageType, setMessageType] = useState<'success' | 'error' | ''>('')
+  const { toast } = useToast()
 
   async function loadTrash() {
     setLoading(true)
     try {
-      const data = await apiFetch<{ files: TrashFile[] }>('/files/trash')
+      const path = selectedAccountId && selectedAccountId !== 'all'
+        ? `/files/trash?accountId=${selectedAccountId}`
+        : '/files/trash'
+      const data = await apiFetch<{ files: TrashFile[] }>(path)
       setFiles(data.files)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to load trash')
-      setMessageType('error')
+      toast.error(error instanceof Error ? error.message : 'Failed to load trash')
     } finally {
       setLoading(false)
     }
@@ -41,7 +45,7 @@ export function TrashPage() {
 
   useEffect(() => {
     loadTrash().catch(() => undefined)
-  }, [])
+  }, [selectedAccountId])
 
   function toggleSelect(id: string) {
     const next = new Set(selectedIds)
@@ -61,7 +65,6 @@ export function TrashPage() {
   async function handleRestore(ids: string[]) {
     if (ids.length === 0) return
     setLoading(true)
-    setMessage('')
     try {
       await apiFetch('/files/batch/restore', {
         method: 'POST',
@@ -73,12 +76,10 @@ export function TrashPage() {
         ids.forEach((id) => next.delete(id))
         return next
       })
-      setMessage(`Restored ${ids.length} item(s) to My Drive.`)
-      setMessageType('success')
+      toast.success(`Restored ${ids.length} item(s) to My Drive.`)
       window.dispatchEvent(new Event('9drive:storage-changed'))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to restore files')
-      setMessageType('error')
+      toast.error(error instanceof Error ? error.message : 'Failed to restore files')
     } finally {
       setLoading(false)
     }
@@ -93,7 +94,6 @@ export function TrashPage() {
     )
       return
     setLoading(true)
-    setMessage('')
     try {
       await apiFetch('/files/batch/permanent', {
         method: 'DELETE',
@@ -105,12 +105,10 @@ export function TrashPage() {
         ids.forEach((id) => next.delete(id))
         return next
       })
-      setMessage(`Deleted ${ids.length} item(s) forever.`)
-      setMessageType('success')
+      toast.success(`Deleted ${ids.length} item(s) forever.`)
       window.dispatchEvent(new Event('9drive:storage-changed'))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to delete files')
-      setMessageType('error')
+      toast.error(error instanceof Error ? error.message : 'Failed to delete files')
     } finally {
       setLoading(false)
     }
@@ -163,23 +161,7 @@ export function TrashPage() {
         Items in trash are deleted forever after 30 days.
       </div>
 
-      {message ? (
-        <p
-          className={cn(
-            'mt-3 rounded-lg p-3 text-xs flex items-center gap-2',
-            messageType === 'success'
-              ? 'bg-[#C2E7FF]/40 border border-[#C2E7FF] text-[#001D35] dark:bg-[#004A77]/40 dark:text-[#C2E7FF]'
-              : 'bg-[#F9DEDC]/40 border border-[#F9DEDC] text-[#B3261E]'
-          )}
-        >
-          {messageType === 'success' ? (
-            <CheckCircle2 className="h-4 w-4 text-[#0F9D58]" />
-          ) : (
-            <AlertCircle className="h-4 w-4 text-[#D93025]" />
-          )}
-          {message}
-        </p>
-      ) : null}
+
 
       {files.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center py-20 px-4 text-center select-none">

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react'
-import { Bell, Cloud, Database, Globe, HardDrive, Link2, RefreshCw, Trash2 } from 'lucide-react'
+import { Bell, Check, Cloud, Database, Globe, HardDrive, Layers, Link2, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
@@ -7,6 +7,8 @@ import { DummyModal } from '@/components/drive/DummyModal'
 import { apiFetch, formatBytes, API_URL } from '@/lib/api'
 import { getGravatarUrl } from '@/lib/gravatar'
 import { getStoredUser, getAccessToken, clearAuthSession } from '@/lib/auth'
+import { useDriveFilter } from '@/context/DriveFilterContext'
+import { useToast } from '@/context/ToastContext'
 
 type ConnectedAccount = { id: string; provider: string; email: string; displayName?: string | null; status: string; storageAccount?: { totalBytes: string | null; usedBytes: string; availableBytes: string | null; lastSyncedAt: string | null } | null }
 
@@ -27,8 +29,9 @@ function availableLabel(account: ConnectedAccount) {
 
 export function SettingsPage() {
   const user = getStoredUser()
+  const { defaultAccountId, setDefaultAccountId } = useDriveFilter()
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
-  const [message, setMessage] = useState('')
+  const { toast } = useToast()
   const [connecting, setConnecting] = useState(false)
   const [s3Open, setS3Open] = useState(false)
   const [connectingS3, setConnectingS3] = useState(false)
@@ -190,7 +193,6 @@ export function SettingsPage() {
 
   async function runSystemUpdate() {
     setUpdatingSystem(true)
-    setMessage('')
     setUpdateLog('Initiating system update in the background...\n')
     setUpdateFinished(false)
     setUpdateSuccess(null)
@@ -215,7 +217,6 @@ export function SettingsPage() {
   async function saveGoogleConfig(event: FormEvent) {
     event.preventDefault()
     setSavingGoogleConfig(true)
-    setMessage('')
     try {
       const res = await apiFetch<{ message: string }>('/system/google-config', {
         method: 'POST',
@@ -225,11 +226,11 @@ export function SettingsPage() {
           redirectUri: googleRedirectUri || defaultRedirectUri,
         }),
       })
-      setMessage(res.message || 'Google OAuth credentials saved.')
+      toast.success(res.message || 'Google OAuth credentials saved.')
       setHasSecret(true)
       setGoogleClientSecret('')
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to save Google OAuth configuration')
+      toast.error(error instanceof Error ? error.message : 'Failed to save Google OAuth configuration')
     } finally {
       setSavingGoogleConfig(false)
     }
@@ -255,7 +256,7 @@ export function SettingsPage() {
   }
 
   useEffect(() => {
-    load().catch((error) => setMessage(error instanceof Error ? error.message : 'Failed to load settings'))
+    load().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to load settings'))
   }, [])
 
   useEffect(() => {
@@ -274,9 +275,14 @@ export function SettingsPage() {
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin || event.data?.type !== 'GOOGLE_CONNECTED') return
-      setMessage(event.data.status === 'success' ? 'Google Drive connected.' : 'Google Drive connection failed.')
+      if (event.data.status === 'success') {
+        toast.success('Google Drive connected.')
+      } else {
+        toast.error('Google Drive connection failed.')
+      }
       load().then(() => {
         window.dispatchEvent(new Event('9drive:storage-changed'))
+        window.dispatchEvent(new Event('9drive:accounts-changed'))
       }).catch(() => undefined)
     }
     window.addEventListener('message', onMessage)
@@ -285,7 +291,6 @@ export function SettingsPage() {
 
   async function connectDrive() {
     setConnecting(true)
-    setMessage('')
     const popup = window.open('', 'google-drive-connect', 'width=540,height=720')
     if (popup) {
       popup.document.write('<html><head><title>Connecting...</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#64748b;}</style></head><body><div style="text-align:center;"><h2>Connecting to Google...</h2><p>Please wait while we redirect you.</p></div></body></html>')
@@ -299,7 +304,7 @@ export function SettingsPage() {
       }
     } catch (error) {
       if (popup) popup.close()
-      setMessage(error instanceof Error ? error.message : 'Failed to start Google Drive connection')
+      toast.error(error instanceof Error ? error.message : 'Failed to start Google Drive connection')
     } finally {
       setConnecting(false)
     }
@@ -319,15 +324,15 @@ export function SettingsPage() {
   async function disconnect() {
     if (!accountToDisconnect) return
     setDisconnectingAccountId(accountToDisconnect.id)
-    setMessage('')
     try {
       await apiFetch(`/connected-accounts/${accountToDisconnect.id}`, { method: 'DELETE' })
       setAccountToDisconnect(null)
-      setMessage('Storage account disconnected.')
+      toast.success('Storage account disconnected.')
       await load()
       window.dispatchEvent(new Event('9drive:storage-changed'))
+      window.dispatchEvent(new Event('9drive:accounts-changed'))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to disconnect Google Drive account')
+      toast.error(error instanceof Error ? error.message : 'Failed to disconnect Google Drive account')
     } finally {
       setDisconnectingAccountId(null)
     }
@@ -336,16 +341,15 @@ export function SettingsPage() {
   async function connectS3(event: FormEvent) {
     event.preventDefault()
     setConnectingS3(true)
-    setMessage('')
     try {
       await apiFetch('/connected-accounts/s3', { method: 'POST', body: JSON.stringify({ ...s3Form, endpoint: s3Form.endpoint || undefined, quotaBytes: s3Form.quotaBytes || null }) })
       setS3Open(false)
       setS3Form({ name: '', bucket: '', region: 'us-east-1', endpoint: '', accessKeyId: '', secretAccessKey: '', forcePathStyle: false, quotaBytes: '' })
-      setMessage('S3 storage connected.')
+      toast.success('S3 storage connected.')
       await load()
       window.dispatchEvent(new Event('9drive:storage-changed'))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to connect S3 storage')
+      toast.error(error instanceof Error ? error.message : 'Failed to connect S3 storage')
     } finally {
       setConnectingS3(false)
     }
@@ -375,11 +379,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {message && (
-        <div className="rounded-xl bg-[#EDF2FC] dark:bg-[#004A77]/30 px-4 py-2.5 text-xs text-[#0B57D0] dark:text-[#A8C7FA]">
-          {message}
-        </div>
-      )}
+
 
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <div className="grid gap-4">
@@ -460,6 +460,41 @@ export function SettingsPage() {
             </div>
           </Card>
 
+          {/* Akun Default Platform */}
+          <Card className="rounded-2xl border border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#1E1F20] p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <Layers className="h-5 w-5 text-[#0B57D0]" />
+                  <h2 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+                    Akun Default Platform
+                  </h2>
+                </div>
+                <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F]">
+                  Pilih akun Google Drive atau opsi default yang otomatis aktif setiap kali membuka 9Drive.
+                </p>
+              </div>
+              <div className="w-full sm:w-64 shrink-0">
+                <Select
+                  variant="sm"
+                  value={defaultAccountId}
+                  onChange={(value) => {
+                    setDefaultAccountId(value)
+                    const label = value === 'all' ? 'Semua Akun' : (accounts.find((a) => a.id === value)?.email || value)
+                    toast.success(`Akun default berhasil diatur ke: ${label}`)
+                  }}
+                  options={[
+                    { value: 'all', label: 'Semua Akun (Tampilkan Seluruh File)' },
+                    ...accounts.map((acc) => ({
+                      value: acc.id,
+                      label: acc.displayName ? `${acc.email} (${acc.displayName})` : acc.email,
+                    })),
+                  ]}
+                />
+              </div>
+            </div>
+          </Card>
+
           {/* Connected Storage Accounts */}
           <Card className="rounded-2xl border border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#1E1F20] p-5">
             <h2 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
@@ -480,7 +515,7 @@ export function SettingsPage() {
                       onChange={(value) => setSelectedAccountId(value)}
                       options={accounts.map((account) => ({
                         value: account.id,
-                        label: `${providerLabel(account.provider)} - ${account.displayName || account.email} (${account.status})`,
+                        label: `${providerLabel(account.provider)} - ${account.displayName || account.email} (${account.status})${account.id === defaultAccountId ? ' [Default]' : ''}`,
                       }))}
                     />
                   </div>
@@ -489,14 +524,35 @@ export function SettingsPage() {
                     <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#18191A] p-4 border border-[#E0E3E7] dark:border-[#36373A]">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
-                          <p className="break-all font-medium text-sm text-[#1F1F1F] dark:text-[#E3E3E3]">
-                            {selectedAccount.displayName || selectedAccount.email}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="break-all font-medium text-sm text-[#1F1F1F] dark:text-[#E3E3E3]">
+                              {selectedAccount.displayName || selectedAccount.email}
+                            </p>
+                            {selectedAccount.id === defaultAccountId && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#E6F4EA] px-2 py-0.5 text-[10px] font-medium text-[#137333] dark:bg-[#0E3D1E] dark:text-[#A8DAB5]">
+                                <Check className="h-3 w-3" />
+                                Akun Default
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-[#747775] dark:text-[#8E918F] mt-0.5">
                             {providerLabel(selectedAccount.provider)} · {selectedAccount.status}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
+                          {selectedAccount.id !== defaultAccountId && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-full h-8 text-xs font-medium"
+                              onClick={() => {
+                                setDefaultAccountId(selectedAccount.id)
+                                toast.success(`Akun ${selectedAccount.email} berhasil dijadikan sebagai akun default.`)
+                              }}
+                            >
+                              Jadikan Default
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"

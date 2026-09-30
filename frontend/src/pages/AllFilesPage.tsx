@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type DragEvent, type FormEvent, type Mouse
 import { useSearchParams } from 'react-router-dom'
 import { ChevronDown, ChevronRight, ClipboardPaste, Download, FolderInput, FolderPlus, HardDrive, Info, LayoutGrid, Link2, List, RefreshCw, Trash2, Upload, UserPlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/context/ToastContext'
 import { DummyModal } from '@/components/drive/DummyModal'
 import { ShareModal, type ShareFileTarget } from '@/components/drive/ShareModal'
 import { EmptyAreaContextMenu } from '@/components/drive/EmptyAreaContextMenu'
@@ -20,6 +21,7 @@ import { createPlyr, ensurePlyr } from '@/lib/plyr'
 import { getPreviewKind, officeViewerUrl } from '@/lib/preview'
 import type { FileItem, FolderItem } from '@/data/drive-data'
 import { useUpload } from '@/context/UploadContext'
+import { useDriveFilter } from '@/context/DriveFilterContext'
 import { useDriveLayoutActions } from '@/layouts/DriveLayout'
 import { cn } from '@/lib/utils'
 
@@ -135,11 +137,12 @@ export function AllFilesPage() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileItem | null }>({ x: 0, y: 0, file: null })
   const [folderContextMenu, setFolderContextMenu] = useState<{ x: number; y: number; folder: FolderItem | null }>({ x: 0, y: 0, folder: null })
   const [emptyContextMenu, setEmptyContextMenu] = useState<{ x: number; y: number; open: boolean }>({ x: 0, y: 0, open: false })
-  const [message, setMessage] = useState('')
+  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [syncingDrive, setSyncingDrive] = useState(false)
   const [fileViewMode, setFileViewMode] = useState<FileViewMode>(getStoredFileViewMode)
   const { uploadFiles } = useUpload()
+  const { selectedAccountId, getDriveLetter } = useDriveFilter()
   const previewVideoRef = useRef<HTMLVideoElement | null>(null)
   const { setHeaderActions } = useDriveLayoutActions()
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
@@ -159,7 +162,12 @@ export function AllFilesPage() {
     const endDate = searchParams.get('endDate')
 
     if (kind) params.set('kind', kind)
-    if (accountId) params.set('accountId', accountId)
+    if (accountId) {
+      if (accountId !== 'all') params.set('accountId', accountId)
+    } else if (selectedAccountId && selectedAccountId !== 'all') {
+      // Global drive filter applies whether searching or not!
+      params.set('accountId', selectedAccountId)
+    }
     if (minSize) params.set('minSize', minSize)
     if (maxSize) params.set('maxSize', maxSize)
     if (startDate) params.set('startDate', startDate)
@@ -172,10 +180,23 @@ export function AllFilesPage() {
   }
 
   async function loadFolders() {
-    const visiblePath = activeFolderId ? `/folders?parentId=${activeFolderId}` : '/folders'
+    const folderParams = new URLSearchParams()
+    if (activeFolderId) folderParams.set('parentId', activeFolderId)
+    const effectiveAccountId = searchParams.get('accountId') || (selectedAccountId !== 'all' ? selectedAccountId : '')
+    if (effectiveAccountId && effectiveAccountId !== 'all') {
+      folderParams.set('accountId', effectiveAccountId)
+    }
+    const folderQueryStr = folderParams.toString()
+    const visiblePath = folderQueryStr ? `/folders?${folderQueryStr}` : '/folders'
+
+    const allParams = new URLSearchParams({ all: '1' })
+    if (effectiveAccountId && effectiveAccountId !== 'all') {
+      allParams.set('accountId', effectiveAccountId)
+    }
+
     const [visibleData, allData] = await Promise.all([
       apiFetch<{ folders: BackendFolder[] }>(visiblePath),
-      apiFetch<{ folders: BackendFolder[] }>('/folders?all=1'),
+      apiFetch<{ folders: BackendFolder[] }>(`/folders?${allParams.toString()}`),
     ])
     setFolders(visibleData.folders.map(mapFolder))
     setAllFolders(allData.folders.map(mapFolder))
@@ -188,27 +209,35 @@ export function AllFilesPage() {
   async function handleDropItem(fileId: string, targetFolderId: string) {
     const fileIds = selectedFileIds.has(fileId) ? Array.from(selectedFileIds) : [fileId]
     setLoading(true)
-    setMessage('')
     try {
       await apiFetch('/files/batch', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileIds, folderId: targetFolderId })
       })
-      setMessage(`Successfully moved ${fileIds.length} item(s).`)
+      toast.success(`Successfully moved ${fileIds.length} item(s).`)
       loadAll().catch(() => undefined)
       setSelectedFileIds(new Set())
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to move items')
+      toast.error(error instanceof Error ? error.message : 'Failed to move items')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadAll().catch((error) => setMessage(error instanceof Error ? error.message : 'Failed to load files'))
+    loadAll().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to load files'))
     setSelectedFileIds(new Set())
-  }, [activeFolderId, searchQuery])
+  }, [activeFolderId, searchQuery, selectedAccountId, searchParams.get('accountId')])
+
+  const previewFileId = searchParams.get('previewFileId')
+  useEffect(() => {
+    if (!previewFileId) return
+    const found = files.find((f) => f.id === previewFileId)
+    if (found) {
+      openFilePreview(found)
+    }
+  }, [previewFileId, files])
 
   useEffect(() => {
     async function loadConnectedAccounts() {
@@ -233,7 +262,7 @@ export function AllFilesPage() {
       }
       if (event.ctrlKey && event.key.toLowerCase() === 'v' && cutFolder) {
         event.preventDefault()
-        pasteFolder().catch((error) => setMessage(error instanceof Error ? error.message : 'Failed to paste folder'))
+        pasteFolder().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to paste folder'))
       }
     }
 
@@ -270,7 +299,16 @@ export function AllFilesPage() {
 
   async function createFolder(event: FormEvent) {
     event.preventDefault()
-    await apiFetch('/folders', { method: 'POST', body: JSON.stringify({ name: folderName, color: folderColor, iconUrl: folderIconUrl, parentId: activeFolderId ?? null }) })
+    await apiFetch('/folders', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: folderName,
+        color: folderColor,
+        iconUrl: folderIconUrl,
+        parentId: activeFolderId ?? null,
+        accountId: selectedAccountId !== 'all' ? selectedAccountId : undefined,
+      }),
+    })
     setFolderName('')
     setFolderColor(defaultFolderColor)
     setFolderIconUrl(defaultFolderIconUrl)
@@ -282,11 +320,10 @@ export function AllFilesPage() {
     event.preventDefault()
     if (selectedFiles.length === 0) return
     setLoading(true)
-    setMessage('')
 
     const uploadingFiles = [...selectedFiles]
     const targetFolderId = activeFolderId || selectedFolderId
-    const targetAccountId = selectedTargetAccountId || null
+    const targetAccountId = selectedTargetAccountId || (selectedAccountId !== 'all' ? selectedAccountId : null)
 
     setSelectedFiles([])
     setSelectedFolderId('')
@@ -305,7 +342,6 @@ export function AllFilesPage() {
 
   async function syncGoogleDrive() {
     setSyncingDrive(true)
-    setMessage('')
     try {
       const response = await apiFetch<{ results: { created: number; updated: number; deleted: number }[] }>('/files/sync-google', { method: 'POST', body: JSON.stringify({}) })
 
@@ -317,11 +353,11 @@ export function AllFilesPage() {
       }
       const accounts = response.results.length
 
-      setMessage(`Google Drive synced. ${created} added, ${updated} updated, ${deleted} removed across ${accounts} account${accounts === 1 ? '' : 's'}.`)
+      toast.success(`Google Drive synced. ${created} added, ${updated} updated, ${deleted} removed across ${accounts} account${accounts === 1 ? '' : 's'}.`)
       await loadAll()
       window.dispatchEvent(new Event('9drive:storage-changed'))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to sync Google Drive')
+      toast.error(error instanceof Error ? error.message : 'Failed to sync Google Drive')
     } finally {
       setSyncingDrive(false)
     }
@@ -405,15 +441,15 @@ export function AllFilesPage() {
     setSearchParams(searchQuery ? { q: searchQuery } : {})
   }
 
-  async function viewFile() {
-    if (!activeFile?.id) return
+  async function openFilePreview(targetFile: FileItem) {
+    setActiveFile(targetFile)
     setPreviewUrl('')
     setPreviewError('')
     setPreviewLoading(true)
     setPreviewOpen(true)
     setContextMenu({ x: 0, y: 0, file: null })
     try {
-      const data = await apiFetch<{ path?: string; url: string }>(`/files/${activeFile.id}/preview-token`, { method: 'POST' })
+      const data = await apiFetch<{ path?: string; url: string }>(`/files/${targetFile.id}/preview-token`, { method: 'POST' })
       const previewPath = data.path ?? new URL(data.url).pathname
       setPreviewUrl(`${API_URL}${previewPath}`)
     } catch (error) {
@@ -421,6 +457,11 @@ export function AllFilesPage() {
     } finally {
       setPreviewLoading(false)
     }
+  }
+
+  async function viewFile() {
+    if (!activeFile?.id) return
+    await openFilePreview(activeFile)
   }
 
   async function downloadFile() {
@@ -441,7 +482,6 @@ export function AllFilesPage() {
     const selectedIds = [...selectedFileIds]
     if (selectedIds.length === 0) return
     setLoading(true)
-    setMessage('')
     try {
       const response = await fetch(`${API_URL}/files/batch-download`, {
         method: 'POST',
@@ -460,9 +500,9 @@ export function AllFilesPage() {
       link.click()
       URL.revokeObjectURL(url)
       clearSelection()
-      setMessage('Batch download complete.')
+      toast.success('Batch download complete.')
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Batch download failed')
+      toast.error(error instanceof Error ? error.message : 'Batch download failed')
     } finally {
       setLoading(false)
     }
@@ -545,11 +585,9 @@ export function AllFilesPage() {
         url = data.url
       }
       await navigator.clipboard.writeText(url)
-      setMessage('Google Drive link copied to clipboard!')
-      setTimeout(() => setMessage(''), 2500)
+      toast.success('Google Drive link copied to clipboard!')
     } catch (err: any) {
-      setMessage('Failed to copy link: ' + (err.message || err))
-      setTimeout(() => setMessage(''), 2500)
+      toast.error('Failed to copy link: ' + (err.message || err))
     }
     setContextMenu({ x: 0, y: 0, file: null })
   }
@@ -562,11 +600,9 @@ export function AllFilesPage() {
     try {
       const url = target.driveUrl || (target.providerFolderId ? `https://drive.google.com/drive/folders/${target.providerFolderId}` : `${window.location.origin}/all-files?folderId=${target.id}`)
       await navigator.clipboard.writeText(url)
-      setMessage('Google Drive folder link copied to clipboard!')
-      setTimeout(() => setMessage(''), 2500)
+      toast.success('Google Drive folder link copied to clipboard!')
     } catch (err: any) {
-      setMessage('Failed to copy folder link: ' + (err.message || err))
-      setTimeout(() => setMessage(''), 2500)
+      toast.error('Failed to copy folder link: ' + (err.message || err))
     }
     setFolderContextMenu({ x: 0, y: 0, folder: null })
   }
@@ -590,13 +626,13 @@ export function AllFilesPage() {
     if (!folder?.id) return
     setCutFolder(folder)
     setFolderContextMenu({ x: 0, y: 0, folder: null })
-    setMessage(`Folder "${folder.name}" ready to move. Open target folder and press Ctrl+V.`)
+    toast.info(`Folder "${folder.name}" ready to move. Open target folder and press Ctrl+V.`)
   }
 
   async function pasteFolder() {
     if (!cutFolder?.id) return
     await apiFetch(`/folders/${cutFolder.id}`, { method: 'PATCH', body: JSON.stringify({ parentId: activeFolderId ?? null }) })
-    setMessage(`Folder "${cutFolder.name}" moved.`)
+    toast.success(`Folder "${cutFolder.name}" moved.`)
     setCutFolder(null)
     await loadFolders()
   }
@@ -606,6 +642,11 @@ export function AllFilesPage() {
     setPreviewError('')
     setPreviewLoading(false)
     setPreviewOpen(false)
+    if (searchParams.get('previewFileId')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('previewFileId')
+      setSearchParams(next)
+    }
   }
 
   useEffect(() => {
@@ -721,6 +762,61 @@ export function AllFilesPage() {
             </Button>
           </div>
         </div>
+
+        {/* Search Results Across All Drives Banner */}
+        {searchQuery && (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-[#E8F0FE] px-4 py-2.5 text-xs text-[#001D35] dark:bg-[#004A77]/40 dark:text-[#C2E7FF]">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>
+                🔍 Menampilkan hasil pencarian untuk "<b>{searchQuery}</b>"{' '}
+                {(() => {
+                  const effectiveAccountId = searchParams.get('accountId') || (selectedAccountId !== 'all' ? selectedAccountId : '')
+                  if (effectiveAccountId && effectiveAccountId !== 'all') {
+                    const acc = connectedAccounts.find((a) => a.id === effectiveAccountId)
+                    const letter = getDriveLetter(effectiveAccountId)
+                    return (
+                      <>
+                        di <b className="text-[#0B57D0] dark:text-[#A8C7FA]">Drive {letter}</b> ({acc?.email || 'selected account'})
+                      </>
+                    )
+                  }
+                  return <b>di seluruh akun drive</b>
+                })()}
+              </span>
+              {(() => {
+                const effectiveAccountId = searchParams.get('accountId') || (selectedAccountId !== 'all' ? selectedAccountId : '')
+                if (effectiveAccountId && effectiveAccountId !== 'all') {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = new URLSearchParams(searchParams)
+                        next.set('accountId', 'all')
+                        setSearchParams(next)
+                      }}
+                      className="ml-2 font-medium underline hover:text-[#0B57D0] dark:hover:text-[#A8C7FA]"
+                    >
+                      Cari di seluruh akun drive
+                    </button>
+                  )
+                }
+                return null
+              })()}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams)
+                next.delete('q')
+                setSearchParams(next)
+              }}
+              className="flex items-center gap-1 font-medium hover:underline text-[#0B57D0] dark:text-[#A8C7FA] shrink-0"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Hapus Pencarian</span>
+            </button>
+          </div>
+        )}
 
         {/* Filter Chips Toolbar + Batch Actions */}
         <div className="flex items-center justify-between gap-3 pt-3 pb-2 select-none">
@@ -854,12 +950,6 @@ export function AllFilesPage() {
           </div>
         </div>
 
-        {message ? (
-          <p className="mt-2 rounded-xl bg-[#C2E7FF]/40 border border-[#C2E7FF] p-3 text-xs text-[#001D35] dark:bg-[#004A77]/40 dark:text-[#C2E7FF]">
-            {message}
-          </p>
-        ) : null}
-
         {cutFolder ? (
           <p className="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-medium text-amber-800 dark:bg-amber-950/30 dark:border-amber-900/50 dark:text-amber-300">
             <ClipboardPaste className="mr-1.5 inline h-4 w-4" />
@@ -928,7 +1018,7 @@ export function AllFilesPage() {
           </div>
         ) : null}
       </div>
-      <EmptyAreaContextMenu x={emptyContextMenu.x} y={emptyContextMenu.y} open={emptyContextMenu.open} canPasteFolder={Boolean(cutFolder)} onClose={() => setEmptyContextMenu({ x: 0, y: 0, open: false })} onUpload={() => { setUploadOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onCreateFolder={() => { setFolderOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onPasteFolder={() => { pasteFolder().catch((error) => setMessage(error instanceof Error ? error.message : 'Failed to paste folder')); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} />
+      <EmptyAreaContextMenu x={emptyContextMenu.x} y={emptyContextMenu.y} open={emptyContextMenu.open} canPasteFolder={Boolean(cutFolder)} onClose={() => setEmptyContextMenu({ x: 0, y: 0, open: false })} onUpload={() => { setUploadOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onCreateFolder={() => { setFolderOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onPasteFolder={() => { pasteFolder().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to paste folder')); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} />
       <FileContextMenu x={contextMenu.x} y={contextMenu.y} file={contextMenu.file} onClose={() => setContextMenu({ x: 0, y: 0, file: null })} onView={viewFile} onDownload={downloadFile} onRename={() => { setRenameValue(activeFile?.name ?? ''); setRenameOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onMove={() => { setMoveOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onDetails={() => { setDetailOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onShare={() => shareFile(contextMenu.file ?? activeFile)} onCopyLink={() => copyShareLinkDirect(contextMenu.file ?? activeFile)} onDelete={() => { setDeleteOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} />
       <FolderContextMenu x={folderContextMenu.x} y={folderContextMenu.y} folder={folderContextMenu.folder} onClose={() => setFolderContextMenu({ x: 0, y: 0, folder: null })} onCut={() => cutSelectedFolder(activeFolderForMenu ?? folderContextMenu.folder)} onRename={() => { setFolderRenameValue(activeFolderForMenu?.name ?? ''); setFolderRenameColor(normalizeFolderColor(activeFolderForMenu?.color)); setFolderRenameIconUrl(activeFolderForMenu?.iconUrl ?? defaultFolderIconUrl); setFolderRenameOpen(true); setFolderContextMenu({ x: 0, y: 0, folder: null }) }} onShare={() => shareFolder(folderContextMenu.folder ?? activeFolderForMenu)} onCopyLink={() => copyFolderLink(folderContextMenu.folder ?? activeFolderForMenu)} onDelete={() => { setFolderDeleteOpen(true); setFolderContextMenu({ x: 0, y: 0, folder: null }) }} />
       <FileDetailsDrawer open={detailOpen} file={activeFile} onClose={() => setDetailOpen(false)} onShare={shareFile} />
