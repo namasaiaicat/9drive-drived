@@ -2,15 +2,9 @@ import { useState, useEffect } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ChevronRight,
-  Combine,
   Download,
-  Image as ImageIcon,
   Loader2,
-  Minimize2,
   Play,
-  RotateCw,
-  Scissors,
-  Stamp,
 } from 'lucide-react'
 import {
   compressPdf,
@@ -20,6 +14,14 @@ import {
   splitPdf,
   watermarkPdf,
 } from '@/lib/tools/pdf-service'
+import {
+  MergePdfIcon,
+  SplitPdfIcon,
+  CompressPdfIcon,
+  ImagesToPdfIcon,
+  RotatePdfIcon,
+  WatermarkPdfIcon,
+} from '@/components/tools/ToolIcons'
 import { BatchFileQueue, type BatchItem } from '@/components/tools/BatchFileQueue'
 import { DriveFilePickerModal } from '@/components/tools/DriveFilePickerModal'
 import { SaveDestinationModal, type ProcessedFileItem } from '@/components/tools/SaveDestinationModal'
@@ -183,12 +185,12 @@ export function PdfToolsView() {
   }
 
   const subtools = [
-    { id: 'merge' as const, label: 'Gabungkan PDF', icon: Combine },
-    { id: 'split' as const, label: 'Pisahkan PDF', icon: Scissors },
-    { id: 'compress' as const, label: 'Kompres PDF', icon: Minimize2 },
-    { id: 'images-to-pdf' as const, label: 'Foto ke PDF', icon: ImageIcon },
-    { id: 'rotate' as const, label: 'Putar PDF', icon: RotateCw },
-    { id: 'watermark' as const, label: 'Watermark PDF', icon: Stamp },
+    { id: 'merge' as const, label: 'Merge PDF', icon: MergePdfIcon },
+    { id: 'split' as const, label: 'Split PDF', icon: SplitPdfIcon },
+    { id: 'compress' as const, label: 'Compress PDF', icon: CompressPdfIcon },
+    { id: 'images-to-pdf' as const, label: 'JPG ke PDF', icon: ImagesToPdfIcon },
+    { id: 'rotate' as const, label: 'Rotate PDF', icon: RotatePdfIcon },
+    { id: 'watermark' as const, label: 'Watermark PDF', icon: WatermarkPdfIcon },
   ]
 
   const activeSubtoolObj = subtools.find((t) => t.id === currentTool)
@@ -246,7 +248,7 @@ export function PdfToolsView() {
         </div>
       </div>
 
-      {/* Subtools Selector Pills (Material 3 Chip format) */}
+      {/* Subtools Selector Pills (iLovePDF Style Chip format) */}
       <div className="flex items-center gap-2 py-4 overflow-x-auto">
         {subtools.map((tool) => {
           const Icon = tool.icon
@@ -256,13 +258,13 @@ export function PdfToolsView() {
               key={tool.id}
               type="button"
               onClick={() => setTool(tool.id)}
-              className={`flex items-center gap-2 h-8 px-4 rounded-full text-xs font-medium whitespace-nowrap transition-all border select-none ${
+              className={`flex items-center gap-2 h-9 px-4 rounded-full text-xs font-semibold whitespace-nowrap transition-all border select-none ${
                 isActive
-                  ? 'bg-[#C2E7FF] text-[#001D35] border-[#C2E7FF] dark:bg-[#004A77] dark:text-[#C2E7FF] dark:border-[#004A77]'
-                  : 'bg-transparent text-[#444746] border-[#E0E3E7] hover:bg-[#F0F4F9] dark:text-[#C4C7C5] dark:border-[#36373A] dark:hover:bg-[#28292A]'
+                  ? 'bg-[#E5322D] text-white border-[#E5322D] shadow-sm'
+                  : 'bg-white text-[#4B5563] border-[#E5E7EB] hover:bg-[#F3F4F6] dark:bg-[#1F2937] dark:text-[#D1D5DB] dark:border-[#374151] dark:hover:bg-[#374151]'
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <Icon size={20} />
               <span>{tool.label}</span>
             </button>
           )
