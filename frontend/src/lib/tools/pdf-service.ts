@@ -1,4 +1,8 @@
 import { PDFDocument, rgb, degrees, StandardFonts, PageSizes } from 'pdf-lib'
+import * as pdfjsLib from 'pdfjs-dist'
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
 // Helper to convert hex to rgb (0-1 range for pdf-lib)
 function hexToRgb(hex: string) {
@@ -278,3 +282,51 @@ export async function getPdfPageCount(file: File): Promise<number> {
   const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true })
   return pdfDoc.getPageCount()
 }
+
+export async function pdfToImages(
+  file: File,
+  options: {
+    format?: 'image/jpeg' | 'image/png'
+    scale?: number
+  } = {}
+): Promise<Array<{ name: string; blob: Blob }>> {
+  const format = options.format || 'image/jpeg'
+  const ext = format === 'image/png' ? 'png' : 'jpg'
+  const scale = options.scale || 1.5
+  const arrayBuffer = await file.arrayBuffer()
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) })
+  const pdf = await loadingTask.promise
+  const numPages = pdf.numPages
+  const baseName = file.name.replace(/\.[^/.]+$/, '')
+  const results: Array<{ name: string; blob: Blob }> = []
+
+  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum)
+    const viewport = page.getViewport({ scale })
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) continue
+
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => {
+          if (b) resolve(b)
+          else reject(new Error('Canvas to blob failed'))
+        },
+        format,
+        0.92
+      )
+    })
+
+    results.push({
+      name: `${baseName}_page_${pageNum}.${ext}`,
+      blob,
+    })
+  }
+
+  return results
+}
+

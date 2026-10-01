@@ -104,6 +104,9 @@ export function AllFilesPage() {
   const activeFolderId = searchParams.get('folderId')
   const searchQuery = searchParams.get('q')?.trim() ?? ''
   const [uploadOpen, setUploadOpen] = useState(false)
+  const fileUploadInputRef = useRef<HTMLInputElement>(null)
+  const [isPageDragging, setIsPageDragging] = useState(false)
+  const dragCounter = useRef(0)
   const [folderOpen, setFolderOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
   const [folderRenameOpen, setFolderRenameOpen] = useState(false)
@@ -314,6 +317,53 @@ export function AllFilesPage() {
     setFolderIconUrl(defaultFolderIconUrl)
     setFolderOpen(false)
     await loadFolders()
+  }
+
+  async function startDirectUpload(filesToUpload: File[], targetFolderId?: string | null) {
+    if (!filesToUpload || filesToUpload.length === 0) return
+    const targetFolder = targetFolderId !== undefined ? targetFolderId : (activeFolderId || null)
+    const targetAccountId = selectedTargetAccountId || (selectedAccountId !== 'all' ? selectedAccountId : null)
+    try {
+      await uploadFiles(filesToUpload, targetFolder, targetAccountId)
+    } catch (err) {
+      console.error('Direct upload failed:', err)
+      toast.error('Upload initiation failed')
+    }
+  }
+
+  function handlePageDragEnter(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounter.current++
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsPageDragging(true)
+    }
+  }
+
+  function handlePageDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounter.current--
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0
+      setIsPageDragging(false)
+    }
+  }
+
+  function handlePageDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  function handlePageDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounter.current = 0
+    setIsPageDragging(false)
+    const dropped = Array.from(e.dataTransfer.files)
+    if (dropped.length > 0) {
+      startDirectUpload(dropped)
+    }
   }
 
   async function uploadFile(event: FormEvent) {
@@ -654,7 +704,7 @@ export function AllFilesPage() {
       loadAll().catch(() => undefined)
     }
     function handleOpenUpload() {
-      setUploadOpen(true)
+      fileUploadInputRef.current?.click()
     }
     function handleOpenNewFolder() {
       setFolderOpen(true)
@@ -713,7 +763,50 @@ export function AllFilesPage() {
 
   return (
     <>
-      <div onContextMenu={openEmptyContextMenu} className="flex flex-col min-h-full w-full min-w-0">
+      {/* Hidden 1-Click Direct File Upload Input */}
+      <input
+        ref={fileUploadInputRef}
+        type="file"
+        multiple
+        className="sr-only"
+        onChange={(event) => {
+          if (event.target.files && event.target.files.length > 0) {
+            startDirectUpload(Array.from(event.target.files))
+            event.target.value = ''
+          }
+        }}
+      />
+
+      {/* Full-Page Drag & Drop Overlay (Native Google Drive Style) */}
+      {isPageDragging && (
+        <div
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsPageDragging(false); dragCounter.current = 0 }}
+          onDrop={handlePageDrop}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0B57D0]/10 dark:bg-[#A8C7FA]/10 backdrop-blur-xs border-4 border-dashed border-[#0B57D0] dark:border-[#A8C7FA] animate-in fade-in duration-150 m-4 rounded-3xl"
+        >
+          <div className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl bg-white dark:bg-[#1E1F20] shadow-2xl border border-[#E0E3E7] dark:border-[#36373A]">
+            <div className="w-16 h-16 rounded-full bg-[#C2E7FF] dark:bg-[#004A77] flex items-center justify-center text-[#0B57D0] dark:text-[#C2E7FF] animate-bounce">
+              <Upload className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+              Lepaskan berkas untuk langsung mengunggah
+            </h3>
+            <p className="text-xs text-[#747775] dark:text-[#8E918F]">
+              Akan diunggah ke: <b className="text-[#0B57D0] dark:text-[#A8C7FA]">{activeFolder ? activeFolder.name : 'My Drive'}</b>
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div
+        onContextMenu={openEmptyContextMenu}
+        onDragEnter={handlePageDragEnter}
+        onDragLeave={handlePageDragLeave}
+        onDragOver={handlePageDragOver}
+        onDrop={handlePageDrop}
+        className="flex flex-col min-h-full w-full min-w-0"
+      >
         {/* Google Drive Breadcrumb Header */}
         <div className="flex flex-col gap-2 pb-3 border-b border-[#E0E3E7]/70 dark:border-[#36373A]/70 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-1.5 min-w-0">
@@ -749,7 +842,7 @@ export function AllFilesPage() {
 
           {/* Quick buttons on mobile */}
           <div className="flex items-center gap-2 lg:hidden">
-            <Button size="sm" onClick={() => setUploadOpen(true)}>
+            <Button size="sm" onClick={() => fileUploadInputRef.current?.click()}>
               <Upload className="h-3.5 w-3.5" />
               Upload
             </Button>
@@ -1018,7 +1111,7 @@ export function AllFilesPage() {
           </div>
         ) : null}
       </div>
-      <EmptyAreaContextMenu x={emptyContextMenu.x} y={emptyContextMenu.y} open={emptyContextMenu.open} canPasteFolder={Boolean(cutFolder)} onClose={() => setEmptyContextMenu({ x: 0, y: 0, open: false })} onUpload={() => { setUploadOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onCreateFolder={() => { setFolderOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onPasteFolder={() => { pasteFolder().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to paste folder')); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} />
+      <EmptyAreaContextMenu x={emptyContextMenu.x} y={emptyContextMenu.y} open={emptyContextMenu.open} canPasteFolder={Boolean(cutFolder)} onClose={() => setEmptyContextMenu({ x: 0, y: 0, open: false })} onUpload={() => { fileUploadInputRef.current?.click(); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onCreateFolder={() => { setFolderOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onPasteFolder={() => { pasteFolder().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to paste folder')); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} />
       <FileContextMenu x={contextMenu.x} y={contextMenu.y} file={contextMenu.file} onClose={() => setContextMenu({ x: 0, y: 0, file: null })} onView={viewFile} onDownload={downloadFile} onRename={() => { setRenameValue(activeFile?.name ?? ''); setRenameOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onMove={() => { setMoveOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onDetails={() => { setDetailOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onShare={() => shareFile(contextMenu.file ?? activeFile)} onCopyLink={() => copyShareLinkDirect(contextMenu.file ?? activeFile)} onDelete={() => { setDeleteOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} />
       <FolderContextMenu x={folderContextMenu.x} y={folderContextMenu.y} folder={folderContextMenu.folder} onClose={() => setFolderContextMenu({ x: 0, y: 0, folder: null })} onCut={() => cutSelectedFolder(activeFolderForMenu ?? folderContextMenu.folder)} onRename={() => { setFolderRenameValue(activeFolderForMenu?.name ?? ''); setFolderRenameColor(normalizeFolderColor(activeFolderForMenu?.color)); setFolderRenameIconUrl(activeFolderForMenu?.iconUrl ?? defaultFolderIconUrl); setFolderRenameOpen(true); setFolderContextMenu({ x: 0, y: 0, folder: null }) }} onShare={() => shareFolder(folderContextMenu.folder ?? activeFolderForMenu)} onCopyLink={() => copyFolderLink(folderContextMenu.folder ?? activeFolderForMenu)} onDelete={() => { setFolderDeleteOpen(true); setFolderContextMenu({ x: 0, y: 0, folder: null }) }} />
       <FileDetailsDrawer open={detailOpen} file={activeFile} onClose={() => setDetailOpen(false)} onShare={shareFile} />
@@ -1198,14 +1291,14 @@ export function AllFilesPage() {
       </DummyModal>
 
       <DummyModal open={previewOpen} title="File Preview" description={activeFile?.name ?? ''} onClose={closePreview} className="overflow-hidden sm:max-w-[95vw] xl:max-w-[1400px]">
-        <div className="flex h-[72dvh] w-full items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:h-[80vh]">
-          {previewLoading ? <div className="p-6 text-center text-sm font-semibold text-slate-500">Loading preview...</div> : null}
-          {previewError ? <div className="p-6 text-center text-sm text-red-600">{previewError}</div> : null}
+        <div className="flex h-[72dvh] w-full items-center justify-center overflow-hidden rounded-xl border border-[#E0E3E7] bg-[#F8FAFD] dark:border-[#36373A] dark:bg-[#131314] sm:h-[80vh]">
+          {previewLoading ? <div className="p-6 text-center text-sm font-semibold text-[#747775] dark:text-[#8E918F]">Loading preview...</div> : null}
+          {previewError ? <div className="p-6 text-center text-sm text-red-600 dark:text-red-400">{previewError}</div> : null}
           {!previewLoading && !previewError && activePreviewKind === 'image' && previewUrl ? <img src={previewUrl} alt={activeFile?.name ?? 'File preview'} className="max-h-full max-w-full object-contain" onError={() => setPreviewError('Failed to load preview.')} /> : null}
           {!previewLoading && !previewError && activePreviewKind === 'video' && previewUrl ? <div className="shared-video-shell"><video ref={previewVideoRef} controls playsInline preload="metadata" onError={() => setPreviewError('Failed to load preview.')}><source src={previewUrl} type={activeFile?.mimeType} /></video></div> : null}
-          {!previewLoading && !previewError && activePreviewKind === 'document' && previewUrl ? <iframe src={previewUrl} title={activeFile?.name ?? 'File preview'} className="h-full w-full border-0 bg-white" /> : null}
-          {!previewLoading && !previewError && activePreviewKind === 'office' && previewUrl ? <iframe src={officeViewerUrl(previewUrl)} title={activeFile?.name ?? 'File preview'} className="h-full w-full border-0 bg-white" /> : null}
-          {!previewLoading && !previewError && !activePreviewKind ? <div className="p-6 text-center text-sm text-slate-500">Preview not available for this file type. Use Download instead.</div> : null}
+          {!previewLoading && !previewError && activePreviewKind === 'document' && previewUrl ? <iframe src={previewUrl} title={activeFile?.name ?? 'File preview'} className="h-full w-full border-0 bg-white dark:bg-[#1E1F20]" /> : null}
+          {!previewLoading && !previewError && activePreviewKind === 'office' && previewUrl ? <iframe src={officeViewerUrl(previewUrl)} title={activeFile?.name ?? 'File preview'} className="h-full w-full border-0 bg-white dark:bg-[#1E1F20]" /> : null}
+          {!previewLoading && !previewError && !activePreviewKind ? <div className="p-6 text-center text-sm text-[#747775] dark:text-[#8E918F]">Preview not available for this file type. Use Download instead.</div> : null}
         </div>
       </DummyModal>
     </>

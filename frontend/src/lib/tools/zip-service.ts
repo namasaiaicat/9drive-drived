@@ -28,3 +28,22 @@ export async function bundleAndDownloadZip(
   const zipBlob = await createZipBlob(files)
   downloadBlob(zipBlob, zipFilename.endsWith('.zip') ? zipFilename : `${zipFilename}.zip`)
 }
+
+export async function extractZipFiles(
+  zipFile: File
+): Promise<Array<{ name: string; size: number; blob: Blob }>> {
+  const zip = await JSZip.loadAsync(zipFile)
+  const results: Array<{ name: string; size: number; blob: Blob }> = []
+
+  for (const [relativePath, entry] of Object.entries(zip.files)) {
+    if (entry.dir) continue
+    const blob = await entry.async('blob')
+    results.push({
+      name: relativePath,
+      size: blob.size,
+      blob,
+    })
+  }
+  return results
+}
+

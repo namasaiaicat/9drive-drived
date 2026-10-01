@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
-  CheckCircle2,
+  Folder,
   Search,
   SlidersHorizontal,
-  Sparkles,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { PageHeader } from '@/components/drive/PageHeader'
 import {
   MergePdfIcon,
   SplitPdfIcon,
@@ -15,29 +15,38 @@ import {
   ImagesToPdfIcon,
   RotatePdfIcon,
   WatermarkPdfIcon,
+  PdfToImagesIcon,
   RemoveBgIcon,
   CompressImageIcon,
   ConvertImageIcon,
   ResizeImageIcon,
   WatermarkImageIcon,
+  CropImageIcon,
+  VideoToAudioIcon,
   CsvJsonIcon,
   HashChecksumIcon,
   Base64Icon,
 } from '@/components/tools/ToolIcons'
 
-type ToolCategory = 'all' | 'pdf' | 'image' | 'data'
+type ToolCategory = 'all' | 'pdf' | 'image' | 'video' | 'data'
 
 type ToolItem = {
   id: string
   title: string
   description: string
-  category: 'pdf' | 'image' | 'data'
+  category: 'pdf' | 'image' | 'video' | 'data'
   iconComponent: React.ComponentType<{ className?: string; size?: number }>
   badgeLabel?: string
   badgeClass?: string
   featureTag: string
-  isPopular?: boolean
   path: string
+}
+
+type CategoryGroup = {
+  id: 'pdf' | 'image' | 'video' | 'data'
+  label: string
+  description: string
+  iconColor: string
 }
 
 export function ToolsHubPage() {
@@ -45,8 +54,35 @@ export function ToolsHubPage() {
   const [selectedCategory, setSelectedCategory] = useState<ToolCategory>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
+  const categoryGroups: CategoryGroup[] = [
+    {
+      id: 'pdf',
+      label: 'Dokumen PDF',
+      description: 'Alat pengolahan dokumen PDF',
+      iconColor: '#EA4335',   // DESIGN.md: PDF/Document red
+    },
+    {
+      id: 'image',
+      label: 'AI & Gambar',
+      description: 'Alat olah gambar dan AI',
+      iconColor: '#7248B9',   // DESIGN.md: Images/Video purple
+    },
+    {
+      id: 'video',
+      label: 'Video & Audio',
+      description: 'Alat multimedia, ekstraksi suara & audio berkas',
+      iconColor: '#FA7B17',   // DESIGN.md: Media orange
+    },
+    {
+      id: 'data',
+      label: 'Utilitas Data',
+      description: 'Alat konversi dan utilitas data',
+      iconColor: '#1A73E8',   // DESIGN.md: Primary Google Blue
+    },
+  ]
+
   const tools: ToolItem[] = [
-    // 1. PDF Suite (iLovePDF Style Red & Specialized Colors)
+    // 1. PDF Suite
     {
       id: 'merge-pdf',
       title: 'Merge PDF',
@@ -54,9 +90,8 @@ export function ToolsHubPage() {
       category: 'pdf',
       iconComponent: MergePdfIcon,
       badgeLabel: 'Populer',
-      badgeClass: 'bg-[#FEE2E2] text-[#DC2626] dark:bg-[#7F1D1D]/30 dark:text-[#F87171]',
+      badgeClass: 'bg-[#E8F0FE] text-[#1A73E8] dark:bg-[#174EA6]/30 dark:text-[#8AB4F8]',
       featureTag: 'Penggabung PDF',
-      isPopular: true,
       path: '/tools/pdf?mode=merge',
     },
     {
@@ -75,9 +110,8 @@ export function ToolsHubPage() {
       category: 'pdf',
       iconComponent: CompressPdfIcon,
       badgeLabel: 'Populer',
-      badgeClass: 'bg-[#DCFCE7] text-[#16A34A] dark:bg-[#14532D]/30 dark:text-[#4ADE80]',
+      badgeClass: 'bg-[#E8F0FE] text-[#1A73E8] dark:bg-[#174EA6]/30 dark:text-[#8AB4F8]',
       featureTag: 'Optimasi Ukuran',
-      isPopular: true,
       path: '/tools/pdf?mode=compress',
     },
     {
@@ -88,6 +122,17 @@ export function ToolsHubPage() {
       iconComponent: ImagesToPdfIcon,
       featureTag: 'Foto ke Dokumen',
       path: '/tools/pdf?mode=images-to-pdf',
+    },
+    {
+      id: 'pdf-to-images',
+      title: 'PDF ke Gambar (JPG/PNG)',
+      description: 'Ekstrak setiap lembar dokumen PDF menjadi berkas foto berkualitas tinggi (JPG atau PNG) dengan pratinjau cepat.',
+      category: 'pdf',
+      iconComponent: PdfToImagesIcon,
+      badgeLabel: 'Baru',
+      badgeClass: 'bg-[#E8F0FE] text-[#1A73E8] dark:bg-[#174EA6]/30 dark:text-[#8AB4F8]',
+      featureTag: 'Ekstrak Gambar',
+      path: '/tools/pdf?mode=pdf-to-images',
     },
     {
       id: 'rotate-pdf',
@@ -112,13 +157,12 @@ export function ToolsHubPage() {
     {
       id: 'remove-bg',
       title: 'Hapus Background AI',
-      description: 'Hapus latar belakang foto manusia atau produk secara otomatis dengan neural AI langsung di browser.',
+      description: 'Hapus latar belakang foto manusia atau produk secara otomatis dan instan langsung di browser.',
       category: 'image',
       iconComponent: RemoveBgIcon,
       badgeLabel: 'AI Powered',
-      badgeClass: 'bg-[#F3E8FD] text-[#7E22CE] dark:bg-[#581C87]/40 dark:text-[#D8B4FE]',
-      featureTag: 'Neural Cutout',
-      isPopular: true,
+      badgeClass: 'bg-[#F3E8FF] text-[#7248B9] dark:bg-[#4A148C]/30 dark:text-[#D7AEFB]',
+      featureTag: 'Hapus Latar Otomatis',
       path: '/tools/remove-bg',
     },
     {
@@ -128,10 +172,20 @@ export function ToolsHubPage() {
       category: 'image',
       iconComponent: CompressImageIcon,
       badgeLabel: 'Populer',
-      badgeClass: 'bg-[#D1FAE5] text-[#059669] dark:bg-[#064E3B]/30 dark:text-[#34D399]',
-      featureTag: 'TinyPNG Style',
-      isPopular: true,
+      badgeClass: 'bg-[#E8F0FE] text-[#1A73E8] dark:bg-[#174EA6]/30 dark:text-[#8AB4F8]',
+      featureTag: 'Kecilkan Ukuran',
       path: '/tools/image?mode=compress',
+    },
+    {
+      id: 'crop-img',
+      title: 'Potong Foto / Pas Foto',
+      description: 'Potong foto dengan preset rasio pas foto resmi (3:4, 4:6), persegi 1:1, atau rasio kustom bebas.',
+      category: 'image',
+      iconComponent: CropImageIcon,
+      badgeLabel: 'Baru',
+      badgeClass: 'bg-[#F3E8FF] text-[#7248B9] dark:bg-[#4A148C]/30 dark:text-[#D7AEFB]',
+      featureTag: 'Crop & Pas Foto',
+      path: '/tools/image?mode=crop',
     },
     {
       id: 'convert-img',
@@ -161,37 +215,48 @@ export function ToolsHubPage() {
       path: '/tools/image?mode=watermark',
     },
 
-    // 3. Data & Utilitas Berkas
+    // 3. Video & Audio Suite (TinyWow Inspired)
+    {
+      id: 'video-to-audio',
+      title: 'Ekstrak Audio Video',
+      description: 'Ambil dan ubah suara dari video MP4, WebM, atau MOV menjadi berkas audio jernih (.WAV) langsung di browser.',
+      category: 'video',
+      iconComponent: VideoToAudioIcon,
+      badgeLabel: 'Baru',
+      badgeClass: 'bg-[#FEF7E0] text-[#B06000] dark:bg-[#7C4A00]/30 dark:text-[#FDD663]',
+      featureTag: 'Ambil Suara Video',
+      path: '/tools/video',
+    },
+
+    // 4. Data & Utilitas Berkas
     {
       id: 'csv-json',
       title: 'CSV ⇄ JSON Converter',
-      description: 'Transformasi tabel data CSV ke JSON array dan sebaliknya secara instan dengan formater otomatis.',
+      description: 'Ubah data tabel CSV ke format JSON dan sebaliknya secara instan dengan susunan rapi otomatis.',
       category: 'data',
       iconComponent: CsvJsonIcon,
-      featureTag: 'Tabular Parsing',
+      featureTag: 'Konversi Tabel',
       path: '/tools/data?mode=csv-json',
     },
     {
       id: 'hash',
       title: 'File Hash & Checksum',
-      description: 'Hitung hash kriptografi SHA-256 dan SHA-1 berkas secara aman langsung di browser.',
+      description: 'Cek keaslian dan keamanan berkas menggunakan sidik jari digital (SHA-256) secara aman di browser.',
       category: 'data',
       iconComponent: HashChecksumIcon,
-      featureTag: 'Integritas Berkas',
+      featureTag: 'Cek Keaslian Berkas',
       path: '/tools/data?mode=hash',
     },
     {
       id: 'base64',
       title: 'Base64 Encoder',
-      description: 'Konversi file atau gambar menjadi string data URI Base64 untuk keperluan kode web atau API.',
+      description: 'Ubah berkas atau gambar menjadi teks kode data Base64 untuk keperluan halaman web atau dokumen.',
       category: 'data',
       iconComponent: Base64Icon,
-      featureTag: 'Data URI String',
+      featureTag: 'Kode Teks Berkas',
       path: '/tools/data?mode=base64',
     },
   ]
-
-  const popularTools = tools.filter((t) => t.isPopular)
 
   const filteredTools = tools.filter((tool) => {
     const matchCategory = selectedCategory === 'all' || tool.category === selectedCategory
@@ -202,18 +267,20 @@ export function ToolsHubPage() {
     return matchCategory && matchSearch
   })
 
-  // Clean, Modern iLovePDF-Style Card
-  const renderILovePdfCard = (tool: ToolItem) => {
+  const isSearching = searchQuery.trim().length > 0
+
+  // Material Design 3 Tool Card
+  const renderToolCard = (tool: ToolItem) => {
     const IconComponent = tool.iconComponent
 
     return (
       <div
         key={tool.id}
         onClick={() => navigate(tool.path)}
-        className="group relative flex flex-col justify-between rounded-2xl border border-[#E5E7EB] bg-white p-5 hover:border-[#D1D5DB] hover:shadow-lg hover:-translate-y-1 dark:border-[#374151] dark:bg-[#1F2937] dark:hover:border-[#4B5563] dark:hover:shadow-black/40 transition-all duration-200 cursor-pointer select-none"
+        className="group relative flex flex-col justify-between rounded-2xl border border-[#E0E3E7] bg-white p-5 hover:bg-[#F0F4F9] dark:border-[#36373A] dark:bg-[#1E1F20] dark:hover:bg-[#333537] transition-colors duration-200 cursor-pointer select-none"
       >
         <div>
-          {/* Top Row: Iconic iLovePDF Icon Badge & Optional Tag */}
+          {/* Top Row: Tool Icon & Optional Badge */}
           <div className="flex items-start justify-between mb-4">
             <div className="group-hover:scale-105 transition-transform duration-200">
               <IconComponent size={50} />
@@ -228,25 +295,25 @@ export function ToolsHubPage() {
             )}
           </div>
 
-          {/* Title with bold typography */}
-          <h3 className="text-base font-bold text-[#111827] dark:text-[#F3F4F6] group-hover:text-[#E5322D] dark:group-hover:text-[#F87171] transition-colors leading-snug">
+          {/* Title */}
+          <h3 className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3] group-hover:text-[#0B57D0] dark:group-hover:text-[#A8C7FA] transition-colors leading-snug">
             {tool.title}
           </h3>
 
           {/* Description */}
-          <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-1.5 leading-relaxed line-clamp-2">
+          <p className="text-xs text-[#444746] dark:text-[#C4C7C5] mt-1.5 leading-relaxed line-clamp-2">
             {tool.description}
           </p>
         </div>
 
         {/* Card Footer: Subtle Feature Tag & Arrow */}
-        <div className="mt-4 pt-3 border-t border-[#F3F4F6] dark:border-[#374151]/60 flex items-center justify-between">
-          <span className="text-[11px] font-medium text-[#9CA3AF] dark:text-[#6B7280] flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E5322D]/60 dark:bg-[#F87171]/60" />
+        <div className="mt-4 pt-3 border-t border-[#E0E3E7]/60 dark:border-[#36373A]/60 flex items-center justify-between">
+          <span className="text-[11px] font-medium text-[#747775] dark:text-[#8E918F] flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#0B57D0]/60 dark:bg-[#A8C7FA]/60" />
             {tool.featureTag}
           </span>
 
-          <span className="text-xs font-semibold text-[#6B7280] group-hover:text-[#E5322D] dark:text-[#9CA3AF] dark:group-hover:text-[#F87171] flex items-center gap-1 transition-colors">
+          <span className="text-xs font-medium text-[#747775] group-hover:text-[#0B57D0] dark:text-[#8E918F] dark:group-hover:text-[#A8C7FA] flex items-center gap-1 transition-colors">
             <span>Buka</span>
             <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
           </span>
@@ -255,32 +322,48 @@ export function ToolsHubPage() {
     )
   }
 
-  const isFiltering = selectedCategory !== 'all' || searchQuery.trim().length > 0
+  // Folder Group Renderer
+  const renderFolderGroup = (group: CategoryGroup, groupTools: ToolItem[]) => (
+    <div key={group.id} className="mb-6">
+      {/* Folder Tab */}
+      <div className="flex items-center">
+        <div className="flex items-center gap-2 px-4 py-2 rounded-t-xl border border-b-0 border-[#E0E3E7] bg-[#F8FAFD] dark:border-[#36373A] dark:bg-[#28292A]">
+          <Folder className="w-4 h-4 shrink-0" style={{ color: group.iconColor }} />
+          <span className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+            {group.label}
+          </span>
+          <span className="text-[11px] text-[#747775] dark:text-[#8E918F]">
+            {groupTools.length} alat
+          </span>
+        </div>
+      </div>
+
+      {/* Folder Body */}
+      <div className="rounded-2xl rounded-tl-none border border-[#E0E3E7] bg-[#F8FAFD] p-4 dark:border-[#36373A] dark:bg-[#28292A]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {groupTools.map(renderToolCard)}
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="flex flex-col min-h-full w-full min-w-0">
-      {/* 1. Header Section inspired by iLovePDF Hero Header */}
-      <div className="text-center py-6 sm:py-8 max-w-3xl mx-auto px-4">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEE2E2] text-[#DC2626] dark:bg-[#7F1D1D]/30 dark:text-[#F87171] text-xs font-semibold mb-3">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Tools Studio 9Drive</span>
-        </div>
-        <h1 className="text-2xl sm:text-4xl font-extrabold text-[#111827] dark:text-[#F9FAFB] tracking-tight">
-          Semua alat pengolahan dokumen & berkas dalam satu tempat
-        </h1>
-        <p className="mt-2.5 text-xs sm:text-sm text-[#4B5563] dark:text-[#9CA3AF] leading-relaxed">
-          Semua alat yang Anda butuhkan untuk mengolah PDF, gambar AI, dan utilitas data. Cepat, aman, dan 100% diproses langsung di browser tanpa batas antrean.
-        </p>
-      </div>
+      {/* 1. Page Header (Material 3 / Google Drive Style) */}
+      <PageHeader
+        title="Tools Studio"
+        description="Semua alat PDF, gambar, dan utilitas data — diproses langsung di browser."
+      />
 
       {/* 2. Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 border-y border-[#E5E7EB] dark:border-[#374151] mb-6">
-        {/* Category Filter Pills (iLovePDF Style) */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 border-b border-[#E0E3E7]/60 dark:border-[#36373A]/60 mb-6 mt-4">
+        {/* Category Filter Pills (Material 3 Chip Style) */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {[
             { id: 'all' as const, label: 'Semua Alat' },
             { id: 'pdf' as const, label: 'Dokumen PDF' },
             { id: 'image' as const, label: 'AI & Gambar' },
+            { id: 'video' as const, label: 'Video & Audio' },
             { id: 'data' as const, label: 'Utilitas Data' },
           ].map((cat) => {
             const isActive = selectedCategory === cat.id
@@ -291,18 +374,18 @@ export function ToolsHubPage() {
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`h-9 px-4 rounded-full text-xs font-semibold whitespace-nowrap transition-all select-none flex items-center gap-1.5 ${
+                className={`h-8 px-4 rounded-full text-xs font-medium whitespace-nowrap transition-all select-none flex items-center gap-1.5 border ${
                   isActive
-                    ? 'bg-[#E5322D] text-white shadow-sm'
-                    : 'bg-[#F3F4F6] text-[#4B5563] hover:bg-[#E5E7EB] dark:bg-[#374151] dark:text-[#D1D5DB] dark:hover:bg-[#4B5563]'
+                    ? 'bg-[#C2E7FF] text-[#001D35] border-[#C2E7FF] dark:bg-[#004A77] dark:text-[#C2E7FF] dark:border-[#004A77]'
+                    : 'bg-transparent text-[#444746] border-[#E0E3E7] hover:bg-[#F0F4F9] dark:text-[#C4C7C5] dark:border-[#36373A] dark:hover:bg-[#28292A]'
                 }`}
               >
                 <span>{cat.label}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                  className={`text-[10px] px-1.5 rounded-full ${
                     isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-black/5 dark:bg-white/10 text-[#6B7280] dark:text-[#9CA3AF]'
+                      ? 'bg-[#001D35]/10 text-[#001D35] dark:bg-[#C2E7FF]/15 dark:text-[#C2E7FF]'
+                      : 'bg-black/5 dark:bg-white/10 text-[#747775] dark:text-[#8E918F]'
                   }`}
                 >
                   {count}
@@ -315,16 +398,16 @@ export function ToolsHubPage() {
         {/* Search Bar */}
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-72">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#747775]" />
             <Input
               type="text"
               placeholder="Cari alat (cth: merge, kompres, bg)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9.5 h-9 text-xs rounded-full bg-[#F3F4F6] dark:bg-[#374151] border-0 text-[#111827] dark:text-[#F9FAFB] focus-visible:ring-2 focus-visible:ring-[#E5322D]"
+              className="pl-9.5 h-9 text-xs rounded-full bg-[#EDF2FC] dark:bg-[#28292A] border-0 text-[#1F1F1F] dark:text-[#E3E3E3] focus-visible:ring-2 focus-visible:ring-[#0B57D0]"
             />
           </div>
-          {isFiltering && (
+          {(selectedCategory !== 'all' || isSearching) && (
             <button
               type="button"
               onClick={() => {
@@ -332,7 +415,7 @@ export function ToolsHubPage() {
                 setSearchQuery('')
               }}
               title="Reset Filter"
-              className="flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium border border-[#E5E7EB] bg-white hover:bg-[#F3F4F6] text-[#4B5563] dark:border-[#374151] dark:bg-[#1F2937] dark:text-[#D1D5DB] dark:hover:bg-[#374151] transition-colors shrink-0"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium border border-[#E0E3E7] bg-white hover:bg-[#F0F4F9] text-[#444746] dark:border-[#36373A] dark:bg-[#1E1F20] dark:text-[#C4C7C5] dark:hover:bg-[#28292A] transition-colors shrink-0"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Reset</span>
@@ -341,63 +424,53 @@ export function ToolsHubPage() {
         </div>
       </div>
 
-      {/* 3. Featured / Popular Section (Shown when not searching) */}
-      {!isFiltering && (
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-bold text-[#111827] dark:text-[#F9FAFB]">
-                Paling Sering Digunakan
-              </h2>
-              <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF]">
-                Alat favorit pengguna untuk pengolahan harian cepat
-              </p>
-            </div>
-            <div className="hidden sm:flex items-center gap-2 text-xs text-[#059669] font-medium">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>100% Client-Side Engine</span>
-            </div>
+      {/* 3. Content */}
+      {isSearching ? (
+        /* Flat search results (cross-category) */
+        <div className="space-y-4 pb-12">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[16px] leading-6 font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+              Hasil Pencarian
+            </h2>
+            <span className="text-xs text-[#747775] dark:text-[#8E918F]">
+              Menampilkan {filteredTools.length} dari {tools.length} alat
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {popularTools.map(renderILovePdfCard)}
-          </div>
+          {filteredTools.length === 0 ? (
+            <div className="text-center py-12 rounded-2xl border border-dashed border-[#E0E3E7] dark:border-[#36373A] bg-[#F8FAFD] dark:bg-[#1E1F20]/50">
+              <p className="text-sm font-medium text-[#444746] dark:text-[#C4C7C5]">
+                Tidak ada alat yang cocok dengan pencarian "{searchQuery}"
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('all')
+                  setSearchQuery('')
+                }}
+                className="mt-3 text-xs text-[#0B57D0] hover:underline font-medium dark:text-[#A8C7FA]"
+              >
+                Reset semua filter
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filteredTools.map(renderToolCard)}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Grouped by Category — Folder containers */
+        <div className="pb-12">
+          {categoryGroups
+            .filter((g) => selectedCategory === 'all' || selectedCategory === g.id)
+            .map((group) => {
+              const groupTools = tools.filter((t) => t.category === group.id)
+              if (groupTools.length === 0) return null
+              return renderFolderGroup(group, groupTools)
+            })}
         </div>
       )}
-
-      {/* 4. All Tools Grid */}
-      <div className="space-y-4 pb-12">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-[#111827] dark:text-[#F9FAFB]">
-            {isFiltering ? 'Hasil Pencarian' : 'Semua Koleksi Alat'}
-          </h2>
-          <span className="text-xs text-[#6B7280] dark:text-[#9CA3AF]">
-            Menampilkan {filteredTools.length} dari {tools.length} alat
-          </span>
-        </div>
-
-        {filteredTools.length === 0 ? (
-          <div className="text-center py-12 rounded-2xl border border-dashed border-[#E5E7EB] dark:border-[#374151] bg-[#F9FAFB] dark:bg-[#1F2937]/50">
-            <p className="text-sm font-medium text-[#4B5563] dark:text-[#9CA3AF]">
-              Tidak ada alat yang cocok dengan pencarian "{searchQuery}"
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedCategory('all')
-                setSearchQuery('')
-              }}
-              className="mt-3 text-xs text-[#E5322D] hover:underline font-semibold"
-            >
-              Reset semua filter
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredTools.map(renderILovePdfCard)}
-          </div>
-        )}
-      </div>
     </div>
   )
 }

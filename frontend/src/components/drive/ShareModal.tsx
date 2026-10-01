@@ -428,7 +428,7 @@ export function ShareModal({
                   {collaborators.map((c) => (
                     <div key={c.id} className="flex items-center justify-between gap-3 py-1.5">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-[#444746] dark:bg-[#28292A] dark:text-[#C4C7C5] uppercase">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E0E3E7] text-xs font-bold text-[#444746] dark:bg-[#28292A] dark:text-[#C4C7C5] uppercase">
                           {c.email[0]}
                         </div>
                         <div className="min-w-0">

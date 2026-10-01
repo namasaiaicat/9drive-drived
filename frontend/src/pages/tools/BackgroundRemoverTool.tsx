@@ -3,17 +3,21 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   CheckCircle,
   ChevronRight,
+  Cloud,
   Download,
   Loader2,
   Palette,
-  Play,
+  RotateCcw,
   Sparkles,
 } from 'lucide-react'
 import { processBackgroundRemoval, type BgBackdropType } from '@/lib/tools/bg-removal-service'
 import { BatchFileQueue, type BatchItem } from '@/components/tools/BatchFileQueue'
 import { BeforeAfterPreview } from '@/components/tools/BeforeAfterPreview'
+import { ToolUploadHero } from '@/components/tools/ToolUploadHero'
+import { RemoveBgIcon } from '@/components/tools/ToolIcons'
 import { DriveFilePickerModal } from '@/components/tools/DriveFilePickerModal'
 import { SaveDestinationModal, type ProcessedFileItem } from '@/components/tools/SaveDestinationModal'
+import { downloadBlob } from '@/lib/tools/zip-service'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/context/ToastContext'
 
@@ -37,7 +41,9 @@ export function BackgroundRemoverTool() {
   useEffect(() => {
     if (location.state && (location.state as any).initialFiles) {
       const initFiles = (location.state as any).initialFiles as File[]
-      addFilesToQueue(initFiles)
+      if (initFiles.length > 0) {
+        addFilesToQueue(initFiles)
+      }
     }
   }, [location.state])
 
@@ -57,29 +63,26 @@ export function BackgroundRemoverTool() {
       thumbnailUrl: URL.createObjectURL(file),
     }))
 
-    setQueue((prev) => [...prev, ...newItems])
+    const nextQueue = [...queue, ...newItems]
+    setQueue(nextQueue)
+    // Auto-process on upload!
+    autoProcessQueue(nextQueue)
   }
 
-  const handleRemoveQueueItem = (id: string) => {
-    setQueue((prev) => {
-      const filtered = prev.filter((item) => item.id !== id)
-      if (activePreviewIndex >= filtered.length) {
-        setActivePreviewIndex(Math.max(0, filtered.length - 1))
-      }
-      return filtered
-    })
-  }
-
-  const handleProcessAll = async () => {
-    if (queue.length === 0) return
+  const autoProcessQueue = async (currentQueue: BatchItem[]) => {
     setIsProcessingBatch(true)
+    const updatedQueue = [...currentQueue]
 
-    const updatedQueue = [...queue]
     for (let i = 0; i < updatedQueue.length; i++) {
       const item = updatedQueue[i]
       if (item.status === 'completed') continue
 
-      updatedQueue[i] = { ...item, status: 'processing', progress: 5, statusMessage: 'Memulai segmentasi AI...' }
+      updatedQueue[i] = {
+        ...item,
+        status: 'processing',
+        progress: 10,
+        statusMessage: 'Menghapus latar belakang foto...',
+      }
       setQueue([...updatedQueue])
 
       try {
@@ -117,7 +120,22 @@ export function BackgroundRemoverTool() {
     }
 
     setIsProcessingBatch(false)
-    toast.success('Proses hapus background batch selesai!')
+    toast.success('Hapus background selesai!')
+  }
+
+  const handleRemoveQueueItem = (id: string) => {
+    setQueue((prev) => {
+      const filtered = prev.filter((item) => item.id !== id)
+      if (activePreviewIndex >= filtered.length) {
+        setActivePreviewIndex(Math.max(0, filtered.length - 1))
+      }
+      return filtered
+    })
+  }
+
+  const handleReset = () => {
+    setQueue([])
+    setActivePreviewIndex(0)
   }
 
   const completedItems = queue.filter((item) => item.status === 'completed' && item.resultBlob)
@@ -151,216 +169,261 @@ export function BackgroundRemoverTool() {
           </span>
         </div>
 
-        <div className="flex items-center gap-2 sm:shrink-0 sm:justify-end">
-          {completedItems.length > 0 && (
+        {queue.length > 0 && (
+          <div className="flex items-center gap-2 sm:shrink-0 sm:justify-end">
             <Button
               type="button"
+              variant="outline"
               size="sm"
-              onClick={() => setSaveModalOpen(true)}
-              className="h-9 px-4 text-xs font-medium rounded-full bg-[#0F9D58] hover:bg-[#0F9D58]/90 text-white"
+              onClick={handleReset}
+              className="h-9 px-4 text-xs font-medium rounded-full border-[#E0E3E7] dark:border-[#36373A] text-[#444746] dark:text-[#C4C7C5] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]"
             >
-              <Download className="w-3.5 h-3.5 mr-1.5" />
-              Simpan Hasil ({completedItems.length})
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Pilih Foto Lain
             </Button>
-          )}
 
-          {queue.length > 0 && (
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleProcessAll}
-              disabled={isProcessingBatch}
-              className="h-9 px-5 text-xs font-medium rounded-full bg-[#0B57D0] hover:bg-[#0B57D0]/90 text-white shadow-xs"
-            >
-              {isProcessingBatch ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                  Memproses...
-                </>
-              ) : (
-                <>
-                  <Play className="w-3.5 h-3.5 mr-1.5" />
-                  Proses Semua ({queue.length})
-                </>
-              )}
-            </Button>
-          )}
-        </div>
+            {completedItems.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setSaveModalOpen(true)}
+                className="h-9 px-4 text-xs font-medium rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white shadow-xs"
+              >
+                <Cloud className="w-3.5 h-3.5 mr-1.5" />
+                Simpan ke 9Drive ({completedItems.length})
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Main Content Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-4 flex-1">
-        {/* Left Column: Settings & Queue */}
-        <div className="lg:col-span-5 flex flex-col space-y-4">
-          {/* Backdrop Options Card */}
-          <div className="p-4 rounded-2xl border border-[#E0E3E7] bg-white dark:border-[#36373A] dark:bg-[#1E1F20] space-y-3">
-            <span className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3] flex items-center gap-1.5">
-              <Palette className="w-3.5 h-3.5 text-[#0B57D0]" />
-              Pengaturan Latar Hasil
-            </span>
+      {/* STATE 1: IDLE HERO (When no queue exists) */}
+      {queue.length === 0 ? (
+        <div className="w-full py-4 flex flex-col space-y-6">
+          <ToolUploadHero
+            title="Tarik & lepaskan foto ke sini, atau pilih berkas"
+            description="Hapus background foto manusia, produk, atau objek secara otomatis dengan neural AI langsung di browser Anda."
+            acceptedFormats={['JPG', 'PNG', 'WEBP']}
+            accept="image/*,.png,.jpg,.jpeg,.webp"
+            icon={RemoveBgIcon}
+            iconColor="#7248B9"
+            maxSizeText="Proses instan • 100% Privat"
+            multiple={true}
+            onFilesSelected={addFilesToQueue}
+            onOpenDrivePicker={() => setDrivePickerOpen(true)}
+          />
 
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setBackdropType('transparent')}
-                className={`py-1.5 px-3 rounded-lg text-xs font-medium border text-center transition-all ${
-                  backdropType === 'transparent'
-                    ? 'border-[#0B57D0] bg-[#C2E7FF] text-[#001D35] dark:border-[#004A77] dark:bg-[#004A77] dark:text-[#C2E7FF]'
-                    : 'border-[#E0E3E7] dark:border-[#36373A] text-[#444746] dark:text-[#C4C7C5] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]'
-                }`}
-              >
-                Transparan
-              </button>
-              <button
-                type="button"
-                onClick={() => setBackdropType('color')}
-                className={`py-1.5 px-3 rounded-lg text-xs font-medium border text-center transition-all ${
-                  backdropType === 'color'
-                    ? 'border-[#0B57D0] bg-[#C2E7FF] text-[#001D35] dark:border-[#004A77] dark:bg-[#004A77] dark:text-[#C2E7FF]'
-                    : 'border-[#E0E3E7] dark:border-[#36373A] text-[#444746] dark:text-[#C4C7C5] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]'
-                }`}
-              >
-                Warna Solid
-              </button>
-              <button
-                type="button"
-                onClick={() => setAddShadow(!addShadow)}
-                className={`py-1.5 px-3 rounded-lg text-xs font-medium border text-center transition-all ${
-                  addShadow
-                    ? 'border-[#0B57D0] bg-[#C2E7FF] text-[#001D35] dark:border-[#004A77] dark:bg-[#004A77] dark:text-[#C2E7FF]'
-                    : 'border-[#E0E3E7] dark:border-[#36373A] text-[#444746] dark:text-[#C4C7C5] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]'
-                }`}
-              >
-                {addShadow ? '✓ Bayangan' : '+ Bayangan'}
-              </button>
+          {/* Feature Highlights */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <div className="p-4 rounded-2xl border border-[#E0E3E7] bg-white dark:border-[#36373A] dark:bg-[#1E1F20]">
+              <span className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3] flex items-center gap-1.5 mb-1">
+                <Sparkles className="w-4 h-4 text-[#7248B9]" />
+                Potong Otomatis Rapi
+              </span>
+              <p className="text-xs text-[#747775] dark:text-[#8E918F] leading-relaxed">
+                Otomatis mengenali orang atau benda dan memotong tepian foto secara rapi dan presisi.
+              </p>
             </div>
 
-            {backdropType === 'color' && (
-              <div className="flex items-center gap-2 pt-1 border-t border-[#E0E3E7]/60 dark:border-[#36373A]/60">
-                <input
-                  type="color"
-                  value={colorHex}
-                  onChange={(e) => setColorHex(e.target.value)}
-                  className="w-7 h-7 rounded-md cursor-pointer border border-[#E0E3E7] p-0.5"
-                />
-                <span className="text-xs font-mono text-[#747775]">{colorHex.toUpperCase()}</span>
-                <div className="flex items-center gap-1.5 ml-auto">
-                  {['#FFFFFF', '#000000', '#D32F2F', '#1976D2'].map((preset) => (
-                    <button
-                      key={preset}
+            <div className="p-4 rounded-2xl border border-[#E0E3E7] bg-white dark:border-[#36373A] dark:bg-[#1E1F20]">
+              <span className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3] flex items-center gap-1.5 mb-1">
+                <Palette className="w-4 h-4 text-[#0B57D0] dark:text-[#A8C7FA]" />
+                Latar Kustom Fleksibel
+              </span>
+              <p className="text-xs text-[#747775] dark:text-[#8E918F] leading-relaxed">
+                Pilih transparan PNG, latar warna solid (merah/biru pas foto), atau tambahkan bayangan halus.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl border border-[#E0E3E7] bg-white dark:border-[#36373A] dark:bg-[#1E1F20]">
+              <span className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3] flex items-center gap-1.5 mb-1">
+                <Cloud className="w-4 h-4 text-[#0F9D58]" />
+                Simpan Langsung ke Cloud
+              </span>
+              <p className="text-xs text-[#747775] dark:text-[#8E918F] leading-relaxed">
+                Hasil langsung disimpan ke folder 9Drive atau diunduh ke penyimpanan komputer lokal.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* STATE 2 & 3: ACTIVE WORKSPACE (Auto-processing & Before/After Result) */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-4 flex-1">
+          {/* Left Column: Settings & Queue */}
+          <div className="lg:col-span-5 flex flex-col space-y-4">
+            {/* Backdrop Options Card */}
+            <div className="p-4 rounded-2xl border border-[#E0E3E7] bg-white dark:border-[#36373A] dark:bg-[#1E1F20] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3] flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-[#0B57D0]" />
+                  Pengaturan Latar Hasil
+                </span>
+                {completedItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => autoProcessQueue(queue)}
+                    className="text-xs text-[#0B57D0] dark:text-[#A8C7FA] hover:underline font-medium"
+                  >
+                    Terapkan Ulang
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBackdropType('transparent')}
+                  className={`py-1.5 px-3 rounded-lg text-xs font-medium border text-center transition-all ${
+                    backdropType === 'transparent'
+                      ? 'border-[#0B57D0] bg-[#C2E7FF] text-[#001D35] dark:border-[#004A77] dark:bg-[#004A77] dark:text-[#C2E7FF]'
+                      : 'border-[#E0E3E7] dark:border-[#36373A] text-[#444746] dark:text-[#C4C7C5] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]'
+                  }`}
+                >
+                  Transparan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBackdropType('color')}
+                  className={`py-1.5 px-3 rounded-lg text-xs font-medium border text-center transition-all ${
+                    backdropType === 'color'
+                      ? 'border-[#0B57D0] bg-[#C2E7FF] text-[#001D35] dark:border-[#004A77] dark:bg-[#004A77] dark:text-[#C2E7FF]'
+                      : 'border-[#E0E3E7] dark:border-[#36373A] text-[#444746] dark:text-[#C4C7C5] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]'
+                  }`}
+                >
+                  Warna Solid
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddShadow(!addShadow)}
+                  className={`py-1.5 px-3 rounded-lg text-xs font-medium border text-center transition-all ${
+                    addShadow
+                      ? 'border-[#0B57D0] bg-[#C2E7FF] text-[#001D35] dark:border-[#004A77] dark:bg-[#004A77] dark:text-[#C2E7FF]'
+                      : 'border-[#E0E3E7] dark:border-[#36373A] text-[#444746] dark:text-[#C4C7C5] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]'
+                  }`}
+                >
+                  {addShadow ? '✓ Bayangan' : '+ Bayangan'}
+                </button>
+              </div>
+
+              {backdropType === 'color' && (
+                <div className="flex items-center gap-2 pt-1 border-t border-[#E0E3E7]/60 dark:border-[#36373A]/60">
+                  <input
+                    type="color"
+                    value={colorHex}
+                    onChange={(e) => setColorHex(e.target.value)}
+                    className="w-7 h-7 rounded-md cursor-pointer border border-[#E0E3E7] p-0.5"
+                  />
+                  <span className="text-xs font-mono text-[#747775]">{colorHex.toUpperCase()}</span>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    {['#FFFFFF', '#000000', '#D32F2F', '#1976D2'].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setColorHex(preset)}
+                        className="w-5 h-5 rounded-full border border-black/20"
+                        style={{ backgroundColor: preset }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Queue Component */}
+            <BatchFileQueue
+              items={queue}
+              onAddFiles={addFilesToQueue}
+              onRemoveItem={handleRemoveQueueItem}
+              onClear={handleReset}
+              onOpenDrivePicker={() => setDrivePickerOpen(true)}
+              accept="image/*"
+              disabled={isProcessingBatch}
+            />
+          </div>
+
+          {/* Right Column: Interactive Before/After Preview */}
+          <div className="lg:col-span-7 flex flex-col space-y-3">
+            {currentPreviewItem && currentPreviewItem.resultBlob ? (
+              <div className="flex flex-col space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3] flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4 text-[#0F9D58]" />
+                    Hasil: {currentPreviewItem.file.name}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
                       type="button"
-                      onClick={() => setColorHex(preset)}
-                      className="w-5 h-5 rounded-full border border-black/20"
-                      style={{ backgroundColor: preset }}
-                    />
-                  ))}
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        downloadBlob(
+                          currentPreviewItem.resultBlob!,
+                          `${currentPreviewItem.file.name.replace(/\.[^/.]+$/, '')}_nobg.png`
+                        )
+                      }
+                      className="h-8 px-3 text-xs rounded-full border-[#E0E3E7] dark:border-[#36373A]"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1" />
+                      Unduh PNG
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Before After Slider Component */}
+                <BeforeAfterPreview
+                  originalUrl={currentPreviewItem.thumbnailUrl!}
+                  cutoutUrl={URL.createObjectURL(currentPreviewItem.resultBlob)}
+                  alt={currentPreviewItem.file.name}
+                />
+
+                {/* Thumbnails row for batch */}
+                {queue.length > 1 && (
+                  <div className="flex items-center gap-2 overflow-x-auto py-1">
+                    {queue.map((item, index) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setActivePreviewIndex(index)}
+                        className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                          activePreviewIndex === index
+                            ? 'border-[#0B57D0] scale-105'
+                            : 'border-transparent opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        <img
+                          src={item.thumbnailUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                        {item.status === 'completed' && (
+                          <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#0F9D58] text-white flex items-center justify-center text-[9px]">
+                            ✓
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 rounded-2xl border border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#1E1F20] text-center min-h-[350px]">
+                <img
+                  src={currentPreviewItem?.thumbnailUrl}
+                  alt=""
+                  className="max-h-60 object-contain rounded-xl mb-3 border border-[#E0E3E7] dark:border-[#36373A]"
+                />
+                <p className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3] mb-1">
+                  {currentPreviewItem?.file.name}
+                </p>
+                <div className="flex items-center gap-2 text-xs text-[#0B57D0] dark:text-[#A8C7FA] font-medium">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Sedang memotong latar belakang AI...</span>
                 </div>
               </div>
             )}
           </div>
-
-          {/* Queue Component */}
-          <BatchFileQueue
-            items={queue}
-            onAddFiles={addFilesToQueue}
-            onRemoveItem={handleRemoveQueueItem}
-            onClear={() => setQueue([])}
-            onOpenDrivePicker={() => setDrivePickerOpen(true)}
-            accept="image/*"
-            disabled={isProcessingBatch}
-          />
         </div>
-
-        {/* Right Column: Preview Area */}
-        <div className="lg:col-span-7 flex flex-col space-y-3">
-          {queue.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 rounded-2xl border border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#1E1F20] text-center min-h-[350px]">
-              <div className="w-12 h-12 rounded-2xl bg-[#EDF2FC] dark:bg-[#28292A] text-[#0B57D0] dark:text-[#A8C7FA] flex items-center justify-center mb-3">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <h3 className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3] mb-1">
-                Belum ada foto yang dipilih
-              </h3>
-              <p className="text-xs text-[#747775] dark:text-[#8E918F] max-w-sm">
-                Unggah foto dari perangkat atau ambil langsung dari 9Drive untuk menghapus latar belakang.
-              </p>
-            </div>
-          ) : currentPreviewItem && currentPreviewItem.resultBlob ? (
-            <div className="flex flex-col space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3] flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4 text-[#0F9D58]" />
-                  Hasil: {currentPreviewItem.file.name}
-                </span>
-                {queue.length > 1 && (
-                  <span className="text-xs text-[#747775]">
-                    {activePreviewIndex + 1} dari {queue.length}
-                  </span>
-                )}
-              </div>
-
-              {/* Before After Slider */}
-              <BeforeAfterPreview
-                originalUrl={currentPreviewItem.thumbnailUrl!}
-                cutoutUrl={URL.createObjectURL(currentPreviewItem.resultBlob)}
-                alt={currentPreviewItem.file.name}
-              />
-
-              {/* Thumbnails row */}
-              {queue.length > 1 && (
-                <div className="flex items-center gap-2 overflow-x-auto py-1">
-                  {queue.map((item, index) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setActivePreviewIndex(index)}
-                      className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
-                        activePreviewIndex === index
-                          ? 'border-[#0B57D0] scale-105'
-                          : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
-                    >
-                      <img
-                        src={item.thumbnailUrl}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                      {item.status === 'completed' && (
-                        <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#0F9D58] text-white flex items-center justify-center text-[9px]">
-                          ✓
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 rounded-2xl border border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#1E1F20] text-center min-h-[350px]">
-              <img
-                src={currentPreviewItem?.thumbnailUrl}
-                alt=""
-                className="max-h-60 object-contain rounded-xl mb-3 border border-[#E0E3E7] dark:border-[#36373A]"
-              />
-              <p className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3] mb-1">
-                {currentPreviewItem?.file.name}
-              </p>
-              <p className="text-[11px] text-[#747775] mb-4">
-                Siap diproses. Klik tombol di bawah untuk menjalankan segmentasi AI.
-              </p>
-              <Button
-                type="button"
-                onClick={handleProcessAll}
-                disabled={isProcessingBatch}
-                className="h-8 px-5 rounded-full text-xs font-medium bg-[#0B57D0] hover:bg-[#0B57D0]/90 text-white"
-              >
-                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                Hapus Background Sekarang
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Modals */}
       <DriveFilePickerModal
@@ -368,15 +431,13 @@ export function BackgroundRemoverTool() {
         onClose={() => setDrivePickerOpen(false)}
         onSelectFiles={addFilesToQueue}
         acceptFilter="image"
-        multiple
       />
 
       <SaveDestinationModal
         open={saveModalOpen}
         onClose={() => setSaveModalOpen(false)}
         files={processedFilesForSave}
-        defaultZipName="9drive_hasil_hapus_bg.zip"
-        toolName="Hapus Background AI"
+        defaultZipName="cutout_images.zip"
       />
     </div>
   )

@@ -1,778 +1,389 @@
 ![9Drive cover](https://i.ibb.co.com/35BySv1C/image.png)
 
-# 9Drive (Drived Edition)
+# 9Drive — Virtual Cloud Storage & Client-Side Productivity Suite
 
-> 💡 **Catatan Proyek:** Repository ini merupakan hasil pengembangan lanjutan dari proyek upstream asli [zenhosta/9drive](https://github.com/zenhosta/9drive) dengan penambahan perombakan UI/UX Google Drive Material Design 3, fitur sharing cerdas, serta penyempurnaan integrasi API.
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](package.json)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
+[![Framework](https://img.shields.io/badge/stack-React%20%7C%20Node%20Express%20%7C%20Prisma%20%7C%20MySQL-orange.svg)]()
 
----
+**9Drive** adalah platform virtual cloud storage gateway modern yang menggabungkan banyak akun **Google Drive** dan **S3-Compatible Storage** (Cloudflare R2, MinIO, Wasabi, AWS S3, Backblaze B2) ke dalam satu dashboard terpadu bergaya **Google Drive Material Design 3 (MD3)**. 
 
-## 🚀 Fitur & Peningkatan yang Dikembangkan
-
-Proyek ini telah mengalami sejumlah pengembangan signifikan dibanding versi aslinya:
-
-1. **Redesain Antarmuka Google Drive Material Design 3 (MD3)**
-   - Perombakan total antarmuka web menyerupai Google Drive asli, termasuk layout sidebar, search bar pill, rounded cards, dan surface elevation Google.
-   - Menggunakan tipografi resmi Google (`Roboto` dan `Product Sans`).
-   - Tema warna konsisten dengan palet Google Drive (Google Blue `#0B57D0`, background surface, hover states yang halus).
-
-2. **Dialog Berbagi File Canggih & Smart Permission Detection (`ShareModal`)**
-   - Dialog sharing interaktif bergaya Google Drive dengan pengaturan akses umum (*Restricted* vs *Anyone with the link*) dan role (*Viewer*, *Commenter*, *Editor*).
-   - **Deteksi Izin Warisan (*Inherited Permission Origin*)**: Secara otomatis mendeteksi jika sebuah file mewarisi izin publik dari folder induknya, serta menyediakan opsi langsung untuk mengatur izin folder asal.
-
-3. **Menu Konteks Interaktif Lengkap (*Right-Click Context Menus*)**
-   - **Menu File**: Preview, Download, Rename, Move, Share, Star/Unstar, Details Drawer, Trash.
-   - **Menu Folder**: Buka folder, Share, Rename, Move, Details, Hapus.
-   - **Menu Area Kosong**: Klik kanan pada ruang kosong untuk langsung mengunggah file, mengunggah folder, atau membuat folder baru.
-
-4. **Laci Informasi & Riwayat Aktivitas File (*File Details Drawer*)**
-   - Panel samping (drawer) yang menampilkan preview file, metadata teknis (ukuran, tipe MIME, lokasi folder, tanggal pembuatan/modifikasi, pemilik akun), dan histori aktivitas.
-
-5. **Pengembangan Navigasi & Halaman Baru**
-   - **Halaman Berbintang (*Starred Page*)**: Filter file dan folder favorit dengan integrasi langsung ke Google Drive API (`setGoogleFileStarred`).
-   - **Halaman Terbaru (*Recent Page*)**: Akses cepat daftar file yang baru saja dibuka atau diperbarui (`getGoogleRecentFiles`).
-   - **Halaman Berbagi (*Shared Page*)**: Tampilan file & folder yang dibagikan.
-   - **Halaman Aktivitas (*Activity Log Page*)**: Pelacakan riwayat aktivitas penggunaan.
-   - **Quota Tracker & Multi-Account Gateway**: Visualisasi pemakaian penyimpanan antar beberapa akun Google Drive.
-
-6. **Peningkatan Backend & API Google Drive**
-   - Fleksibilitas target upload ke Google Drive (dapat mengunggah ke root maupun ke folder spesifik tanpa batasan kaku folder induk tunggal).
-   - Peningkatan target resolver pada sistem undangan berbagi (`assertTargetOwner` mendukung `providerFileId` dan `providerFolderId`).
+Dilengkapi dengan **High-Performance CDN Media Gateway**, **External Upload API**, serta **Client-Side Productivity Tools Suite** lengkap (alat olah PDF, AI Hapus Background Gambar, Ekstraksi Audio Video, dan Utilitas Data) yang berjalan 100% di browser secara aman, cepat, dan terintegrasi langsung dengan penyimpanan Drive Anda.
 
 ---
 
-## License
+## 🌟 Fitur Utama & Pembaruan Terkini
 
-Copyright 2026 Zenhosta
+Repositori ini telah disesuaikan dan dikembangkan dengan penambahan serangkaian fitur produktivitas mutakhir:
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
+### 1. 🎨 Antarmuka Google Drive Material Design 3 (MD3)
+- **Tampilan Otentik Google Drive**: Navigasi sidebar dengan indikator pill aktif, floating search bar, breadcrumbs folder dinamis, surface elevation, dan palet warna resmi Google Drive (`#0B57D0`, background neutral, rounded cards).
+- **Drive Account Selector Terpadu**: Dropdown pemilih akun Drive langsung di navbar untuk memfilter tampilan berkas berdasarkan akun Google Drive tertentu atau menampilkan semua akun sekaligus.
+- **Global Search Bar Cerdas**: Pencarian instan berkas dan folder dilengkapi filter cepat berdasarkan tipe berkas (Dokumen, Gambar, Video, PDF, ZIP), rentang tanggal modifikasi, dan akun penyimpanan.
+- **Sistem Notifikasi Floating Toast (`ToastContext`)**: Notifikasi mengambang yang responsif dan interaktif untuk memberikan konfirmasi aksi (unggah, hapus, salin tautan, mutasi berkas) tanpa mengganggu alur kerja pengguna.
+- **Menu Konteks Klik Kanan Lengkap (*Right-Click Context Menu*)**:
+  - **Menu Berkas**: Buka di Tools Suite, Salin Tautan CDN, Pratinjau, Unduh, Ganti Nama, Pindahkan, Bagikan, Berbintang (Star), Laci Detail, Hapus ke Sampah.
+  - **Menu Folder**: Buka Folder, Bagikan, Ganti Nama, Pindahkan, Info Detail, Hapus.
+  - **Menu Ruang Kosong (*Canvas Area*)**: Klik kanan pada area kosong untuk langsung mengunggah berkas, mengunggah folder, atau membuat folder baru.
+- **Laci Detail Berkas (*File Details Drawer*)**:
+  - Menampilkan pratinjau thumbnail visual, metadata teknis (ukuran berkas, tipe MIME, lokasi folder, tanggal pembuatan/modifikasi, akun pemilik).
+  - Tombol aksi instan untuk membuka berkas langsung ke dalam modul **Tools Suite** (PDF Tools, Image Tools, Remove BG) atau menyalin tautan publik CDN.
 
-## Features Bawaan & Utama
+---
 
-- Google Drive and S3-compatible storage gateway in one virtual storage dashboard.
-- S3-compatible storage support with custom endpoints for providers like MinIO, Cloudflare R2, Wasabi, Backblaze B2, and AWS S3.
-- Direct upload stream to Google Drive. Files are not stored on the server.
-- Google Drive uploads are stored under a root `9drive` folder.
-- Direct upload stream to S3-compatible storage through the backend without exposing storage credentials to the frontend.
-- Upload routing policies with most-available, round-robin, and priority-order modes.
-- External upload API using API keys at `POST /api/v1/uploads`.
-- API key management with one-time secret display, hashed key storage, last-used tracking, and revocation.
-- Email/password auth plus Google sign-in/register with automatic first Drive connection.
-- Multi-account storage quota summary.
-- Quota tracker page.
-- Manual sync from the Google Drive `9drive` folder back into MySQL.
-- Virtual folders.
-- File preview, download, rename, move, and delete actions.
-- In-app API documentation with cURL and JavaScript upload examples.
-- Bottom-right upload progress panel.
-- Bearer token authentication.
-- Global Google OAuth config stored encrypted in DB (can be set via seed command or directly in Settings UI).
-- Automated system updates via `update.sh` directly from the Settings UI (PM2 setup).
-- Optional reCAPTCHA on email/password registration.
-- MySQL database with Prisma migrations.
-- Express + TypeScript backend.
-- React + Vite frontend.
+### 2. 🛠️ Productivity & Tools Suite (100% Client-Side & Privasi Terjaga)
+Pusat alat pengolah dokumen dan multimedia yang berjalan sepenuhnya di browser client (tanpa membebani CPU server atau mengirim berkas pribadi ke pihak ketiga):
 
-## Preview
+#### 📄 PDF Suite (`/tools/pdf`)
+- **Merge PDF**: Menggabungkan beberapa berkas PDF menjadi satu dokumen berurutan sesuai susunan yang ditentukan.
+- **Split PDF**: Memecah halaman PDF atau mengekstrak rentang halaman tertentu menjadi berkas tersendiri.
+- **Compress PDF**: Mengurangi ukuran dokumen PDF agar hemat penyimpanan dan cepat dibagikan tanpa merusak keterbacaan teks.
+- **JPG ke PDF**: Mengonversi dan merangkai sekumpulan foto (JPG, PNG, WebP) menjadi satu berkas album PDF yang rapi.
+- **PDF ke Gambar (JPG/PNG)**: Mengekstrak setiap lembar halaman dokumen PDF menjadi berkas gambar resolusi tinggi dengan pratinjau instan.
+- **Rotate PDF**: Memutar orientasi lembar dokumen PDF yang terbalik (90°, 180°, 270°) secara serentak.
+- **Watermark PDF**: Membubuhkan stempel teks hak cipta atau tanda keamanan kustom (contoh: *RAHASIA*, *DRAFT*) pada lembar PDF.
 
-Live preview: https://9drive.zenhosta.com
+#### 🖼️ AI & Image Suite (`/tools/image` & `/tools/remove-bg`)
+- **Hapus Background AI (`/tools/remove-bg`)**:
+  - Menghapus latar belakang foto manusia atau produk secara otomatis dan instan menggunakan model AI langsung di browser (`@imgly/background-removal`).
+  - Dilengkapi slider perbandingan **Before/After** interaktif.
+  - Opsi penggantian background kustom: transparan (PNG), palet warna solid, atau latar belakang gambar kustom.
+- **Kompres Gambar**: Mengecilkan ukuran foto JPG, PNG, dan WebP hingga 80% dengan kualitas visual optimal.
+- **Potong Foto / Pas Foto**: Pemotongan gambar dengan preset rasio resmi (Pas Foto 3:4, 4:6, Persegi 1:1, atau rasio bebas).
+- **Konversi Format Gambar**: Konversi format berkas secara batch antara WebP, PNG, dan JPG.
+- **Ubah Ukuran (Resize)**: Menyesuaikan dimensi piksel atau persentase skala dengan pengunci rasio aspek (*aspect-ratio lock*).
+- **Watermark Foto**: Menambahkan cap teks hak cipta pada posisi tengah atau sudut berkas secara batch.
 
-![9Drive dashboard preview](https://i.ibb.co.com/HLjG3JRf/image.png)
+#### 🎬 Video & Audio Suite (`/tools/video`)
+- **Ekstrak Audio Video**: Mengambil dan mengubah suara dari video (MP4, WebM, MOV) menjadi berkas audio jernih (`.wav`) langsung di browser.
 
-![9Drive shared file preview](https://i.ibb.co.com/QLpYGmx/image.png)
+#### 📊 Utilitas Data & Berkas (`/tools/data`)
+- **CSV ⇄ JSON Converter**: Konversi dua arah data tabel CSV dan format JSON secara instan dengan auto-formatting rapi.
+- **File Hash & Checksum**: Menghitung sidik jari digital (SHA-256) berkas untuk memverifikasi keaslian dan integritas dokumen.
+- **Base64 Encoder / Decoder**: Mengubah berkas atau gambar menjadi teks kode data Base64 untuk kebutuhan embedding web atau konfigurasi.
 
-## Star History
+#### 🔄 Integrasi Seamless dengan 9Drive
+- **Drive File Picker Modal**: Ambil berkas langsung dari folder 9Drive untuk langsung diproses di dalam tools tanpa perlu mengunduh ke komputer lokal terlebih dahulu.
+- **Save Destination Modal**: Simpan hasil olahan tools langsung kembali ke folder 9Drive yang dipilih, atau unduh ke perangkat lokal sebagai file tunggal maupun arsip ZIP otomatis.
 
-[![Star History Chart](https://star-history.dera.page/svg?repos=zenhosta/9drive&type=Date)](https://star-history.dera.page/#zenhosta/9drive&type=Date)
+---
 
-## Project Structure
+### 3. ⚡ High-Performance CDN Media Gateway (`/cdn`)
+Gerbang pengiriman media berkinerja tinggi untuk kebutuhan embedding gambar, video, dan berkas statis:
+- **Tautan Streaming & Pratinjau Publik**:
+  - `GET /cdn/view/:id`: Pengiriman berkas dengan header `inline` disposition. Sangat optimal untuk tag HTML `<img>`, `<video>`, audio player, maupun pratinjau dokumen di web eksternal.
+  - `GET /cdn/raw/:id`: Pengiriman berkas dengan header `attachment` untuk unduhan langsung.
+- **Dukungan HTTP 206 Partial Content (Range Requests)**: Memungkinkan penonton video atau pendengar audio melakukan seeking/scrubbing timeline tanpa harus mengunduh keseluruhan berkas.
+- **Mekanisme Caching Agresif**: Mendukung header `ETag`, `Last-Modified`, validasi `If-None-Match` (HTTP 304 Not Modified), serta `Cache-Control: public, max-age=31536000, immutable` untuk menghemat bandwidth server.
+- **Dynamic Open CORS**: Mengizinkan akses lintas domain (`*`) khusus untuk jalur `/cdn`, `/api`, dan `/public`.
+- **One-Click CDN Link & Embed Modal**: Generator kode siap pakai di antarmuka (Direct URL, Tag HTML `<img>`, dan sintaks Markdown).
+
+---
+
+### 4. 🔌 External Upload API & Developer Hub (`/api`)
+- **Manajemen API Key Terpadu (`/api`)**:
+  - Pembuatan API Key aman dengan hashing token (SHA-256) di database dan tampilan rahasia satu kali (*one-time secret modal*).
+  - Pembatasan izin akses (*scope permissions*, misalnya `files:upload`).
+  - Pemantauan waktu penggunaan terakhir (*last-used tracking*) dan pencabutan kunci (*revocation*).
+- **Endpoint Unggah Publik**: `POST /api/v1/uploads` dengan otentikasi header `X-API-Key` atau `Authorization: Bearer <API_KEY>`.
+- **Dokumentasi SDK Interaktif In-App**: Contoh kode siap pakai untuk cURL, Node.js (fetch & axios), Python, PHP, dan Bash testing script bawaan (`test-external-upload.ts`).
+- **Target Folder & Routing Fleksibel**: Berkas eksternal dapat diarahkan langsung ke ID folder virtual tertentu serta mengikuti kebijakan alokasi akun penyimpanan yang aktif.
+
+---
+
+### 5. ☁️ Multi-Account & Storage Gateway
+- **Multi-Account Google Drive**: Hubungkan beberapa akun Google Drive dalam satu akun 9Drive untuk menggabungkan total kapasitas penyimpanan cloud.
+- **S3-Compatible Storage Gateway**: Mendukung integrasi MinIO, Cloudflare R2, Wasabi, Backblaze B2, dan AWS S3.
+- **Upload Routing Policies**: Kebijakan alokasi unggahan cerdas:
+  - *Most-Available*: Mengunggah ke akun dengan sisa kuota terbesar.
+  - *Round-Robin*: Distribusi bergantian secara merata antar akun.
+  - *Priority-Order*: Memenuhi akun utama terlebih dahulu sebelum beralih ke akun sekunder.
+- **Direct Stream Upload**: Berkas dialirkan langsung (*piped stream*) dari pengguna ke Google Drive / S3 storage gateway tanpa pernah disimpan di disk lokal server.
+- **Quota Tracker**: Visualisasi pemakaian penyimpanan, persentase kuota, dan breakdown kapasitas per akun.
+
+---
+
+### 6. 🔗 Smart Sharing & Permission System
+- **Dialog Berbagi Interaktif (`ShareModal`)**:
+  - Konfigurasi izin akses: *Restricted* (hanya akun tertentu) atau *Anyone with the link* (publik).
+  - Penentuan hak akses: *Viewer*, *Commenter*, dan *Editor*.
+- **Deteksi Izin Warisan (*Inherited Permission Origin*)**: Secara otomatis mendeteksi jika suatu berkas mewarisi status publik dari folder induknya, serta menyediakan opsi langsung untuk mengatur izin folder asalnya.
+- **Halaman Berbagi (`/shared`)**: Tampilan tab terpisah untuk berkas yang dibagikan kepada Anda (*Shared with me*) dan berkas yang Anda bagikan ke orang lain (*Shared by me*).
+- **Halaman Berbintang (`/starred`) & Sampah (`/trash`)**: Manajemen berkas favorit yang terhubung ke Google Drive API, serta pemulihan atau penghapusan permanen dari tempat sampah.
+
+---
+
+### 7. ⚙️ Manajemen Konfigurasi & Pembaruan Sistem
+- **Konfigurasi Google OAuth via UI**: Input Google Client ID, Client Secret, dan Redirect URI langsung melalui halaman **Settings -> Google Credentials** di dashboard tanpa wajib menjalankan seed manual terminal. Kredensial dienkripsi aman (AES-256) di database MySQL.
+- **Automated In-App Updates (PM2)**: Menu pembaruan sistem sekali klik di UI Settings yang menjalankan git pull, migrasi Prisma, build aset, dan restart layanan backend otomatis dengan monitor log langsung.
+- **Monorepo Dev Runner**: Satu perintah di root workspace untuk menjalankan frontend dan backend secara bersamaan.
+
+---
+
+## 📁 Struktur Direktori Repositori
 
 ```txt
-backend/   Express API, Prisma schema, Google Drive integration
-frontend/  Vite React app
+9drive/
+├── backend/                  # API Server (Express + TypeScript + Prisma)
+│   ├── prisma/               # Skema database & file migrasi MySQL
+│   └── src/
+│       ├── config/           # Konfigurasi env & Prisma client
+│       ├── middleware/       # Otentikasi JWT, API Key, dan error handler
+│       ├── modules/
+│       │   ├── api-keys/     # Pengelolaan API Key developer
+│       │   ├── audit-logs/   # Pencatatan riwayat aktivitas pengguna
+│       │   ├── auth/         # Registrasi, login, dan refresh token
+│       │   ├── cdn/          # High-performance CDN media streaming gateway
+│       │   ├── connected-accounts/ # Manajemen multi-akun Google Drive
+│       │   ├── files/        # Manipulasi berkas, streaming, dan preview
+│       │   ├── folders/      # Virtual folder tree management
+│       │   ├── google/       # Integrasi Google Drive API & OAuth
+│       │   ├── public-api/   # Endpoint REST API publik (/api/v1/uploads)
+│       │   ├── storage/      # Ringkasan kuota dan manajemen penyimpanan
+│       │   ├── system/       # Updater otomatis & status sistem
+│       │   └── uploads/      # Multi-part upload streaming engine
+│       └── scripts/          # Script pengujian upload eksternal & seeding
+│
+├── frontend/                 # Aplikasi Web Client (React 18 + Vite + Tailwind/MD3)
+│   └── src/
+│       ├── components/
+│       │   ├── drive/        # UI Google Drive MD3 (FileGrid, ContextMenu, Drawer, ShareModal, dll)
+│       │   ├── tools/        # UI Tools Suite (Picker, BeforeAfterPreview, SaveDestination, Icons)
+│       │   └── ui/           # Komponen atomik UI (Buttons, Inputs, Dialogs, Cards)
+│       ├── context/          # State context (DriveFilter, UploadManager, ToastNotification)
+│       ├── layouts/          # Layout utama Drive (Sidebar, Header, Main Content Area)
+│       ├── lib/tools/        # Core engine tools (PDF, Image, Video-to-audio, Background removal AI)
+│       └── pages/
+│           ├── tools/        # Halaman Tools Hub, PDF View, Image View, Video View, Data View, RemoveBG
+│           ├── AllFilesPage.tsx
+│           ├── ApiManagementPage.tsx
+│           ├── QuotaTrackerPage.tsx
+│           ├── SettingsPage.tsx
+│           ├── SharedPage.tsx
+│           ├── StarredPage.tsx
+│           └── TrashPage.tsx
+│
+├── setup.ps1                 # Script setup otomatis untuk Windows PowerShell
+├── setup.sh                  # Script setup otomatis untuk Linux/macOS
+├── docker-compose.yml        # Orchestration Docker (MySQL + Backend + Frontend)
+└── package.json              # Monorepo root dev runner (concurrently)
 ```
 
-## Requirements
+---
 
-- Node.js 20+
-- npm
-- MySQL running locally
-- Google Cloud project
-- Google OAuth Client ID and Client Secret
+## 💻 Prasyarat Sistem
 
-Default database used by this project:
+- **Node.js**: Versi 20 LTS atau lebih baru
+- **NPM**: Versi 10+
+- **MySQL**: Versi 8.0+ berjalan secara lokal atau via Docker
+- **Google Cloud Project**:
+  - Mengaktifkan **Google Drive API**
+  - Mengonfigurasi **OAuth Consent Screen**
+  - Membuat **OAuth 2.0 Client ID** (Web Application)
 
+Default basis data MySQL yang digunakan pada development lokal:
 ```txt
-host: localhost
-port: 3306
-database: 9drive
-user: root
-password: empty
+Host:     localhost
+Port:     3306
+Database: 9drive
+User:     root
+Password: (kosong / sesuaikan dengan konfigurasi MySQL Anda)
 ```
 
-## 1. Quick Setup & Installation (Recommended)
+---
 
-The easiest way to prepare the project is using the automated setup script. It generates local environment files with secure keys, installs dependencies, and generates the Prisma client. MySQL 8+ must already be running for local development; Docker setup includes MySQL.
+## 🚀 Panduan Instalasi & Menjalankan Proyek
 
-### Windows (PowerShell)
-Make sure to open PowerShell and navigate to the project directory first. For example, if you cloned the project to `E:\AUTO KLIK\9Drive`:
+### Cara 1: Setup Otomatis Menggunakan Script (Direkomendasikan)
 
+Script setup akan secara otomatis memasang seluruh dependensi backend dan frontend, membuat berkas `.env` dengan token acak yang aman, serta membuat skema database Prisma.
+
+#### Windows (PowerShell)
+Buka PowerShell di direktori `9drive`:
 ```powershell
-# 1. Switch to the drive where the project is located (if necessary)
-E:
-
-# 2. Navigate to the project folder
-cd "E:\AUTO KLIK\9Drive"
-
-# 3. Run the automated setup script
 powershell -ExecutionPolicy Bypass -File .\setup.ps1
 ```
 
-### Linux/macOS
-
+#### Linux / macOS
+Buka Terminal di direktori `9drive`:
 ```bash
-bash ./setup.sh
-```
-
-Enter your MySQL connection URL when prompted. Google Client ID/Secret can be skipped and configured later.
-
-Once setup is complete, apply migrations and start backend and frontend in separate terminals:
-
-```bash
-cd backend
-npm run prisma:migrate
-npm run dev
-```
-
-```bash
-cd frontend
-npm run dev
+chmod +x ./setup.sh
+./setup.sh
 ```
 
 ---
 
-## 2. Manual Installation (Alternative)
+### Cara 2: Setup Manual & Menjalankan Monorepo
 
-If you prefer to configure the project manually:
-
-### 2.1 Install Dependencies
-Install backend dependencies:
-
+#### 1. Pasang Dependensi
+Dari direktori root proyek `9drive`:
 ```bash
-cd backend
+# Pasang dependensi monorepo runner
 npm install
+
+# Pasang dependensi backend dan frontend
+npm run install:all
 ```
 
-Install frontend dependencies:
-
-```bash
-cd ../frontend
-npm install
-```
-
-### 2.2 Create Database (For MySQL)
-Create a database:
+#### 2. Buat Basis Data MySQL
+Pastikan server MySQL Anda telah aktif, lalu buat basis data:
 ```sql
-CREATE DATABASE 9drive;
-```
-If using MySQL CLI:
-```bash
-mysql -u root -e "CREATE DATABASE IF NOT EXISTS 9drive;"
+CREATE DATABASE IF NOT EXISTS 9drive;
 ```
 
-### 2.3 Environment Setup
-
-
-Create `backend/.env`:
-
+#### 3. Konfigurasi Berkas Environment
+Salin konfigurasi default atau buat berkas `backend/.env`:
 ```env
 DATABASE_URL="mysql://root@localhost:3306/9drive"
 APP_PORT=4000
 FRONTEND_URL="http://localhost:5173"
-JWT_ACCESS_SECRET="change-this-jwt-secret-at-least-32-chars"
-TOKEN_ENCRYPTION_KEY="change-this-encryption-key-32bytes!"
+JWT_ACCESS_SECRET="ganti-dengan-secret-jwt-acak-minimal-32-karakter"
+TOKEN_ENCRYPTION_KEY="kunci-enkripsi-tepat-32-karakter-key!"
 ACCESS_TOKEN_TTL_SECONDS=900
 REFRESH_TOKEN_TTL_DAYS=30
 MAX_UPLOAD_BYTES=5368709120
 RECAPTCHA_SECRET_KEY=""
 
-# Used only by `npm run seed:google-config`.
-# These values are encrypted and stored in DB as global Google OAuth config.
+# (Opsional) Kredensial Google OAuth juga dapat diisi langsung via UI Settings
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 GOOGLE_REDIRECT_URI="http://localhost:4000/connected-accounts/google/callback"
 ```
 
-Important:
-
-- `JWT_ACCESS_SECRET` should be long and random.
-- `TOKEN_ENCRYPTION_KEY` should be long and random.
-- Do not commit `backend/.env`.
-- Google OAuth credentials are used by the seed script, then stored encrypted in the database.
-
-## 4. Frontend Environment
-
-Create or confirm `frontend/.env`:
-
+Buat berkas `frontend/.env`:
 ```env
 VITE_API_URL=http://localhost:4000
 VITE_RECAPTCHA_SITE_KEY=
 ```
 
-Captcha is disabled when `VITE_RECAPTCHA_SITE_KEY` or backend `RECAPTCHA_SECRET_KEY` is empty. Set both values to enable captcha on registration.
-
-## 5. Run Prisma Migrations
-
+#### 4. Jalankan Migrasi Database Prisma
 ```bash
 cd backend
 npm run prisma:migrate
+cd ..
 ```
 
-If Prisma client generation is blocked on Windows by a running Node process, stop running backend/frontend dev servers and run:
-
+#### 5. Jalankan Development Server (Monorepo)
+Jalankan satu perintah di folder root `9drive` untuk memulai backend dan frontend secara bersamaan:
 ```bash
-npx prisma generate
-```
-
-## 6. Google Cloud Setup
-
-Google setup is done in Google Cloud Console, not Google Search Console. Google Search Console is for website indexing/search ownership. OAuth and Drive API are managed in Google Cloud Console.
-
-Open Google Cloud Console:
-
-```txt
-https://console.cloud.google.com/
-```
-
-### 6.1 Create Or Select Project
-
-1. Open Google Cloud Console.
-2. Click project selector in top bar.
-3. Create a new project or select an existing project.
-4. Remember the project name because OAuth client and Drive API must be in the same project.
-
-### 6.2 Enable Google Drive API
-
-1. Go to:
-
-```txt
-APIs & Services -> Library
-```
-
-2. Search:
-
-```txt
-Google Drive API
-```
-
-3. Open `Google Drive API`.
-4. Click `Enable`.
-5. Wait a few minutes if Google says the API was enabled recently.
-
-Direct URL pattern:
-
-```txt
-https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=YOUR_PROJECT_ID
-```
-
-If Google Drive API is disabled, you will see an error like:
-
-```txt
-Google Drive API has not been used in project ... before or it is disabled.
-```
-
-### 6.3 Configure OAuth Consent Screen
-
-1. Go to:
-
-```txt
-APIs & Services -> OAuth consent screen
-```
-
-2. Choose app type:
-
-```txt
-External
-```
-
-3. Fill required fields:
-
-```txt
-App name
-User support email
-Developer contact email
-```
-
-4. Add scopes:
-
-```txt
-https://www.googleapis.com/auth/drive
-https://www.googleapis.com/auth/userinfo.email
-https://www.googleapis.com/auth/userinfo.profile
-```
-
-Full Drive access is required so Google sign-in can connect the first Drive account automatically and sync files manually added to the `9drive` folder.
-
-5. If publishing status is `Testing`, add test users.
-
-Add every Google account that will test the app:
-
-```txt
-OAuth consent screen -> Test users -> Add users
-```
-
-If you do not add test users, Google may show:
-
-```txt
-Access blocked: app has not completed the Google verification process
-Error 403: access_denied
-```
-
-### 6.4 Create OAuth Client
-
-1. Go to:
-
-```txt
-APIs & Services -> Credentials
-```
-
-2. Click:
-
-```txt
-Create Credentials -> OAuth client ID
-```
-
-3. Application type:
-
-```txt
-Web application
-```
-
-4. Add authorized JavaScript origin:
-
-```txt
-http://localhost:5173
-```
-
-5. Add authorized redirect URI:
-
-```txt
-http://localhost:4000/connected-accounts/google/callback
-```
-
-6. Click Create.
-7. Copy:
-
-```txt
-Client ID
-Client Secret
-```
-
-### 6.5 Seed Google OAuth Config
-
-Put values into `backend/.env`:
-
-```env
-GOOGLE_CLIENT_ID="your-client-id"
-GOOGLE_CLIENT_SECRET="your-client-secret"
-GOOGLE_REDIRECT_URI="http://localhost:4000/connected-accounts/google/callback"
-```
-
-Then run:
-
-```bash
-cd backend
-npm run seed:google-config
-```
-
-This stores the Google OAuth config as a global encrypted provider config in MySQL. Google sign-in uses the same config and automatically connects the first Drive account. Logged-in users can still click `Connect Drive` in Settings to add more Drive accounts.
-
-## 7. Run Development Servers
-
-Start backend:
-
-```bash
-cd backend
 npm run dev
 ```
 
-Backend runs at:
+Aplikasi dapat langsung diakses pada:
+- **Frontend Dashboard**: [http://localhost:5173](http://localhost:5173)
+- **Backend API & CDN**: [http://localhost:4000](http://localhost:4000)
 
-```txt
-http://localhost:4000
-```
+*(Opsional jika ingin menjalankan terpisah: `npm run dev:backend` dan `npm run dev:frontend`)*
 
-Start frontend:
+---
 
-```bash
-cd frontend
-npm run dev
-```
+### Cara 3: Menjalankan Menggunakan Docker Compose
 
-Frontend runs at:
+1. Siapkan berkas `.env` dari template Docker:
+   ```bash
+   cp .env.docker.example .env
+   ```
+2. Sesuaikan konfigurasi di `.env` (isi password MySQL, kredensial Google, dan secret token).
+3. Bangun dan jalankan seluruh container:
+   ```bash
+   docker compose up -d --build
+   ```
+4. Layanan akan berjalan pada:
+   - Frontend: `http://localhost:5173`
+   - Backend: `http://localhost:4000`
+   - MySQL: `localhost:3306`
 
-```txt
-http://localhost:5173
-```
+---
 
-## Docker Deployment
+## 🌐 Konfigurasi Google Cloud Console
 
-This repository includes Docker files for running MySQL, backend, and frontend together.
+1. Buka [Google Cloud Console](https://console.cloud.google.com/).
+2. Buat atau pilih proyek Google Cloud Anda.
+3. Buka **APIs & Services** -> **Library**, cari **Google Drive API**, lalu klik **Enable**.
+4. Buka **APIs & Services** -> **OAuth consent screen**:
+   - Pilih jenis pengguna: **External**.
+   - Masukkan nama aplikasi dan email dukungan pengembang.
+   - Tambahkan scopes berikut:
+     ```txt
+     https://www.googleapis.com/auth/drive
+     https://www.googleapis.com/auth/userinfo.email
+     https://www.googleapis.com/auth/userinfo.profile
+     ```
+   - Di bagian **Test users**, tambahkan alamat email Google yang akan digunakan untuk pengujian aplikasi.
+5. Buka **APIs & Services** -> **Credentials**:
+   - Klik **Create Credentials** -> **OAuth client ID**.
+   - Pilih tipe: **Web application**.
+   - **Authorized JavaScript origins**:
+     ```txt
+     http://localhost:5173
+     ```
+   - **Authorized redirect URIs**:
+     ```txt
+     http://localhost:4000/connected-accounts/google/callback
+     ```
+   - Simpan dan salin **Client ID** serta **Client Secret**.
+6. Simpan kredensial tersebut ke dalam aplikasi melalui menu **Settings** -> **Google Credentials** pada dashboard 9Drive.
 
-Files:
+---
 
-```txt
-docker-compose.yml
-.env.docker.example
-backend/Dockerfile
-frontend/Dockerfile
-frontend/nginx.conf
-```
+## 📡 Ringkasan Endpoint API
 
-### 1. Prepare Docker Env
+### Otentikasi & Akun
+- `POST /auth/register` — Pendaftaran akun pengguna baru
+- `POST /auth/login` — Masuk dengan email & kata sandi
+- `GET /auth/google/url` — Inisiasi login cepat via Google
+- `POST /auth/google/exchange` — Pertukaran kode otentikasi Google
+- `POST /auth/refresh` — Memperbarui token akses JWT
+- `GET /auth/me` — Mendapatkan profil pengguna saat ini
 
-Copy the example env file:
+### CDN Media Streaming
+- `GET /cdn/view/:id` — Streaming media publik inline (untuk tag `<img>`, video player, dll)
+- `GET /cdn/raw/:id` — Unduhan langsung berkas publik (attachment disposition)
+- `GET /cdn/:id` — Redirect otomatis ke endpoint view
 
-```bash
-cp .env.docker.example .env
-```
+### Developer Public API
+- `POST /api/v1/uploads` — Mengunggah berkas menggunakan API Key (`X-API-Key`)
 
-On Windows PowerShell:
+### Manajemen Berkas & Folder
+- `GET /files` — Mendapatkan daftar berkas (mendukung parameter `folderId`, `q`, `mimeType`, `accountId`)
+- `POST /uploads` — Mengunggah berkas ke Drive/S3 via dashboard (multipart streaming)
+- `PATCH /files/:id` — Mengubah nama atau metadata berkas
+- `DELETE /files/:id` — Memindahkan berkas ke sampah atau menghapus permanen
+- `POST /files/:id/share` — Membuat tautan berbagi publik
+- `GET /folders` — Mendapatkan susunan pohon folder virtual
+- `POST /folders` — Membuat folder virtual baru
 
-```powershell
-Copy-Item .env.docker.example .env
-```
+### Penyimpanan & Akun Terhubung
+- `GET /connected-accounts` — Daftar akun Google Drive & S3 yang terhubung
+- `GET /storage/summary` — Statistik agregasi total kuota dan penggunaan penyimpanan
+- `POST /connected-accounts/:id/sync-quota` — Sinkronisasi ulang kuota dari Google Drive
 
-Edit `.env`:
+---
 
-```env
-MYSQL_ROOT_PASSWORD=root
-MYSQL_DATABASE=9drive
+## 🔒 Catatan Keamanan
 
-FRONTEND_URL=http://localhost:5173
-VITE_API_URL=http://localhost:4000
-VITE_RECAPTCHA_SITE_KEY=
+1. **Keamanan Streaming**: Berkas unggahan dialirkan langsung (*piped stream*) dari antarmuka ke cloud provider target. Server backend tidak pernah menyimpan salinan berkas di disk lokal.
+2. **Enkripsi Kredensial**: Token akses OAuth, refresh token Google, dan API secret disimpan dalam database MySQL menggunakan enkripsi AES-256 (`TOKEN_ENCRYPTION_KEY`).
+3. **Penyimpanan Token Sesi**: Hash SHA-256 digunakan untuk menyimpan token refresh dan API Key, mencegah kebocoran kredensial mentah saat terjadi database dump.
+4. **Isolasi Lingkungan**: Berkas `.env` telah didaftarkan dalam `.gitignore` dan tidak boleh di-commit ke repositori publik.
 
-JWT_ACCESS_SECRET=replace-with-long-random-secret
-TOKEN_ENCRYPTION_KEY=replace-with-long-random-secret
-RECAPTCHA_SECRET_KEY=
+---
 
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:4000/connected-accounts/google/callback
-```
+## 🛠️ Build untuk Produksi
 
-Captcha is disabled when either `VITE_RECAPTCHA_SITE_KEY` or `RECAPTCHA_SECRET_KEY` is empty.
-
-### 2. Start Containers
-
-```bash
-docker compose up -d --build
-```
-
-Services:
-
-```txt
-frontend: http://localhost:5173
-backend:  http://localhost:4000
-mysql:    localhost:3306
-```
-
-The backend container runs Prisma migrations automatically on startup:
-
-```txt
-npm run db:migrate:deploy
-```
-
-This applies pending migrations such as S3 storage support before the API starts, so deployments from an older database can update safely without dropping data.
-
-It also seeds the global Google OAuth config automatically when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set to real values in `.env`. If those values are blank or still placeholders, the backend still starts and logs a warning. Google connect/sign-in will be unavailable until you set real Google OAuth credentials and restart the stack:
-
-```bash
-docker compose up -d --build
-```
-
-### 3. Seed Google OAuth Config Manually
-
-Automatic Docker startup seeding is usually enough. If you update Google OAuth values while containers are already running, seed the global Google OAuth config manually:
-
-```bash
-docker compose exec backend npm run seed:google-config
-```
-
-This stores `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` from Docker env into MySQL as encrypted global config.
-
-### 4. View Logs
+Untuk menghasilkan bundle produksi:
 
 ```bash
-docker compose logs -f backend
-docker compose logs -f frontend
-docker compose logs -f mysql
-```
-
-### 5. Stop Containers
-
-```bash
-docker compose down
-```
-
-Remove database volume too:
-
-```bash
-docker compose down -v
-```
-
-### Docker Production Notes
-
-- Replace localhost URLs with production domain.
-- Update Google OAuth authorized JavaScript origin.
-- Update Google OAuth redirect URI.
-- Use strong `JWT_ACCESS_SECRET` and `TOKEN_ENCRYPTION_KEY`.
-- Do not expose MySQL port publicly in production.
-- Put frontend/backend behind HTTPS reverse proxy.
-- Rebuild frontend when `VITE_API_URL` changes because Vite embeds env at build time.
-- Rebuild frontend when `VITE_RECAPTCHA_SITE_KEY` changes because Vite embeds env at build time.
-
-### VPS Deployment (Step-by-Step)
-
-Follow these steps to deploy 9Drive to a VPS (such as Ubuntu/Debian) using Docker:
-
-#### 1. Install Docker & Docker Compose on your VPS
-```bash
-sudo apt update
-sudo apt install -y docker.io docker-compose
-sudo systemctl enable --now docker
-```
-
-#### 2. Clone the Repository
-```bash
-git clone https://github.com/your-github-username/9drive.git
-cd 9drive
-```
-
-#### 3. Setup the Production Environment
-Copy the example environment file to `.env`:
-```bash
-cp .env.docker.example .env
-```
-Edit the `.env` file (e.g., `nano .env`) and configure the values for your production VPS domain/IP:
-* **`FRONTEND_URL`**: Set to your public domain or VPS IP (e.g., `http://103.xxx.xxx.xxx:5173` or `https://9drive.yourdomain.com`).
-* **`VITE_API_URL`**: Set to your public backend URL (e.g., `http://103.xxx.xxx.xxx:4000` or `https://api.9drive.yourdomain.com`).
-* **`GOOGLE_REDIRECT_URI`**: Set to your public redirect callback URL (e.g., `http://103.xxx.xxx.xxx:4000/connected-accounts/google/callback`).
-* Set secure credentials for **`JWT_ACCESS_SECRET`** and **`TOKEN_ENCRYPTION_KEY`** (encryption key must be exactly 32 characters/bytes).
-* Add your **`GOOGLE_CLIENT_ID`** and **`GOOGLE_CLIENT_SECRET`**.
-
-#### 4. Deploy the Containers
-Run Docker Compose to build and start the database, backend, and frontend containers in the background:
-```bash
-docker compose up -d --build
-```
-
-#### 5. Seed the Google Configuration
-Initialize the encrypted Google configuration in the database:
-```bash
-docker compose exec backend npm run seed:google-config
-```
-
-#### 6. Add Authorized URIs in Google Cloud Console
-1. Go to **APIs & Services** -> **Credentials** in the Google Cloud Console.
-2. Edit your OAuth 2.0 Web Client.
-3. In **Authorized JavaScript origins**, add your frontend URL (e.g., `http://your-vps-ip:5173` or `https://9drive.yourdomain.com`).
-4. In **Authorized redirect URIs**, add your redirect URI (e.g., `http://your-vps-ip:4000/connected-accounts/google/callback` or `https://api.9drive.yourdomain.com/connected-accounts/google/callback`).
-5. Save changes.
-
-### Non-Docker Production Startup
-
-Run production migrations before starting the backend:
-
-```bash
-cd backend
-npm run db:migrate:deploy
-npm run start
-```
-
-Or use the combined command:
-
-```bash
-cd backend
-npm run start:deploy
-```
-
-`npm run db:migrate:deploy` uses Prisma production migrations and does not reset the database. If Prisma reports migration drift, stop the deploy and repair migration history first; do not run `prisma migrate reset` on production.
-
-## 8. Manual Test Flow
-
-1. Open frontend:
-
-```txt
-http://localhost:5173
-```
-
-2. Register a user with email/password and captcha, or click `Continue with Google and connect Drive`.
-3. If using Google sign-in, approve Drive access once and confirm `/settings` already shows the connected account.
-4. If using email/password, open `Settings`, click `Connect Drive`, approve access, and confirm the account appears.
-5. Open `Quota Tracker`.
-6. Confirm quota appears.
-7. Open `All Files`.
-8. Create nested virtual folders.
-9. Upload a file and confirm it appears under Google Drive root folder `9drive`.
-10. Add or remove a file manually inside Google Drive folder `9drive`, then click `Sync Drive` in All Files.
-11. Watch bottom-right upload progress.
-12. Right-click file row for actions:
-
-```txt
-View
-Download
-Rename
-Move to Folder
-Delete
-```
-
-## API Overview
-
-Auth:
-
-```txt
-POST /auth/register
-POST /auth/login
-GET /auth/google/url
-GET /auth/google/callback
-POST /auth/google/exchange
-POST /auth/refresh
-POST /auth/logout
-GET /auth/me
-```
-
-Google accounts:
-
-```txt
-GET /connected-accounts/google/connect-url
-GET /connected-accounts/google/callback
-GET /connected-accounts
-POST /connected-accounts/:id/sync-quota
-DELETE /connected-accounts/:id
-```
-
-Storage:
-
-```txt
-GET /storage/summary
-```
-
-Folders:
-
-```txt
-GET /folders
-GET /folders/recent?limit=4
-POST /folders
-DELETE /folders/:id
-```
-
-Files:
-
-```txt
-GET /files
-GET /files?folderId=<id>
-GET /files?q=<search>
-GET /files/shared-links
-GET /files/:id
-PATCH /files/:id
-PATCH /files/batch
-DELETE /files/batch
-POST /files/sync-google
-POST /files/:id/share
-DELETE /files/:id/share
-POST /files/:id/preview-token
-GET /files/:id/view-url
-GET /files/:id/download
-DELETE /files/:id
-GET /files/preview/:token
-```
-
-Uploads:
-
-```txt
-POST /uploads
-```
-
-Upload is `multipart/form-data`. Metadata fields should be appended before the file:
-
-```txt
-sizeBytes
-fileName
-mimeType
-folderId optional
-file
-```
-
-## Security Notes
-
-- Backend never stores uploaded files on disk.
-- Uploads are streamed through the backend to Google Drive folder `9drive`.
-- Google tokens are encrypted in MySQL.
-- Refresh tokens for app sessions are hashed in MySQL.
-- Google auth handoff tokens, public share tokens, and preview tokens are hashed before lookup/use.
-- `backend/.env` is ignored by git.
-- Do not expose `TOKEN_ENCRYPTION_KEY`, `JWT_ACCESS_SECRET`, `RECAPTCHA_SECRET_KEY`, OAuth client secrets, or raw share/preview/handoff tokens.
-
-## Production Notes
-
-- Replace localhost redirect URIs with production URLs.
-- Add production domain to Google OAuth authorized origins.
-- Set OAuth consent screen to production when ready.
-- Google may require verification for public apps.
-- Use strong secrets.
-- Put the backend behind HTTPS.
-- Consider secure cookies or stronger token storage for production.
-
-## Google OAuth Configuration via UI
-
-Instead of seeding Google credentials manually using `npm run seed:google-config`, you can set them up directly from the frontend dashboard:
-1. Log in to the dashboard.
-2. Go to **Settings** -> **Google Credentials**.
-3. Input your **Google Client ID**, **Google Client Secret**, and **Redirect URI** (e.g. `https://103.65.237.136.nip.io:4000/connected-accounts/google/callback`).
-4. Click **Save Configuration**.
-
-The config is automatically encrypted and saved into the database, enabling Google sign-in and Google Drive connections instantly.
-
-## Automated Updates & PM2 Management
-
-For native VPS setups running with PM2, 9Drive includes a fully automated system update trigger and log monitor in the **Settings** UI.
-
-### How it works
-1. When you trigger an update from the frontend dashboard, the backend triggers the `update.sh` script in the background.
-2. The script:
-   - Resets any local Git conflicts (`git reset --hard`) and pulls the latest changes.
-   - Installs dependencies and builds both backend and frontend.
-   - Deploys Prisma database migrations.
-   - Restarts the backend process using PM2 (`pm2 restart 9drive-backend`).
-3. You can monitor the real-time rebuild progress using the log viewer inside the Settings UI.
-
-### Manual update command
-If you want to update manually via the terminal, run:
-```bash
-./update.sh
-```
-Or run the commands individually:
-```bash
-git reset --hard
-git pull origin main
-cd backend && npm install && npx prisma generate && npm run build && npx prisma migrate deploy
-cd ../frontend && npm install && npm run build
-pm2 restart 9drive-backend
-```
-
-## Build
-
-Backend:
-
-```bash
-cd backend
+# Build frontend dan backend secara bersamaan
 npm run build
 ```
 
-Frontend:
+Bundle produksi yang dihasilkan:
+- **Backend**: Berada di `backend/dist` (dijalankan dengan `node dist/server.js`)
+- **Frontend**: Berada di `frontend/dist` (dapat disajikan via Nginx atau static file server)
 
-```bash
-cd frontend
-npm run build
-```
+---
+
+## 📄 Lisensi
+
+Didistribusikan di bawah lisensi Apache 2.0. Lihat berkas [LICENSE](LICENSE) untuk informasi lisensi selengkapnya.

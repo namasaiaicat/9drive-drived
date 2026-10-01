@@ -6,24 +6,29 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
-  Play,
   RefreshCw,
+  RotateCcw,
   Stamp,
 } from 'lucide-react'
 import {
   compressImage,
   convertImageFormat,
+  cropImage,
   resizeImage,
   watermarkImage,
 } from '@/lib/tools/image-service'
+import { Crop } from 'lucide-react'
+import { ToolUploadHero } from '@/components/tools/ToolUploadHero'
+import { ToolProcessingCard } from '@/components/tools/ToolProcessingCard'
 import { BatchFileQueue, type BatchItem } from '@/components/tools/BatchFileQueue'
 import { DriveFilePickerModal } from '@/components/tools/DriveFilePickerModal'
 import { SaveDestinationModal, type ProcessedFileItem } from '@/components/tools/SaveDestinationModal'
+import { downloadBlob, bundleAndDownloadZip } from '@/lib/tools/zip-service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/context/ToastContext'
 
-type ImageSubTool = 'compress' | 'convert' | 'resize' | 'watermark'
+type ImageSubTool = 'compress' | 'convert' | 'resize' | 'crop' | 'watermark'
 
 export function ImageToolsView() {
   const navigate = useNavigate()
@@ -35,14 +40,21 @@ export function ImageToolsView() {
   const setTool = (mode: ImageSubTool) => {
     setSearchParams({ mode })
     setQueue([])
+    setSelectedIds([])
     setProcessedResults([])
   }
 
   const [queue, setQueue] = useState<BatchItem[]>([])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [processedResults, setProcessedResults] = useState<ProcessedFileItem[]>([])
   const [drivePickerOpen, setDrivePickerOpen] = useState(false)
   const [saveModalOpen, setSaveModalOpen] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Sync selectedIds with queue
+  useEffect(() => {
+    setSelectedIds(queue.map((q) => q.id))
+  }, [queue.length])
 
   // Compress Settings
   const [compressQuality, setCompressQuality] = useState(0.8)
@@ -55,6 +67,9 @@ export function ImageToolsView() {
   const [customWidth, setCustomWidth] = useState<string>('')
   const [customHeight, setCustomHeight] = useState<string>('')
   const [maintainAspect, setMaintainAspect] = useState(true)
+
+  // Crop Settings
+  const [cropRatio, setCropRatio] = useState<'1:1' | '3:4' | '4:6' | '16:9'>('1:1')
 
   // Watermark Settings
   const [watermarkText, setWatermarkText] = useState('© 9Drive Studio')
@@ -87,11 +102,17 @@ export function ImageToolsView() {
       thumbnailUrl: URL.createObjectURL(file),
     }))
 
-    setQueue((prev) => [...prev, ...newItems])
+    const nextQueue = [...queue, ...newItems]
+    setQueue(nextQueue)
+
+    // Auto-process for compress & convert modes (TinyWow style)
+    if (currentTool === 'compress' || currentTool === 'convert') {
+      setTimeout(() => executeWithQueue(nextQueue), 50)
+    }
   }
 
-  const handleExecute = async () => {
-    if (queue.length === 0) return
+  const executeWithQueue = async (itemsToProcess = queue) => {
+    if (itemsToProcess.length === 0) return
     setIsProcessing(true)
 
     try {
@@ -101,7 +122,7 @@ export function ImageToolsView() {
         let totalOriginal = 0
         let totalCompressed = 0
 
-        for (const item of queue) {
+        for (const item of itemsToProcess) {
           const res = await compressImage(item.file, compressQuality)
           totalOriginal += res.originalSize
           totalCompressed += res.compressedSize
@@ -115,9 +136,9 @@ export function ImageToolsView() {
           })
         }
         const savedPct = Math.round(((totalOriginal - totalCompressed) / totalOriginal) * 100)
-        toast.success(`Berhasil mengompres ${queue.length} foto! Hemat ${savedPct}% ukuran berkas.`)
+        toast.success(`Berhasil mengompres ${itemsToProcess.length} foto! Hemat ${savedPct}% ukuran berkas.`)
       } else if (currentTool === 'convert') {
-        for (const item of queue) {
+        for (const item of itemsToProcess) {
           const res = await convertImageFormat(item.file, targetFormat)
           results.push({
             name: res.name,
@@ -125,7 +146,7 @@ export function ImageToolsView() {
             size: res.blob.size,
           })
         }
-        toast.success(`Berhasil mengonversi ${queue.length} gambar!`)
+        toast.success(`Berhasil mengonversi ${itemsToProcess.length} gambar!`)
       } else if (currentTool === 'resize') {
         for (const item of queue) {
           const resizedBlob = await resizeImage(item.file, {
@@ -158,9 +179,67 @@ export function ImageToolsView() {
           })
         }
         toast.success(`Berhasil memberi watermark pada ${queue.length} gambar!`)
+      } else if (currentTool === 'crop') {
+        for (const item of queue) {
+          const img = new Image()
+          const url = URL.createObjectURL(item.file)
+          await new Promise((res) => { img.onload = res; img.src = url })
+          URL.revokeObjectURL(url)
+
+          let targetW = img.naturalWidth
+          let targetH = img.naturalHeight
+
+          if (cropRatio === '1:1') {
+            const side = Math.min(img.naturalWidth, img.naturalHeight)
+            targetW = side
+            targetH = side
+          } else if (cropRatio === '3:4') {
+            if (img.naturalWidth / img.naturalHeight > 3 / 4) {
+              targetH = img.naturalHeight
+              targetW = Math.round(targetH * (3 / 4))
+            } else {
+              targetW = img.naturalWidth
+              targetH = Math.round(targetW * (4 / 3))
+            }
+          } else if (cropRatio === '4:6') {
+            if (img.naturalWidth / img.naturalHeight > 4 / 6) {
+              targetH = img.naturalHeight
+              targetW = Math.round(targetH * (4 / 6))
+            } else {
+              targetW = img.naturalWidth
+              targetH = Math.round(targetW * (6 / 4))
+            }
+          } else if (cropRatio === '16:9') {
+            if (img.naturalWidth / img.naturalHeight > 16 / 9) {
+              targetH = img.naturalHeight
+              targetW = Math.round(targetH * (16 / 9))
+            } else {
+              targetW = img.naturalWidth
+              targetH = Math.round(targetW * (9 / 16))
+            }
+          }
+
+          const cropX = Math.round((img.naturalWidth - targetW) / 2)
+          const cropY = Math.round((img.naturalHeight - targetH) / 2)
+
+          const res = await cropImage(item.file, { x: cropX, y: cropY, width: targetW, height: targetH })
+          results.push({
+            name: res.name,
+            blob: res.blob,
+            size: res.blob.size,
+          })
+        }
+        toast.success(`Berhasil memotong ${queue.length} foto!`)
       }
 
       setProcessedResults(results)
+      if (results.length === 1) {
+        downloadBlob(results[0].blob, results[0].name)
+        toast.success(`Berkas ${results[0].name} berhasil diunduh!`)
+      } else if (results.length > 1) {
+        bundleAndDownloadZip(results, `9drive_${currentTool}_hasil.zip`)
+        toast.success(`${results.length} berkas berhasil diunduh sebagai ZIP!`)
+      }
       setSaveModalOpen(true)
     } catch (err: any) {
       console.error('Image Operation failed:', err)
@@ -170,11 +249,27 @@ export function ImageToolsView() {
     }
   }
 
+  const handleDownloadSelected = () => {
+    const selectedQueue = queue.filter((q) => selectedIds.includes(q.id))
+    if (selectedQueue.length === 0) {
+      toast.error('Pilih minimal 1 berkas untuk diunduh.')
+      return
+    }
+    executeWithQueue(selectedQueue)
+  }
+
+  const handleReset = () => {
+    setQueue([])
+    setSelectedIds([])
+    setProcessedResults([])
+  }
+
   const subtools = [
-    { id: 'compress' as const, label: 'Kompres Gambar', icon: Minimize2 },
-    { id: 'convert' as const, label: 'Konversi Format', icon: RefreshCw },
-    { id: 'resize' as const, label: 'Ubah Ukuran', icon: Maximize2 },
-    { id: 'watermark' as const, label: 'Watermark Foto', icon: Stamp },
+    { id: 'compress' as const, label: 'Kompres Gambar', icon: Minimize2, desc: 'Kecilkan ukuran foto JPG, PNG, dan WebP secara instan tanpa mengurangi kejernihan visual.' },
+    { id: 'convert' as const, label: 'Konversi Format', icon: RefreshCw, desc: 'Ubah format gambar antara WebP, PNG, dan JPG untuk kebutuhan web atau cetak.' },
+    { id: 'resize' as const, label: 'Ubah Ukuran', icon: Maximize2, desc: 'Sesuaikan dimensi pixel atau persentase skala foto dengan rasio aspek tetap terkunci.' },
+    { id: 'crop' as const, label: 'Potong / Crop', icon: Crop, desc: 'Potong foto dengan preset rasio pas foto resmi (3:4, 4:6), 1:1, atau rasio bebas.' },
+    { id: 'watermark' as const, label: 'Watermark Foto', icon: Stamp, desc: 'Tambahkan cap teks hak cipta pada gambar di posisi tengah ataupun sudut berkas.' },
   ]
 
   const activeSubtoolObj = subtools.find((t) => t.id === currentTool)
@@ -198,6 +293,19 @@ export function ImageToolsView() {
         </div>
 
         <div className="flex items-center gap-2 sm:shrink-0 sm:justify-end">
+          {queue.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              className="h-9 px-4 text-xs font-medium rounded-full border-[#E0E3E7] dark:border-[#36373A] text-[#444746] dark:text-[#C4C7C5] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]"
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Pilih Foto Lain
+            </Button>
+          )}
+
           {processedResults.length > 0 && (
             <Button
               type="button"
@@ -209,26 +317,6 @@ export function ImageToolsView() {
               Simpan Hasil ({processedResults.length})
             </Button>
           )}
-
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleExecute}
-            disabled={queue.length === 0 || isProcessing}
-            className="h-9 px-5 text-xs font-medium rounded-full bg-[#0B57D0] hover:bg-[#0B57D0]/90 text-white shadow-xs"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                Memproses...
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 mr-1.5" />
-                Jalankan {activeSubtoolObj?.label}
-              </>
-            )}
-          </Button>
         </div>
       </div>
 
@@ -255,20 +343,80 @@ export function ImageToolsView() {
         })}
       </div>
 
-      {/* Main Grid: Queue & Settings */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
-        {/* Left Column: File Queue */}
-        <div className="lg:col-span-8 flex flex-col space-y-4">
-          <BatchFileQueue
-            items={queue}
-            onAddFiles={addFilesToQueue}
-            onRemoveItem={(id) => setQueue((prev) => prev.filter((q) => q.id !== id))}
-            onClear={() => setQueue([])}
+      {/* Main Content: Loading State OR Hero Dropzone OR Active Grid */}
+      {isProcessing ? (
+        <ToolProcessingCard
+          title={
+            currentTool === 'compress'
+              ? 'Sedang Mengecilkan Ukuran Foto...'
+              : currentTool === 'convert'
+              ? 'Sedang Mengubah Format Gambar...'
+              : currentTool === 'resize'
+              ? 'Sedang Mengubah Ukuran Gambar...'
+              : currentTool === 'crop'
+              ? 'Sedang Memotong Foto...'
+              : 'Sedang Memproses Foto...'
+          }
+          message="Mohon tunggu sebentar, foto Anda sedang diproses langsung di browser secara aman."
+          icon={activeSubtoolObj?.icon}
+          iconColor="#7248B9"
+        />
+      ) : queue.length === 0 ? (
+        <div className="w-full py-4 flex flex-col space-y-6">
+          <ToolUploadHero
+            title={
+              currentTool === 'crop'
+                ? 'Pilih foto untuk dipotong atau pas foto'
+                : 'Tarik & lepaskan foto ke sini, atau pilih berkas'
+            }
+            description={activeSubtoolObj?.desc || 'Proses gambar Anda secara otomatis dan instan di browser.'}
+            acceptedFormats={['JPG', 'PNG', 'WEBP']}
+            accept="image/*,.png,.jpg,.jpeg,.webp"
+            icon={activeSubtoolObj?.icon}
+            iconColor="#7248B9"
+            maxSizeText="Auto-proses instan • 100% Privat"
+            multiple={currentTool !== 'crop'}
+            onFilesSelected={addFilesToQueue}
             onOpenDrivePicker={() => setDrivePickerOpen(true)}
-            accept="image/*"
-            disabled={isProcessing}
           />
         </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
+          {/* Left Column: File Queue */}
+          <div className="lg:col-span-8 flex flex-col space-y-4">
+            <BatchFileQueue
+              items={queue}
+              onAddFiles={addFilesToQueue}
+              onRemoveItem={(id) => setQueue((prev) => prev.filter((q) => q.id !== id))}
+              onClear={handleReset}
+              onOpenDrivePicker={() => setDrivePickerOpen(true)}
+              accept="image/*"
+              disabled={isProcessing}
+              selectedIds={selectedIds}
+              onSelectionChange={setSelectedIds}
+              primaryAction={
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleDownloadSelected}
+                  disabled={isProcessing || selectedIds.length === 0}
+                  className="h-8 px-4 text-xs font-medium rounded-full bg-[#0B57D0] hover:bg-[#0B57D0]/90 text-white shadow-xs flex items-center gap-1.5 shrink-0"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Memproses...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Unduh Hasil ({selectedIds.length})</span>
+                    </>
+                  )}
+                </Button>
+              }
+            />
+          </div>
 
         {/* Right Column: Settings Panel */}
         <div className="lg:col-span-4 flex flex-col space-y-4">
@@ -396,6 +544,41 @@ export function ImageToolsView() {
               </div>
             )}
 
+            {/* Crop Settings */}
+            {currentTool === 'crop' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-[#747775] dark:text-[#8E918F] mb-1.5 block">
+                    Preset Rasio Potong:
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: '1:1' as const, label: '1:1 (Persegi / Avatar)' },
+                      { id: '3:4' as const, label: '3:4 (Pas Foto 3x4)' },
+                      { id: '4:6' as const, label: '4:6 (Pas Foto 4x6)' },
+                      { id: '16:9' as const, label: '16:9 (Landscape / Banner)' },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setCropRatio(item.id)}
+                        className={`p-2 text-xs font-medium rounded-xl border text-left transition-all ${
+                          cropRatio === item.id
+                            ? 'border-[#0B57D0] bg-[#C2E7FF] text-[#001D35] dark:border-[#004A77] dark:bg-[#004A77] dark:text-[#C2E7FF]'
+                            : 'border-[#E0E3E7] dark:border-[#36373A] text-[#444746] dark:text-[#C4C7C5] hover:bg-[#F0F4F9]'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] text-[#747775] dark:text-[#8E918F] leading-relaxed">
+                  Memotong bagian tengah foto dengan rasio aspek yang dipilih secara proporsional.
+                </p>
+              </div>
+            )}
+
             {/* Watermark Settings */}
             {currentTool === 'watermark' && (
               <div className="space-y-3">
@@ -484,6 +667,7 @@ export function ImageToolsView() {
           </div>
         </div>
       </div>
+    )}
 
       {/* Modals */}
       <DriveFilePickerModal

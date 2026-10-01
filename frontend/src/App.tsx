@@ -20,6 +20,7 @@ import { ToolsHubPage } from '@/pages/tools/ToolsHubPage'
 import { BackgroundRemoverTool } from '@/pages/tools/BackgroundRemoverTool'
 import { PdfToolsView } from '@/pages/tools/PdfToolsView'
 import { ImageToolsView } from '@/pages/tools/ImageToolsView'
+import { VideoToolsView } from '@/pages/tools/VideoToolsView'
 import { DataToolsView } from '@/pages/tools/DataToolsView'
 import { UploadProvider } from '@/context/UploadContext'
 import { DriveFilterProvider } from '@/context/DriveFilterContext'
@@ -46,6 +47,7 @@ function App() {
           <Route path="tools/remove-bg" element={<BackgroundRemoverTool />} />
           <Route path="tools/pdf" element={<PdfToolsView />} />
           <Route path="tools/image" element={<ImageToolsView />} />
+          <Route path="tools/video" element={<VideoToolsView />} />
           <Route path="tools/data" element={<DataToolsView />} />
           <Route path="quota" element={<QuotaTrackerPage />} />
           <Route path="shared" element={<SharedPage />} />

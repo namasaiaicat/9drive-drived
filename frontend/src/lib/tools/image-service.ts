@@ -209,3 +209,45 @@ export async function watermarkImage(
     img.src = url
   })
 }
+
+export async function cropImage(
+  file: File,
+  cropArea: { x: number; y: number; width: number; height: number },
+  targetFormat?: 'image/jpeg' | 'image/png'
+): Promise<{ blob: Blob; name: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const canvas = document.createElement('canvas')
+      canvas.width = cropArea.width
+      canvas.height = cropArea.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return reject(new Error('Canvas 2D unavailable'))
+
+      ctx.drawImage(
+        img,
+        cropArea.x,
+        cropArea.y,
+        cropArea.width,
+        cropArea.height,
+        0,
+        0,
+        cropArea.width,
+        cropArea.height
+      )
+
+      const mime = targetFormat || (file.type === 'image/png' ? 'image/png' : 'image/jpeg')
+      canvas.toBlob((blob) => {
+        if (!blob) return reject(new Error('Crop failed'))
+        const base = file.name.replace(/\.[^/.]+$/, '')
+        const ext = mime === 'image/png' ? 'png' : 'jpg'
+        resolve({ blob, name: `${base}_cropped.${ext}` })
+      }, mime, 0.95)
+    }
+    img.onerror = () => reject(new Error('Failed to load image'))
+    img.src = url
+  })
+}
+

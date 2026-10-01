@@ -45,14 +45,14 @@ export function FolderGrid({
             event.dataTransfer.dropEffect = 'move'
           }}
           onDragEnter={(event) => {
-            event.currentTarget.classList.add('bg-[#C2E7FF]/50', 'border-[#0B57D0]')
+            event.currentTarget.classList.add('bg-[#C2E7FF]/50', 'border-[#0B57D0]', 'dark:bg-[#004A77]/40', 'dark:border-[#A8C7FA]')
           }}
           onDragLeave={(event) => {
-            event.currentTarget.classList.remove('bg-[#C2E7FF]/50', 'border-[#0B57D0]')
+            event.currentTarget.classList.remove('bg-[#C2E7FF]/50', 'border-[#0B57D0]', 'dark:bg-[#004A77]/40', 'dark:border-[#A8C7FA]')
           }}
           onDrop={(event) => {
             event.preventDefault()
-            event.currentTarget.classList.remove('bg-[#C2E7FF]/50', 'border-[#0B57D0]')
+            event.currentTarget.classList.remove('bg-[#C2E7FF]/50', 'border-[#0B57D0]', 'dark:bg-[#004A77]/40', 'dark:border-[#A8C7FA]')
             const fileId = event.dataTransfer.getData('text/plain')
             if (fileId && folder.id) onDropItem?.(fileId, folder.id)
           }}
