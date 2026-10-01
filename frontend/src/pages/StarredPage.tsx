@@ -621,15 +621,15 @@ export function StarredPage() {
         onClose={closePreview}
         className="overflow-hidden sm:max-w-[95vw] xl:max-w-[1400px]"
       >
-        <div className="flex h-[72dvh] w-full items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:h-[80vh]">
+        <div className="flex h-[72dvh] w-full items-center justify-center overflow-hidden rounded-xl border border-[#E0E3E7] bg-[#F8FAFD] dark:border-[#36373A] dark:bg-[#131314] sm:h-[80vh]">
           {previewLoading ? (
-            <div className="p-6 text-center text-sm font-semibold text-slate-500">
+            <div className="p-6 text-center text-sm font-semibold text-[#747775] dark:text-[#8E918F]">
               Loading preview...
             </div>
           ) : null}
           {previewError ? (
             <div className="flex flex-col items-center gap-3 p-6 text-center">
-              <p className="text-sm text-red-600">{previewError}</p>
+              <p className="text-sm text-red-600 dark:text-red-400">{previewError}</p>
               {activeFile?.driveUrl ? (
                 <Button variant="outline" onClick={() => window.open(activeFile.driveUrl, '_blank')}>
                   <ExternalLink className="mr-2 h-4 w-4" /> Open in Google Drive
@@ -661,18 +661,18 @@ export function StarredPage() {
             <iframe
               src={previewUrl}
               title={activeFile?.name ?? 'File preview'}
-              className="h-full w-full border-0 bg-white"
+              className="h-full w-full border-0 bg-white dark:bg-[#1E1F20]"
             />
           ) : null}
           {!previewLoading && !previewError && activePreviewKind === 'office' && previewUrl ? (
             <iframe
               src={officeViewerUrl(previewUrl)}
               title={activeFile?.name ?? 'File preview'}
-              className="h-full w-full border-0 bg-white"
+              className="h-full w-full border-0 bg-white dark:bg-[#1E1F20]"
             />
           ) : null}
           {!previewLoading && !previewError && !activePreviewKind ? (
-            <div className="flex flex-col items-center gap-3 p-6 text-center text-sm text-slate-500">
+            <div className="flex flex-col items-center gap-3 p-6 text-center text-sm text-[#747775] dark:text-[#8E918F]">
               <p>Preview not available directly in app for this file type.</p>
               {activeFile?.driveUrl ? (
                 <Button onClick={() => window.open(activeFile.driveUrl, '_blank')}>

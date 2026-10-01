@@ -538,7 +538,7 @@ export function DriveLayout() {
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5]"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
                 onClick={() => setUploadProgressCollapsed(!uploadProgressCollapsed)}
               >
                 <ChevronDown
@@ -547,7 +547,7 @@ export function DriveLayout() {
               </button>
               <button
                 type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5]"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
                 onClick={() => setUploadProgress((c) => ({ ...c, open: false }))}
               >
                 <X className="h-4 w-4" />
