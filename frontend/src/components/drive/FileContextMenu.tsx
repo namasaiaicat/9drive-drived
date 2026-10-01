@@ -1,6 +1,23 @@
-import { Download, Edit3, ExternalLink, Eye, FolderInput, Info, Link2, Trash2, UserPlus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Download,
+  Edit3,
+  ExternalLink,
+  Eye,
+  FileText,
+  FolderInput,
+  Globe,
+  Info,
+  Link2,
+  Sparkles,
+  Trash2,
+  UserPlus,
+} from 'lucide-react'
 import type { FileItem } from '@/data/drive-data'
 import { FileIcon } from '@/components/drive/FileIcon'
+import { API_URL } from '@/lib/api'
+import { getAccessToken } from '@/lib/auth'
+import { useToast } from '@/context/ToastContext'
 
 type Props = {
   x: number
@@ -14,6 +31,7 @@ type Props = {
   onDetails: () => void
   onShare: () => void
   onCopyLink: () => void
+  onCopyCdnUrl?: () => void
   onDelete: () => void
 }
 
@@ -64,9 +82,75 @@ export function FileContextMenu({
   onDetails,
   onShare,
   onCopyLink,
+  onCopyCdnUrl,
   onDelete,
 }: Props) {
+  const navigate = useNavigate()
+  const { toast } = useToast()
   if (!file) return null
+
+  const handleCopyCdn = () => {
+    if (onCopyCdnUrl) {
+      onCopyCdnUrl()
+    } else {
+      const url = `${API_URL}/cdn/view/${file.id}`
+      navigator.clipboard
+        .writeText(url)
+        .then(() => toast.success('CDN Direct URL copied to clipboard!'))
+        .catch(() => toast.error('Failed to copy CDN URL'))
+      onClose()
+    }
+  }
+
+  const fetchAsFileObj = async (): Promise<File | null> => {
+    try {
+      const token = getAccessToken()
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const res = await fetch(`${API_URL}/cdn/raw/${file.id}`, { headers })
+      if (!res.ok) return null
+      const blob = await res.blob()
+      return new File([blob], file.name, { type: file.mimeType || 'application/octet-stream' })
+    } catch {
+      return null
+    }
+  }
+
+  const handleRemoveBg = async () => {
+    onClose()
+    toast.info('Loading image into Background Remover...')
+    const fileObj = await fetchAsFileObj()
+    if (fileObj) {
+      navigate('/tools/remove-bg', { state: { initialFiles: [fileObj] } })
+    } else {
+      navigate('/tools/remove-bg')
+    }
+  }
+
+  const handleConvertToPdf = async () => {
+    onClose()
+    toast.info('Loading image into PDF Studio...')
+    const fileObj = await fetchAsFileObj()
+    if (fileObj) {
+      navigate('/tools/pdf?mode=images-to-pdf', { state: { initialFiles: [fileObj] } })
+    } else {
+      navigate('/tools/pdf?mode=images-to-pdf')
+    }
+  }
+
+  const handleOpenPdfTools = async () => {
+    onClose()
+    toast.info('Loading document into PDF Studio...')
+    const fileObj = await fetchAsFileObj()
+    if (fileObj) {
+      navigate('/tools/pdf', { state: { initialFiles: [fileObj] } })
+    } else {
+      navigate('/tools/pdf')
+    }
+  }
+
+  const isImage = file.kind === 'image' || file.mimeType?.startsWith('image/')
+  const isPdf = file.kind === 'pdf' || file.mimeType?.includes('pdf') || file.name.toLowerCase().endsWith('.pdf')
 
   const safeX = Math.max(12, Math.min(x, window.innerWidth - 240))
   const safeY = Math.max(12, Math.min(y, window.innerHeight - 440))
@@ -109,6 +193,31 @@ export function FileContextMenu({
           ) : null}
           <MenuItem icon={Eye} label="Preview" onClick={onView} kbd="↵" />
           <MenuItem icon={Download} label="Download" onClick={onDownload} />
+
+          {/* Quick Tools Action */}
+          {isImage && (
+            <>
+              <MenuItem
+                icon={Sparkles}
+                label="Remove Background (AI)"
+                onClick={handleRemoveBg}
+              />
+              <MenuItem
+                icon={FileText}
+                label="Convert to PDF"
+                onClick={handleConvertToPdf}
+              />
+            </>
+          )}
+
+          {isPdf && (
+            <MenuItem
+              icon={FileText}
+              label="Process with PDF Tools"
+              onClick={handleOpenPdfTools}
+            />
+          )}
+
           <MenuItem icon={Edit3} label="Rename" onClick={onRename} />
           <MenuItem icon={FolderInput} label="Move to" onClick={onMove} />
           <MenuItem icon={Info} label="File information" onClick={onDetails} />
@@ -117,6 +226,7 @@ export function FileContextMenu({
 
           <MenuItem icon={UserPlus} label="Share" onClick={onShare} />
           <MenuItem icon={Link2} label="Copy link" onClick={onCopyLink} kbd="Ctrl+L" />
+          <MenuItem icon={Globe} label="Copy CDN Direct URL" onClick={handleCopyCdn} />
 
           <div className="my-1.5 h-px bg-[#E0E3E7] dark:bg-[#36373A]" />
 

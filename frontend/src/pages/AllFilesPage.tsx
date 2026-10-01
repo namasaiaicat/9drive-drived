@@ -1025,11 +1025,43 @@ export function AllFilesPage() {
 
       <DummyModal open={uploadOpen} title="Upload File" description="Stream file directly to selected Google Drive account." onClose={() => setUploadOpen(false)}>
         <form onSubmit={uploadFile} className="grid gap-4">
-           <label onDragEnter={handleUploadDrag} onDragOver={handleUploadDrag} onDragLeave={handleUploadDrag} onDrop={handleUploadDrag} className={isUploadDragging ? 'grid cursor-pointer gap-2.5 rounded-2xl border-2 border-dashed border-[#0B57D0] bg-[#C2E7FF]/20 p-5 text-center transition' : 'grid cursor-pointer gap-2.5 rounded-2xl border-2 border-dashed border-[#E0E3E7] bg-[#F8FAFD] p-5 text-center transition hover:border-[#0B57D0] hover:bg-[#F0F4F9] dark:border-[#36373A] dark:bg-[#28292A]'}>
-            <Upload className={isUploadDragging ? 'mx-auto h-8 w-8 text-[#0B57D0]' : 'mx-auto h-8 w-8 text-[#444746] dark:text-[#C4C7C5]'} />
-            <span className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">Drop files here or click to browse</span>
-            <span className="text-xs text-[#747775] dark:text-[#8E918F]">Files stream directly to Google Drive folder <code>9drive</code>.</span>
-            <Input type="file" className="sr-only" multiple onChange={(event) => selectUploadFiles(event.target.files)} required={selectedFiles.length === 0} />
+          <label
+            onDragEnter={handleUploadDrag}
+            onDragOver={handleUploadDrag}
+            onDragLeave={handleUploadDrag}
+            onDrop={handleUploadDrag}
+            className={cn(
+              'group grid cursor-pointer gap-2.5 rounded-2xl border-2 border-dashed p-6 text-center transition-all duration-200',
+              isUploadDragging
+                ? 'border-[#0B57D0] bg-[#C2E7FF]/20 dark:border-[#A8C7FA] dark:bg-[#A8C7FA]/10'
+                : 'border-[#E0E3E7] bg-[#F8FAFD] hover:border-[#0B57D0] hover:bg-[#F0F4F9] dark:border-[#36373A] dark:bg-[#131314]/40 dark:hover:border-[#A8C7FA] dark:hover:bg-[#28292A]'
+            )}
+          >
+            <Upload
+              className={cn(
+                'mx-auto h-8 w-8 transition-colors',
+                isUploadDragging
+                  ? 'text-[#0B57D0] dark:text-[#A8C7FA]'
+                  : 'text-[#444746] group-hover:text-[#0B57D0] dark:text-[#C4C7C5] dark:group-hover:text-[#A8C7FA]'
+              )}
+            />
+            <span className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+              Drop files here or click to browse
+            </span>
+            <span className="text-xs text-[#747775] dark:text-[#8E918F]">
+              Files stream directly to Google Drive folder{' '}
+              <code className="rounded bg-black/5 px-1 py-0.5 font-mono text-[11px] text-[#1F1F1F] dark:bg-white/10 dark:text-[#E3E3E3]">
+                9drive
+              </code>
+              .
+            </span>
+            <Input
+              type="file"
+              className="sr-only"
+              multiple
+              onChange={(event) => selectUploadFiles(event.target.files)}
+              required={selectedFiles.length === 0}
+            />
           </label>
           <div className="grid gap-1.5 text-xs font-medium text-[#444746] dark:text-[#C4C7C5]">
             <span>Target Storage Account</span>
@@ -1068,16 +1100,16 @@ export function AllFilesPage() {
             </div>
           )}
           {selectedFiles.length > 0 ? (
-            <div className="grid max-h-48 gap-1.5 overflow-y-auto rounded-xl bg-[#F8FAFD] p-3 text-xs text-[#444746] dark:bg-[#28292A] dark:text-[#C4C7C5]">
+            <div className="grid max-h-48 gap-1.5 overflow-y-auto rounded-xl bg-[#F8FAFD] p-3 text-xs text-[#444746] dark:bg-[#131314]/40 dark:border dark:border-[#36373A] dark:text-[#C4C7C5]">
               <div className="flex items-center justify-between pb-1 font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
                 <span>{selectedFiles.length} file(s) selected</span>
                 <span>{formatBytes(selectedFiles.reduce((total, file) => total + file.size, 0))}</span>
               </div>
               {selectedFiles.map((file, index) => (
                 <div key={`${file.name}-${file.size}-${index}`} className="flex min-w-0 items-center justify-between gap-2 rounded-lg bg-white p-2 border border-[#E0E3E7] dark:bg-[#1E1F20] dark:border-[#36373A]">
-                  <span className="min-w-0 flex-1 truncate font-medium" title={file.name}>{file.name}</span>
-                  <span className="shrink-0 text-slate-500">{formatBytes(file.size)}</span>
-                  <button type="button" className="shrink-0 text-[#747775] hover:text-[#B3261E]" onClick={() => removeUploadFile(index)} aria-label={`Remove ${file.name}`}><X className="h-4 w-4" /></button>
+                  <span className="min-w-0 flex-1 truncate font-medium text-[#1F1F1F] dark:text-[#E3E3E3]" title={file.name}>{file.name}</span>
+                  <span className="shrink-0 text-slate-500 dark:text-[#8E918F]">{formatBytes(file.size)}</span>
+                  <button type="button" className="shrink-0 text-[#747775] hover:text-[#B3261E] dark:text-[#C4C7C5] dark:hover:text-[#F2B8B5]" onClick={() => removeUploadFile(index)} aria-label={`Remove ${file.name}`}><X className="h-4 w-4" /></button>
                 </div>
               ))}
             </div>

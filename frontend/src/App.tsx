@@ -16,6 +16,11 @@ import { PublicFilePage } from '@/pages/PublicFilePage'
 import { ApiManagementPage } from '@/pages/ApiManagementPage'
 import { TrashPage } from '@/pages/TrashPage'
 import { ActivityLogPage } from '@/pages/ActivityLogPage'
+import { ToolsHubPage } from '@/pages/tools/ToolsHubPage'
+import { BackgroundRemoverTool } from '@/pages/tools/BackgroundRemoverTool'
+import { PdfToolsView } from '@/pages/tools/PdfToolsView'
+import { ImageToolsView } from '@/pages/tools/ImageToolsView'
+import { DataToolsView } from '@/pages/tools/DataToolsView'
 import { UploadProvider } from '@/context/UploadContext'
 import { DriveFilterProvider } from '@/context/DriveFilterContext'
 import { ToastProvider } from '@/context/ToastContext'
@@ -37,6 +42,11 @@ function App() {
         <Route element={<DriveLayout />}>
           <Route index element={<Navigate to="/all-files" replace />} />
           <Route path="all-files" element={<AllFilesPage />} />
+          <Route path="tools" element={<ToolsHubPage />} />
+          <Route path="tools/remove-bg" element={<BackgroundRemoverTool />} />
+          <Route path="tools/pdf" element={<PdfToolsView />} />
+          <Route path="tools/image" element={<ImageToolsView />} />
+          <Route path="tools/data" element={<DataToolsView />} />
           <Route path="quota" element={<QuotaTrackerPage />} />
           <Route path="shared" element={<SharedPage />} />
           <Route path="recent" element={<RecentPage />} />

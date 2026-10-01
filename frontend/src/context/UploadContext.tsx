@@ -120,10 +120,12 @@ export function UploadProvider({ children }: { children: ReactNode }) {
               nextFiles[i] = { ...nextFiles[i], percent: filePercent, status: filePercent >= 100 ? 'done' : 'uploading' }
             }
             const overallPercent = Math.round(nextFiles.reduce((sum, f) => sum + f.percent, 0) / nextFiles.length)
+            const allDone = nextFiles.every((f) => f.status === 'done' || f.percent >= 100)
             return {
               ...current,
               percent: overallPercent,
-              files: nextFiles
+              status: allDone ? 'done' : current.status,
+              files: nextFiles,
             }
           })
         }, undefined, targetAccountId)
@@ -137,11 +139,26 @@ export function UploadProvider({ children }: { children: ReactNode }) {
           return {
             ...current,
             status: 'partial',
-            files: nextFiles
+            files: nextFiles,
           }
         })
       }
     }
+
+    // Explicitly finalize status once all files in batch have finished
+    setUploadProgress((current) => {
+      const hasError = current.files.some((f) => f.status === 'error')
+      return {
+        ...current,
+        percent: 100,
+        status: hasError ? 'partial' : 'done',
+        files: current.files.map((f) => ({
+          ...f,
+          percent: f.status === 'error' ? f.percent : 100,
+          status: f.status === 'error' ? 'error' : 'done',
+        })),
+      }
+    })
 
     // Dispatch global events so active pages reload their data
     window.dispatchEvent(new Event('9drive:storage-changed'))

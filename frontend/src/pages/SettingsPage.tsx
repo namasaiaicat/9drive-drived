@@ -80,19 +80,32 @@ export function SettingsPage() {
         }
       })
       if (!response.ok) {
-        throw new Error('Failed to retrieve database backup.')
+        const errJson = await response.json().catch(() => null)
+        throw new Error(errJson?.message || 'Failed to retrieve database backup.')
       }
+
+      // Read filename from Content-Disposition header if available
+      const disposition = response.headers.get('Content-Disposition')
+      let filename = '9drive-backup.json'
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+        if (match && match[1]) {
+          filename = match[1].replace(/['"]/g, '').trim()
+        }
+      }
+
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = '9drive-backup.db'
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       a.remove()
       window.URL.revokeObjectURL(url)
+      toast.success('Backup downloaded successfully!')
     } catch (err: any) {
-      alert('Failed to download backup: ' + err.message)
+      toast.error('Failed to download backup: ' + err.message)
     } finally {
       setDownloadingBackup(false)
     }
@@ -101,6 +114,7 @@ export function SettingsPage() {
   function handleRestoreFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
       setRestoreFile(e.target.files[0])
+      setRestoreMessage('')
     } else {
       setRestoreFile(null)
     }
@@ -108,7 +122,7 @@ export function SettingsPage() {
 
   async function restoreBackup() {
     if (!restoreFile) return
-    if (!confirm('WARNING: Restoring database will overwrite all your current configurations, connected accounts, virtual folders, and user accounts. The server will restart. Are you sure you want to proceed?')) {
+    if (!confirm(`WARNING: Restoring from "${restoreFile.name}" will overwrite current database records (accounts, folders, files, and users). Are you sure you want to proceed?`)) {
       return
     }
 
@@ -135,16 +149,19 @@ export function SettingsPage() {
       }
 
       setRestoreSuccess(true)
-      setRestoreMessage(data.message || 'Database restored successfully! Logging you out and reloading...')
+      setRestoreMessage(data.message || 'Database restored successfully! Logging you out to refresh your session...')
+      toast.success('Database restored successfully!')
 
       setTimeout(() => {
         clearAuthSession()
         window.location.href = '/login'
-      }, 4000)
+      }, 3000)
 
     } catch (err: any) {
       setRestoreSuccess(false)
-      setRestoreMessage(err.message || 'Failed to restore database.')
+      const msg = err.message || 'Failed to restore database.'
+      setRestoreMessage(msg)
+      toast.error('Restore failed: ' + msg)
     } finally {
       setRestoringBackup(false)
     }
@@ -708,7 +725,7 @@ export function SettingsPage() {
                   <h2 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">Backup & Restore Database</h2>
                 </div>
                 <span className="text-[11px] text-[#747775] dark:text-[#8E918F] font-medium uppercase tracking-wider">
-                  SQLite Local Database
+                  System Database Snapshot
                 </span>
               </div>
 
@@ -722,7 +739,7 @@ export function SettingsPage() {
                     <div>
                       <h3 className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">Download Backup</h3>
                       <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F]">
-                        Save a copy of your active database with accounts, folder hierarchy, and metadata.
+                        Export a full snapshot of your active database (users, connected accounts, folder hierarchy, and file metadata).
                       </p>
                     </div>
                   </div>
@@ -731,8 +748,8 @@ export function SettingsPage() {
                     onClick={downloadBackup}
                     disabled={downloadingBackup}
                   >
-                    <HardDrive className="h-4 w-4" />
-                    {downloadingBackup ? 'Downloading...' : 'Download Backup'}
+                    <HardDrive className={downloadingBackup ? 'h-4 w-4 animate-bounce' : 'h-4 w-4'} />
+                    {downloadingBackup ? 'Downloading Backup...' : 'Download Backup'}
                   </Button>
                 </div>
 
@@ -745,7 +762,7 @@ export function SettingsPage() {
                     <div>
                       <h3 className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">Restore Backup</h3>
                       <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F]">
-                        Upload a previously saved 9Drive backup file to replace the active database.
+                        Upload a previously saved 9Drive backup file (.json) to restore all database records.
                       </p>
                     </div>
                   </div>
@@ -753,10 +770,20 @@ export function SettingsPage() {
                   <div className="mt-5 grid gap-3">
                     <input
                       type="file"
-                      accept=".db"
+                      accept=".json,.db,.sql"
                       onChange={handleRestoreFileChange}
                       className="block w-full text-xs text-[#747775] file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-[#EDF2FC] file:text-[#0B57D0] hover:file:bg-[#D3E3FD] cursor-pointer border border-[#E0E3E7] dark:border-[#36373A] rounded-xl p-1 bg-white dark:bg-[#1E1F20]"
                     />
+                    {restoreFile && (
+                      <div className="flex items-center justify-between rounded-xl bg-white dark:bg-[#28292A] border border-[#E0E3E7] dark:border-[#36373A] px-3 py-1.5 text-xs">
+                        <span className="truncate max-w-[200px] font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+                          {restoreFile.name}
+                        </span>
+                        <span className="text-[11px] text-[#747775] dark:text-[#8E918F]">
+                          {formatBytes(restoreFile.size)}
+                        </span>
+                      </div>
+                    )}
                     <Button
                       variant={restoreFile ? "danger" : "outline"}
                       className="w-full rounded-full"
@@ -764,7 +791,7 @@ export function SettingsPage() {
                       disabled={restoringBackup || !restoreFile}
                     >
                       <RefreshCw className={restoringBackup ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-                      {restoringBackup ? 'Restoring & Restarting...' : 'Restore Backup'}
+                      {restoringBackup ? 'Restoring Database...' : 'Restore Backup'}
                     </Button>
                   </div>
                 </div>

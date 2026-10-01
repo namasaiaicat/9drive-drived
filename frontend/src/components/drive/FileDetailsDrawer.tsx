@@ -1,5 +1,6 @@
-import { ExternalLink, X, UserPlus } from 'lucide-react'
-import { formatBytes, formatDate } from '@/lib/api'
+import { ExternalLink, X, UserPlus, Globe } from 'lucide-react'
+import { API_URL, formatBytes, formatDate } from '@/lib/api'
+import { useToast } from '@/context/ToastContext'
 import type { FileItem } from '@/data/drive-data'
 import { FileIcon } from '@/components/drive/FileIcon'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,7 @@ export function FileDetailsDrawer({
   onClose: () => void
   onShare?: (file: FileItem) => void
 }) {
+  const { toast } = useToast()
   if (!open) return null
 
   return (
@@ -97,6 +99,41 @@ export function FileDetailsDrawer({
                   label="Storage provider"
                   value={file.accountProvider ?? 'Google Drive'}
                 />
+
+                <div className="py-2.5 border-b border-[#E0E3E7]/60 dark:border-[#36373A]/60">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Globe className="h-3.5 w-3.5 text-emerald-500" />
+                      <p className="text-xs font-medium text-[#747775] dark:text-[#8E918F]">CDN Direct URL</p>
+                    </div>
+                    <span className="text-[10px] rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 font-medium">Public</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`${API_URL}/cdn/view/${file.id}`}
+                      className="flex-1 rounded-lg border border-[#E0E3E7] bg-[#F8FAFD] dark:bg-[#18191A] dark:border-[#36373A] px-2 py-1 text-[11px] font-mono text-[#1F1F1F] dark:text-[#E3E3E3] select-all outline-none"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 text-xs rounded-lg shrink-0"
+                      onClick={() => {
+                        navigator.clipboard
+                          .writeText(`${API_URL}/cdn/view/${file.id}`)
+                          .then(() => toast.success('CDN URL copied!'))
+                          .catch(() => toast.error('Failed to copy'))
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-[10px] text-[#747775] dark:text-[#8E918F]">
+                    Direct embed for &lt;img&gt; tags, web apps, and platforms.
+                  </p>
+                </div>
+
                 {file.driveUrl && (
                   <div className="py-2.5 border-b border-[#E0E3E7]/60 dark:border-[#36373A]/60">
                     <p className="text-xs font-medium text-[#747775] dark:text-[#8E918F]">Google Drive Link</p>

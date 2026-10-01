@@ -19,7 +19,8 @@ import {
   Trash2,
   Upload,
   X,
-  Code2
+  Code2,
+  Sparkles,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/drive/BrandLogo'
 import { DriveSearchBar } from '@/components/drive/DriveSearchBar'
@@ -32,6 +33,7 @@ import { DriveAccountSelector } from '@/components/drive/DriveAccountSelector'
 
 const navItems = [
   { label: 'My Drive', icon: HardDrive, href: '/all-files' },
+  { label: 'Tools Studio', icon: Sparkles, href: '/tools' },
   { label: 'Shared with me', icon: Share2, href: '/shared' },
   { label: 'Recent', icon: History, href: '/recent' },
   { label: 'Starred', icon: Star, href: '/starred' },
@@ -266,6 +268,24 @@ export function DriveLayout() {
   const [profileImageUrl, setProfileImageUrl] = useState('')
   const [avatarError, setAvatarError] = useState(false)
 
+  // Auto-dismiss floating progress card 2 seconds after upload / processing finishes
+  useEffect(() => {
+    if (!uploadProgress.open) return
+
+    const isAllDone =
+      uploadProgress.status === 'done' ||
+      (uploadProgress.percent >= 100 &&
+        uploadProgress.files.length > 0 &&
+        uploadProgress.files.every((f) => f.status === 'done' || f.percent >= 100))
+
+    if (isAllDone) {
+      const timer = setTimeout(() => {
+        setUploadProgress((prev) => ({ ...prev, open: false }))
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [uploadProgress.open, uploadProgress.status, uploadProgress.percent, uploadProgress.files, setUploadProgress])
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('9drive:theme')
     if (saved === 'light' || saved === 'dark') return saved
@@ -493,7 +513,7 @@ export function DriveLayout() {
 
       {/* Floating Upload Progress Box (Google Drive bottom right dock) */}
       {uploadProgress.open ? (
-        <div className="fixed inset-x-3 bottom-3 z-[70] max-h-[70dvh] overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white shadow-2xl sm:inset-x-auto sm:bottom-4 sm:right-6 sm:w-96 dark:border-[#36373A] dark:bg-[#1E1F20]">
+        <div className="fixed inset-x-3 bottom-3 z-[70] max-h-[70dvh] overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white shadow-2xl sm:inset-x-auto sm:bottom-4 sm:right-6 sm:w-96 dark:border-[#36373A] dark:bg-[#1E1F20] transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
           <div className="flex items-center justify-between border-b border-[#E0E3E7] px-4 py-3 bg-[#F8FAFD] dark:border-[#36373A] dark:bg-[#28292A]">
             <div className="flex items-center gap-2 text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
               {uploadProgress.status === 'done' ? (
