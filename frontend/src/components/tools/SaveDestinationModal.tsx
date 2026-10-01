@@ -11,7 +11,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, formatBytes } from '@/lib/api'
 import { useUpload } from '@/context/UploadContext'
 import { useToast } from '@/context/ToastContext'
 import { bundleAndDownloadZip, downloadBlob } from '@/lib/tools/zip-service'
@@ -54,8 +54,19 @@ export function SaveDestinationModal({
   const [mode, setMode] = useState<'drive' | 'local' | 'both'>('drive')
   const [zipName, setZipName] = useState(defaultZipName)
 
+  // Selection state for individual vs batch
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set())
+
   const { uploadFiles } = useUpload()
   const { toast } = useToast()
+
+  // Reset selected indices when files or modal open change
+  useEffect(() => {
+    if (open) {
+      setSelectedIndices(new Set(files.map((_, i) => i)))
+      setZipName(defaultZipName)
+    }
+  }, [open, files, defaultZipName])
 
   useEffect(() => {
     if (!open) return
@@ -75,6 +86,28 @@ export function SaveDestinationModal({
 
   if (!open || files.length === 0) return null
 
+  const toggleSelectIndex = (idx: number) => {
+    setSelectedIndices((prev) => {
+      const next = new Set(prev)
+      if (next.has(idx)) {
+        next.delete(idx)
+      } else {
+        next.add(idx)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIndices.size === files.length) {
+      setSelectedIndices(new Set())
+    } else {
+      setSelectedIndices(new Set(files.map((_, i) => i)))
+    }
+  }
+
+  const selectedFiles = files.filter((_, i) => selectedIndices.has(i))
+
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return
     try {
@@ -92,26 +125,48 @@ export function SaveDestinationModal({
     }
   }
 
+  const handleDownloadSingle = (file: ProcessedFileItem) => {
+    downloadBlob(file.blob, file.name)
+    toast.success(`Mengunduh ${file.name}...`)
+  }
+
+  const handleDownloadAllZip = async () => {
+    setIsProcessing(true)
+    try {
+      await bundleAndDownloadZip(files, zipName)
+      toast.success(`Mengunduh seluruh ${files.length} berkas dalam arsip ZIP!`)
+    } catch (err: any) {
+      toast.error('Gagal membuat berkas ZIP')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   const handleExecuteSave = async () => {
+    if (selectedFiles.length === 0) {
+      toast.error('Pilih minimal satu berkas untuk disimpan.')
+      return
+    }
+
     setIsProcessing(true)
     try {
       // 1. Download Local
       if (mode === 'local' || mode === 'both') {
-        if (files.length === 1) {
-          downloadBlob(files[0].blob, files[0].name)
+        if (selectedFiles.length === 1) {
+          downloadBlob(selectedFiles[0].blob, selectedFiles[0].name)
         } else {
-          await bundleAndDownloadZip(files, zipName)
+          await bundleAndDownloadZip(selectedFiles, zipName)
         }
       }
 
       // 2. Upload to 9Drive
       if (mode === 'drive' || mode === 'both') {
-        const fileObjects = files.map(
+        const fileObjects = selectedFiles.map(
           (f) => new File([f.blob], f.name, { type: f.blob.type || 'application/octet-stream' })
         )
         await uploadFiles(fileObjects, selectedFolderId)
         toast.success(
-          `${files.length} berkas disimpan ke 9Drive${
+          `${selectedFiles.length} berkas disimpan ke 9Drive${
             selectedFolderId
               ? ` (${folders.find((f) => f.id === selectedFolderId)?.name || 'folder'})`
               : ' (My Drive)'
@@ -215,7 +270,7 @@ export function SaveDestinationModal({
               )}
 
               {/* Folder List */}
-              <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
                 {/* Root Option */}
                 <div
                   onClick={() => setSelectedFolderId(null)}
@@ -263,7 +318,7 @@ export function SaveDestinationModal({
             </div>
           )}
 
-          {(mode === 'local' || mode === 'both') && files.length > 1 && (
+          {(mode === 'local' || mode === 'both') && selectedFiles.length > 1 && (
             <div className="space-y-1.5 pt-1">
               <label className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
                 Nama Berkas ZIP:
@@ -278,39 +333,104 @@ export function SaveDestinationModal({
                   placeholder="arsip.zip"
                 />
               </div>
-              <p className="text-[11px] text-[#747775]">
-                Seluruh {files.length} berkas akan di-bundle menjadi 1 file ZIP saat diunduh.
-              </p>
             </div>
           )}
 
-          {/* Quick summary */}
-          <div className="rounded-xl p-3 bg-[#F8FAFD] dark:bg-[#131314] border border-[#E0E3E7] dark:border-[#36373A]">
-            <p className="text-[11px] font-medium text-[#747775] dark:text-[#8E918F] mb-1">
-              Berkas yang siap disimpan ({files.length}):
-            </p>
-            <div className="max-h-20 overflow-y-auto space-y-0.5">
-              {files.map((f, i) => (
-                <div key={i} className="text-[11px] text-[#1F1F1F] dark:text-[#E3E3E3] truncate flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0F9D58]" />
-                  <span>{f.name}</span>
-                </div>
-              ))}
+          {/* Interactive File Selection & Individual Download List */}
+          <div className="rounded-2xl p-3.5 bg-[#F8FAFD] dark:bg-[#131314] border border-[#E0E3E7] dark:border-[#36373A] space-y-2">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E0E3E7]/60 dark:border-[#36373A]/60">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+                <input
+                  type="checkbox"
+                  checked={selectedIndices.size === files.length && files.length > 0}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 rounded text-[#0B57D0] focus:ring-[#0B57D0] accent-[#0B57D0] cursor-pointer"
+                />
+                <span>Pilih Semua Berkas</span>
+              </label>
+
+              <span className="text-[11px] text-[#747775] dark:text-[#8E918F]">
+                {selectedIndices.size} dari {files.length} dipilih
+              </span>
+            </div>
+
+            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+              {files.map((f, i) => {
+                const isChecked = selectedIndices.has(i)
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between p-2 rounded-xl border transition-colors ${
+                      isChecked
+                        ? 'border-[#C2E7FF] bg-white dark:border-[#004A77] dark:bg-[#1E1F20]'
+                        : 'border-transparent bg-transparent opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <label className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleSelectIndex(i)}
+                        className="w-3.5 h-3.5 rounded text-[#0B57D0] focus:ring-[#0B57D0] accent-[#0B57D0] cursor-pointer shrink-0"
+                      />
+                      <span className="text-xs text-[#1F1F1F] dark:text-[#E3E3E3] truncate">
+                        {f.name}
+                      </span>
+                      {f.size && (
+                        <span className="text-[10px] text-[#747775] dark:text-[#8E918F] shrink-0 font-mono">
+                          {formatBytes(f.size)}
+                        </span>
+                      )}
+                    </label>
+
+                    {/* Direct 1-by-1 download button */}
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadSingle(f)}
+                      title={`Unduh ${f.name} secara terpisah`}
+                      className="w-7 h-7 rounded-lg hover:bg-[#F0F4F9] dark:hover:bg-[#28292A] text-[#747775] hover:text-[#0B57D0] dark:text-[#8E918F] dark:hover:text-[#A8C7FA] flex items-center justify-center shrink-0 ml-1 transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-[#E0E3E7] dark:border-[#36373A] bg-[#F8FAFD] dark:bg-[#131314]">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={isProcessing} className="h-8 text-xs rounded-full">
-            Batal
-          </Button>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-[#E0E3E7] dark:border-[#36373A] bg-[#F8FAFD] dark:bg-[#131314]">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              disabled={isProcessing}
+              className="h-9 text-xs rounded-full border-[#E0E3E7] dark:border-[#36373A]"
+            >
+              Batal
+            </Button>
+
+            {files.length > 1 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadAllZip}
+                disabled={isProcessing}
+                className="h-9 px-3 text-xs rounded-full border-[#E0E3E7] dark:border-[#36373A] text-[#1F1F1F] dark:text-[#E3E3E3] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]"
+              >
+                <Archive className="w-3.5 h-3.5 mr-1 text-[#0B57D0] dark:text-[#A8C7FA]" />
+                Unduh Semua (.zip)
+              </Button>
+            )}
+          </div>
 
           <Button
             size="sm"
             onClick={handleExecuteSave}
-            disabled={isProcessing}
-            className="h-8 px-5 text-xs font-medium rounded-full bg-[#0B57D0] hover:bg-[#0B57D0]/90 text-white min-w-[120px]"
+            disabled={isProcessing || selectedIndices.size === 0}
+            className="h-9 px-5 text-xs font-medium rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white shadow-xs w-full sm:w-auto"
           >
             {isProcessing ? (
               <>
@@ -320,17 +440,17 @@ export function SaveDestinationModal({
             ) : mode === 'drive' ? (
               <>
                 <Cloud className="w-3.5 h-3.5 mr-1.5" />
-                Simpan ke 9Drive
+                Simpan Terpilih ({selectedIndices.size}) ke 9Drive
               </>
             ) : mode === 'local' ? (
               <>
                 <Download className="w-3.5 h-3.5 mr-1.5" />
-                Unduh ke PC
+                Unduh Terpilih ({selectedIndices.size})
               </>
             ) : (
               <>
                 <Zap className="w-3.5 h-3.5 mr-1.5" />
-                Simpan Keduanya
+                Simpan & Unduh ({selectedIndices.size})
               </>
             )}
           </Button>

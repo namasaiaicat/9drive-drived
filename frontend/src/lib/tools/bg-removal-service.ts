@@ -19,7 +19,7 @@ export async function processBackgroundRemoval(
 ): Promise<Blob> {
   const { onProgress, backdrop = 'transparent', colorHex = '#FFFFFF', addShadow = false } = options
 
-  onProgress?.(10, 'Initializing AI neural network...')
+  onProgress?.(10, 'Menyiapkan alat pemotong foto...')
 
   let cutoutBlob: Blob
   try {
@@ -29,25 +29,25 @@ export async function processBackgroundRemoval(
           const ratio = Math.min(1, current / total)
           const percent = Math.round(15 + ratio * 75)
           const stepName = key.includes('fetch')
-            ? 'Downloading AI model weights...'
+            ? 'Mengunduh komponen pemotong...'
             : key.includes('compute')
-            ? 'Analyzing subject & segmenting edges...'
-            : 'Processing image...'
+            ? 'Memisahkan foto dari latar belakang...'
+            : 'Memproses foto...'
           onProgress?.(percent, stepName)
         }
       },
     })
   } catch (err: any) {
     console.warn('[AI BgRemoval] Model error, attempting canvas fallback:', err)
-    onProgress?.(50, 'Using adaptive edge segmentation fallback...')
+    onProgress?.(50, 'Merapikan potongan foto...')
     cutoutBlob = await fallbackRemoveBackground(file)
   }
 
-  onProgress?.(92, 'Compositing final image...')
+  onProgress?.(92, 'Merapikan hasil akhir...')
 
   // If transparent and no shadow, return cutoutBlob directly
   if (backdrop === 'transparent' && !addShadow) {
-    onProgress?.(100, 'Complete!')
+    onProgress?.(100, 'Selesai!')
     return cutoutBlob
   }
 

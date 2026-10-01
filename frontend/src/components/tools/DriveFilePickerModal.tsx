@@ -19,7 +19,7 @@ type Props = {
   open: boolean
   onClose: () => void
   onSelectFiles: (files: File[]) => void
-  acceptFilter?: 'image' | 'pdf' | 'all'
+  acceptFilter?: 'image' | 'pdf' | 'video' | 'all'
   multiple?: boolean
 }
 
@@ -58,6 +58,12 @@ export function DriveFilePickerModal({
           filtered = filtered.filter(
             (f) =>
               f.mimeType?.includes('pdf') || f.name.toLowerCase().endsWith('.pdf')
+          )
+        } else if (acceptFilter === 'video') {
+          filtered = filtered.filter(
+            (f) =>
+              f.mimeType?.startsWith('video/') ||
+              /\.(mp4|webm|mkv|mov|avi)$/i.test(f.name)
           )
         }
 

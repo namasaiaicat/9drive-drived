@@ -656,3 +656,108 @@ export function ProtectPdfIcon({ className = '', size = 48 }: ToolIconProps) {
     </svg>
   )
 }
+
+// 19. PDF to Images - Red to Purple with picture frame
+export function PdfToImagesIcon({ className = '', size = 48 }: ToolIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 56 56"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={`shrink-0 transition-transform duration-200 ${className}`}
+    >
+      <rect width="56" height="56" rx="14" fill="#E5322D" />
+      {/* PDF doc left */}
+      <rect x="11" y="14" width="18" height="26" rx="2.5" fill="#FFFFFF" />
+      <text x="20" y="27" fill="#E5322D" fontSize="7" fontWeight="800" textAnchor="middle" fontFamily="sans-serif">
+        PDF
+      </text>
+      {/* Image frame right */}
+      <rect x="25" y="18" width="20" height="24" rx="3" fill="#FFFFFF" stroke="#D32F2F" strokeWidth="1" />
+      <circle cx="31" cy="24" r="2.5" fill="#F59E0B" />
+      <path d="M26 38L32 30L36 34L39 31L44 38H26Z" fill="#10B981" />
+    </svg>
+  )
+}
+
+// 20. Video to Audio / MP3 Extractor - Amber / Orange with waveform and music note
+export function VideoToAudioIcon({ className = '', size = 48 }: ToolIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 56 56"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={`shrink-0 transition-transform duration-200 ${className}`}
+    >
+      <rect width="56" height="56" rx="14" fill="#F59E0B" />
+      {/* Video clapper / reel on left */}
+      <rect x="12" y="14" width="16" height="18" rx="2" fill="#FFFFFF" />
+      <path d="M17 19L23 23L17 27V19Z" fill="#D97706" />
+      {/* Audio Wave & Note on right */}
+      <rect x="24" y="22" width="20" height="20" rx="4" fill="#78350F" />
+      <path
+        d="M34 26V35M34 26L40 24V33M34 35C34 36.1 33.1 37 32 37C30.9 37 30 36.1 30 35C30 33.9 30.9 33 32 33C33.1 33 34 33.9 34 35ZM40 33C40 34.1 39.1 35 38 35C36.9 35 36 34.1 36 33C36 31.9 36.9 31 38 31C39.1 31 40 31.9 40 33Z"
+        stroke="#FDE68A"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+// 21. Crop Image - Purple badge with crop angle borders
+export function CropImageIcon({ className = '', size = 48 }: ToolIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 56 56"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={`shrink-0 transition-transform duration-200 ${className}`}
+    >
+      <rect width="56" height="56" rx="14" fill="#7C3AED" />
+      {/* Crop Frame Lines */}
+      <path
+        d="M20 12V36H44M36 44V20H12"
+        stroke="#FFFFFF"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Inner Preview Box */}
+      <rect x="23" y="23" width="10" height="10" rx="1.5" fill="#C4B5FD" fillOpacity="0.6" />
+    </svg>
+  )
+}
+
+// 22. Zip Archive - Emerald Green with folder zipper
+export function ZipArchiveIcon({ className = '', size = 48 }: ToolIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 56 56"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={`shrink-0 transition-transform duration-200 ${className}`}
+    >
+      <rect width="56" height="56" rx="14" fill="#059669" />
+      {/* Archive box */}
+      <rect x="14" y="14" width="28" height="28" rx="3.5" fill="#FFFFFF" />
+      {/* Zipper teeth vertical track */}
+      <line x1="28" y1="14" x2="28" y2="34" stroke="#059669" strokeWidth="2.5" strokeDasharray="2 2" />
+      {/* Zipper Pull Head */}
+      <rect x="25" y="28" width="6" height="9" rx="1.5" fill="#047857" />
+      <circle cx="28" cy="34" r="1.5" fill="#FFFFFF" />
+      <text x="28" y="23" fill="#059669" fontSize="6" fontWeight="900" textAnchor="middle" fontFamily="sans-serif">
+        ZIP
+      </text>
+    </svg>
+  )
+}
+

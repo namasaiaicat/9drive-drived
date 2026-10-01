@@ -1,4 +1,4 @@
-import { type DragEvent, useRef } from 'react'
+import { type DragEvent, useEffect, useRef, useState } from 'react'
 import {
   ArrowDown,
   ArrowUp,
@@ -35,6 +35,9 @@ type Props = {
   accept?: string
   allowReorder?: boolean
   disabled?: boolean
+  selectedIds?: string[]
+  onSelectionChange?: (selectedIds: string[]) => void
+  primaryAction?: React.ReactNode
 }
 
 export function BatchFileQueue({
@@ -47,8 +50,63 @@ export function BatchFileQueue({
   accept,
   allowReorder = false,
   disabled = false,
+  selectedIds: controlledSelectedIds,
+  onSelectionChange,
+  primaryAction,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [internalSelectedIds, setInternalSelectedIds] = useState<string[]>(() => items.map((i) => i.id))
+
+  // Determine current selected list (controlled or uncontrolled)
+  const isControlled = controlledSelectedIds !== undefined
+  const selectedIds = isControlled ? controlledSelectedIds : internalSelectedIds
+
+  // Automatically select newly added items
+  useEffect(() => {
+    const currentItemIds = new Set(items.map((i) => i.id))
+    const updated = items.map((i) => i.id)
+
+    if (isControlled) {
+      if (onSelectionChange) {
+        // If controlled and count changed, synchronize missing items
+        const retained = controlledSelectedIds.filter((id) => currentItemIds.has(id))
+        const newIds = items.filter((i) => !controlledSelectedIds.includes(i.id)).map((i) => i.id)
+        if (newIds.length > 0 || retained.length !== controlledSelectedIds.length) {
+          onSelectionChange([...retained, ...newIds])
+        }
+      }
+    } else {
+      setInternalSelectedIds(updated)
+    }
+  }, [items.length])
+
+  const updateSelection = (newIds: string[]) => {
+    if (isControlled) {
+      onSelectionChange?.(newIds)
+    } else {
+      setInternalSelectedIds(newIds)
+    }
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === items.length) {
+      updateSelection([])
+    } else {
+      updateSelection(items.map((i) => i.id))
+    }
+  }
+
+  const toggleItem = (id: string) => {
+    if (selectedIds.includes(id)) {
+      updateSelection(selectedIds.filter((item) => item !== id))
+    } else {
+      updateSelection([...selectedIds, id])
+    }
+  }
+
+  const selectedBytes = items
+    .filter((item) => selectedIds.includes(item.id))
+    .reduce((sum, item) => sum + item.file.size, 0)
 
   const handleDragOver = (e: DragEvent) => {
     e.preventDefault()
@@ -87,7 +145,8 @@ export function BatchFileQueue({
       <div
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        className="flex flex-col items-center justify-center p-6 border border-dashed border-[#E0E3E7] dark:border-[#36373A] rounded-2xl bg-[#F8FAFD] dark:bg-[#1E1F20] hover:border-[#0B57D0] transition-colors text-center"
+        onClick={() => fileInputRef.current?.click()}
+        className="flex flex-col items-center justify-center p-6 border border-dashed border-[#E0E3E7] dark:border-[#36373A] rounded-2xl bg-[#F8FAFD] dark:bg-[#1E1F20] hover:border-[#0B57D0] transition-colors text-center cursor-pointer"
       >
         <input
           ref={fileInputRef}
@@ -98,22 +157,25 @@ export function BatchFileQueue({
           className="hidden"
         />
 
-        <div className="w-10 h-10 rounded-full bg-[#EDF2FC] dark:bg-[#28292A] text-[#0B57D0] dark:text-[#A8C7FA] flex items-center justify-center mb-2.5">
+        <div className="w-10 h-10 rounded-full bg-[#EDF2FC] dark:bg-[#28292A] text-[#0B57D0] dark:text-[#A8C7FA] flex items-center justify-center mb-2.5 pointer-events-none">
           <Upload className="w-5 h-5" />
         </div>
 
-        <h3 className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3] mb-1">
+        <h3 className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3] mb-1 pointer-events-none">
           Tarik & lepaskan berkas ke sini, atau pilih dari sumber
         </h3>
-        <p className="text-xs text-[#747775] dark:text-[#8E918F] mb-4">
-          Mendukung banyak file sekaligus untuk diproses secara batch
+        <p className="text-xs text-[#747775] dark:text-[#8E918F] mb-4 pointer-events-none">
+          Klik di mana saja atau seret berkas untuk memproses secara batch
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-2.5">
           <Button
             type="button"
             size="sm"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={(e) => {
+              e.stopPropagation()
+              fileInputRef.current?.click()
+            }}
             disabled={disabled}
             className="h-9 px-4 text-xs font-medium rounded-full bg-[#0B57D0] hover:bg-[#0B57D0]/90 text-white shadow-xs"
           >
@@ -125,7 +187,10 @@ export function BatchFileQueue({
             type="button"
             variant="outline"
             size="sm"
-            onClick={onOpenDrivePicker}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenDrivePicker()
+            }}
             disabled={disabled}
             className="h-9 px-4 text-xs font-medium rounded-full border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#28292A] text-[#1F1F1F] dark:text-[#E3E3E3] hover:bg-[#F0F4F9] dark:hover:bg-[#333537]"
           >
@@ -135,45 +200,89 @@ export function BatchFileQueue({
         </div>
       </div>
 
-      {/* Queue Header & Clear */}
+      {/* Queue Toolbar: Select All + Count + Clear + Action Button right above the cardlist */}
       {items.length > 0 && (
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-              Daftar Antrean ({items.length})
-            </span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-2xl bg-[#F8FAFD] dark:bg-[#1E1F20]/70 border border-[#E0E3E7] dark:border-[#36373A]">
+          {/* Left: Checkbox Select All & Selection Summary */}
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={items.length > 0 && selectedIds.length === items.length}
+                ref={(el) => {
+                  if (el) {
+                    el.indeterminate = selectedIds.length > 0 && selectedIds.length < items.length
+                  }
+                }}
+                onChange={toggleSelectAll}
+                disabled={disabled}
+                className="w-4 h-4 rounded text-[#0B57D0] focus:ring-[#0B57D0] border-[#C4C7C5] dark:border-[#535756] cursor-pointer accent-[#0B57D0]"
+              />
+              <span className="text-xs sm:text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+                Pilih Semua
+              </span>
+            </label>
+
             <span className="text-xs text-[#747775] dark:text-[#8E918F]">
-              Total: {formatBytes(items.reduce((sum, item) => sum + item.file.size, 0))}
+              <span className="text-[#0B57D0] dark:text-[#A8C7FA] font-medium">{selectedIds.length}</span> dari {items.length} dipilih
+            </span>
+
+            <span className="text-xs text-[#747775] dark:text-[#8E918F] hidden sm:inline">
+              • {formatBytes(selectedBytes)}
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={onClear}
-            disabled={disabled}
-            className="text-xs text-[#B3261E] dark:text-[#F2B8B5] hover:underline flex items-center gap-1 font-medium"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Kosongkan antrean</span>
-          </button>
+          {/* Right: Kosongkan button & Action/Download button */}
+          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={disabled}
+              className="text-xs text-[#747775] hover:text-[#B3261E] dark:hover:text-[#F2B8B5] transition-colors flex items-center gap-1 font-medium px-2.5 py-1.5 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Kosongkan</span>
+            </button>
+
+            {primaryAction}
+          </div>
         </div>
       )}
 
-      {/* List of Queue Items */}
+      {/* List of Queue Cards */}
       {items.length > 0 && (
-        <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+        <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
           {items.map((item, index) => {
+            const isSelected = selectedIds.includes(item.id)
             const isImage = item.file.type.startsWith('image/')
             const isPdf = item.file.type.includes('pdf') || item.file.name.toLowerCase().endsWith('.pdf')
 
             return (
               <div
                 key={item.id}
-                className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-[#1E1F20] border border-[#E0E3E7] dark:border-[#36373A]"
+                onClick={() => !disabled && toggleItem(item.id)}
+                className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none ${
+                  isSelected
+                    ? 'bg-white dark:bg-[#1E1F20] border-[#0B57D0]/40 shadow-xs'
+                    : 'bg-[#F8FAFD]/60 dark:bg-[#1E1F20]/40 border-[#E0E3E7] dark:border-[#36373A] opacity-75'
+                }`}
               >
-                {/* Thumbnail / Icon + Name */}
+                {/* Selection Checkbox + Thumbnail / Icon + Name */}
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#F0F4F9] dark:bg-[#28292A] flex items-center justify-center shrink-0 border border-[#E0E3E7]/60 dark:border-[#36373A]/60">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      toggleItem(item.id)
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    disabled={disabled}
+                    className="w-4 h-4 rounded text-[#0B57D0] focus:ring-[#0B57D0] border-[#C4C7C5] dark:border-[#535756] cursor-pointer accent-[#0B57D0] shrink-0"
+                    aria-label={`Pilih ${item.file.name}`}
+                  />
+
+                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#F0F4F9] dark:bg-[#28292A] flex items-center justify-center shrink-0 border border-[#E0E3E7]/60 dark:border-[#36373A]/60 pointer-events-none">
                     {item.thumbnailUrl ? (
                       <img
                         src={item.thumbnailUrl}
@@ -189,7 +298,7 @@ export function BatchFileQueue({
                     )}
                   </div>
 
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 pointer-events-none">
                     <p className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3] truncate">
                       {item.file.name}
                     </p>
@@ -217,7 +326,10 @@ export function BatchFileQueue({
                 </div>
 
                 {/* Status Badge + Reorder & Delete */}
-                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                <div
+                  className="flex items-center gap-1.5 shrink-0 ml-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {/* Status Indicator */}
                   {item.status === 'idle' && (
                     <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
