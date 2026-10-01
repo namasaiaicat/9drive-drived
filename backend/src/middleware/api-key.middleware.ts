@@ -14,9 +14,17 @@ function normalizeScopes(value: unknown) {
 export function requireApiKey(scope: string) {
   return async (req: ApiKeyRequest, res: Response, next: NextFunction) => {
     try {
-      const header = req.header('Authorization')
-      if (!header?.startsWith('Bearer ')) return res.status(401).json({ code: 'API_KEY_REQUIRED', message: 'API key required.' })
-      const rawKey = header.slice(7).trim()
+      const authHeader = req.header('Authorization')
+      const xApiKey = req.header('x-api-key')
+      let rawKey = ''
+
+      if (xApiKey && typeof xApiKey === 'string') {
+        rawKey = xApiKey.trim()
+      } else if (authHeader?.startsWith('Bearer ')) {
+        rawKey = authHeader.slice(7).trim()
+      }
+
+      if (!rawKey) return res.status(401).json({ code: 'API_KEY_REQUIRED', message: 'API key required (via x-api-key or Authorization: Bearer).' })
       const apiKey = await prisma.apiKey.findUnique({ where: { keyHash: hashToken(rawKey) } })
       if (!apiKey || apiKey.status !== 'active' || apiKey.revokedAt || (apiKey.expiresAt && apiKey.expiresAt <= new Date())) return res.status(401).json({ code: 'API_KEY_INVALID', message: 'Invalid API key.' })
       const scopes = normalizeScopes(apiKey.scopes)

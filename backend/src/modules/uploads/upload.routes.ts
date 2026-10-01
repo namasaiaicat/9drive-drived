@@ -1,5 +1,5 @@
 import Busboy from 'busboy'
-import type { NextFunction, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import { Router } from 'express'
 import { Readable } from 'stream'
 import { z } from 'zod'
@@ -13,7 +13,35 @@ import { createAuditLog } from '../../utils/audit.js'
 
 export const uploadRouter = Router()
 
-type UploadMeta = { fieldName: string; fileName: string; mimeType: string; sizeBytes: bigint; folderId?: string }
+export function getBaseUrl(req: Request | AuthRequest): string {
+  if (process.env.CDN_BASE_URL) {
+    return process.env.CDN_BASE_URL.replace(/\/+$/, '')
+  }
+  const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http'
+  const host = (req.headers['x-forwarded-host'] as string) || req.get('host') || `localhost:${env.APP_PORT}`
+  return `${proto}://${host}`
+}
+
+export function formatFileResponse(file: any, baseUrl: string) {
+  const sizeNum = typeof file.sizeBytes === 'bigint' ? Number(file.sizeBytes) : Number(file.sizeBytes || 0)
+  const sizeStr = file.sizeBytes !== undefined && file.sizeBytes !== null ? file.sizeBytes.toString() : '0'
+  return {
+    id: file.id,
+    name: file.name,
+    mimeType: file.mimeType,
+    size: sizeNum,
+    sizeBytes: sizeStr,
+    provider: file.provider,
+    folderId: file.folderId ?? null,
+    status: file.status ?? 'active',
+    createdAt: file.createdAt,
+    updatedAt: file.updatedAt,
+    url: `${baseUrl}/cdn/view/${file.id}`,
+    downloadUrl: `${baseUrl}/cdn/raw/${file.id}`,
+  }
+}
+
+type UploadMeta = { fieldName: string; fileName: string; mimeType: string; sizeBytes?: bigint; folderId?: string }
 type RoutingMode = 'most_available' | 'round_robin' | 'priority'
 
 function logUpload(message: string, metadata?: Record<string, unknown>) {
@@ -119,6 +147,7 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
     const completed: Array<Record<string, unknown>> = []
     const failed: Array<{ fileName: string; code: string; message: string }> = []
     const pendingUploads: Array<Promise<void>> = []
+    const baseUrl = getBaseUrl(req)
 
     const fail = async (status: number, code: string, message: string) => {
       if (responded) return
@@ -139,27 +168,61 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
     const metaForFile = (fieldName: string, info: { filename: string; mimeType: string }) => {
       if (batchMeta) return batchMeta.find((item) => item.fieldName === fieldName)
       const sizeBytes = fields.sizeBytes
-      if (!sizeBytes) return null
-      return { fieldName, sizeBytes, fileName: fields.fileName || info.filename, mimeType: fields.mimeType || info.mimeType || 'application/octet-stream', folderId: fields.folderId }
+      return {
+        fieldName,
+        sizeBytes: sizeBytes ?? undefined,
+        fileName: fields.fileName || info.filename,
+        mimeType: fields.mimeType || info.mimeType || 'application/octet-stream',
+        folderId: fields.folderId,
+      }
     }
 
     const uploadOne = async (fieldName: string, fileStream: NodeJS.ReadableStream, info: { filename: string; mimeType: string }) => {
       const meta = metaForFile(fieldName, info)
       const fileName = meta?.fileName || info.filename
       try {
-        fileStream.on('limit', () => logUpload('file stream size limit reached', { fileName }))
-        if (!meta?.sizeBytes || meta.sizeBytes <= 0n) {
-          fileStream.resume()
-          failed.push({ fileName, code: 'UPLOAD_SIZE_REQUIRED', message: 'sizeBytes field must be sent before file field.' })
-          return
-        }
-        if (meta.sizeBytes > BigInt(env.MAX_UPLOAD_BYTES)) {
-          fileStream.resume()
+        let limitHit = false
+        fileStream.on('limit', () => {
+          limitHit = true
+          logUpload('file stream size limit reached', { fileName })
+        })
+
+        const chunks: Buffer[] = []
+        fileStream.on('data', (chunk: Buffer) => {
+          chunks.push(chunk)
+        })
+
+        await new Promise<void>((resolve, reject) => {
+          fileStream.on('end', resolve)
+          fileStream.on('error', reject)
+        })
+
+        if (limitHit) {
           failed.push({ fileName, code: 'UPLOAD_TOO_LARGE', message: 'File exceeds max upload size.' })
           return
         }
 
-        const folderId = meta.folderId || null
+        const fileBuffer = Buffer.concat(chunks)
+        const streamedBytes = BigInt(fileBuffer.length)
+
+        if (streamedBytes <= 0n) {
+          failed.push({ fileName, code: 'UPLOAD_SIZE_REQUIRED', message: 'File cannot be empty.' })
+          return
+        }
+
+        const effectiveSizeBytes = (meta?.sizeBytes && meta.sizeBytes > 0n) ? meta.sizeBytes : streamedBytes
+
+        if (effectiveSizeBytes > BigInt(env.MAX_UPLOAD_BYTES) || streamedBytes > BigInt(env.MAX_UPLOAD_BYTES)) {
+          failed.push({ fileName, code: 'UPLOAD_TOO_LARGE', message: 'File exceeds max upload size.' })
+          return
+        }
+
+        if (meta?.sizeBytes && meta.sizeBytes > 0n && streamedBytes !== meta.sizeBytes) {
+          failed.push({ fileName, code: 'UPLOAD_SIZE_MISMATCH', message: 'Streamed byte count did not match declared size.' })
+          return
+        }
+
+        const folderId = meta?.folderId || fields.folderId || null
         let targetAccountId: string | undefined = undefined
         if (folderId) {
           const folderRecord = await prisma.folder.findFirstOrThrow({ where: { id: folderId, userId: req.user!.id, deletedAt: null } })
@@ -168,41 +231,29 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
           }
         }
 
-        const account = await selectAccount(req.user!.id, meta.sizeBytes, reservedBytesByAccount, targetAccountId)
+        const account = await selectAccount(req.user!.id, effectiveSizeBytes, reservedBytesByAccount, targetAccountId)
         if (!account) {
-          fileStream.resume()
           failed.push({ fileName, code: 'NO_ACCOUNT_WITH_ENOUGH_SPACE', message: 'No connected storage account has enough space for this upload.' })
           return
         }
-        reservedBytesByAccount.set(account.id, (reservedBytesByAccount.get(account.id) ?? 0n) + meta.sizeBytes)
+        reservedBytesByAccount.set(account.id, (reservedBytesByAccount.get(account.id) ?? 0n) + effectiveSizeBytes)
 
-        const session = await prisma.uploadSession.create({ data: { userId: req.user!.id, targetConnectedAccountId: account.id, folderId, fileName, mimeType: meta.mimeType, sizeBytes: meta.sizeBytes, status: 'uploading' } })
-        logUpload('file upload started', { sessionId: session.id, accountId: account.id, fileName, sizeBytes: meta.sizeBytes.toString() })
-        const chunks: Buffer[] = []
-        fileStream.on('data', (chunk: Buffer) => {
-          chunks.push(chunk)
-        })
-        await new Promise<void>((resolve, reject) => {
-          fileStream.on('end', resolve)
-          fileStream.on('error', reject)
-        })
-        const fileBuffer = Buffer.concat(chunks)
-        const streamedBytes = BigInt(fileBuffer.length)
+        const session = await prisma.uploadSession.create({ data: { userId: req.user!.id, targetConnectedAccountId: account.id, folderId, fileName, mimeType: meta?.mimeType || info.mimeType || 'application/octet-stream', sizeBytes: effectiveSizeBytes, status: 'uploading' } })
+        logUpload('file upload started', { sessionId: session.id, accountId: account.id, fileName, sizeBytes: effectiveSizeBytes.toString() })
 
         let providerFileId = ''
-        let s3FileId: string | null = null
         let uploadedName = fileName
-        let uploadedMimeType = meta.mimeType
+        let uploadedMimeType = meta?.mimeType || info.mimeType || 'application/octet-stream'
+
         if (account.provider === 's3') {
           const config = await getS3ConfigForAccount(account.id, req.user!.id)
           const provisionalFile = await prisma.file.create({
-            data: { userId: req.user!.id, connectedAccountId: account.id, folderId, provider: 's3', providerFileId: 'pending', name: fileName, mimeType: meta.mimeType, sizeBytes: meta.sizeBytes, status: 'uploading' },
+            data: { userId: req.user!.id, connectedAccountId: account.id, folderId, provider: 's3', providerFileId: 'pending', name: fileName, mimeType: uploadedMimeType, sizeBytes: effectiveSizeBytes, status: 'uploading' },
           })
-          s3FileId = provisionalFile.id
           providerFileId = buildS3ObjectKey(config, req.user!.id, provisionalFile.id, fileName)
-          await uploadS3Object(config, providerFileId, Readable.from(fileBuffer), meta.mimeType)
-          await prisma.file.update({ where: { id: provisionalFile.id }, data: { providerFileId, status: 'active' } })
-          completed.push({ ...provisionalFile, providerFileId, status: 'active', sizeBytes: provisionalFile.sizeBytes.toString() })
+          await uploadS3Object(config, providerFileId, Readable.from(fileBuffer), uploadedMimeType)
+          const updated = await prisma.file.update({ where: { id: provisionalFile.id }, data: { providerFileId, status: 'active' } })
+          completed.push(formatFileResponse(updated, baseUrl))
           logUpload('s3 upload completed', { sessionId: session.id, accountId: account.id, fileName })
         } else {
           const auth = await getAuthedGoogleClient(account)
@@ -219,12 +270,12 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
               name: fileName,
               ...(targetParentId ? { parents: [targetParentId] } : {}),
             },
-            media: { mimeType: meta.mimeType, body: Readable.from(fileBuffer) },
+            media: { mimeType: uploadedMimeType, body: Readable.from(fileBuffer) },
             fields: 'id,name,mimeType,size',
           })
           providerFileId = uploaded.data.id ?? ''
           uploadedName = uploaded.data.name ?? fileName
-          uploadedMimeType = uploaded.data.mimeType ?? meta.mimeType
+          uploadedMimeType = uploaded.data.mimeType ?? uploadedMimeType
           logUpload('google upload completed', { sessionId: session.id, accountId: account.id, fileName })
 
           // Make the file public (anyone with link can edit/download)
@@ -240,20 +291,14 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
           } catch (err: any) {
             console.error('Failed to make Google Drive file public:', err.message || err)
           }
+
+          const file = await prisma.file.create({ data: { userId: req.user!.id, connectedAccountId: account.id, folderId, provider: 'google_drive', providerFileId, name: uploadedName, mimeType: uploadedMimeType, sizeBytes: effectiveSizeBytes } })
+          if (file) {
+            logUpload('database file created', { sessionId: session.id, fileId: file.id, accountId: account.id })
+            completed.push(formatFileResponse(file, baseUrl))
+          }
         }
 
-        if (streamedBytes !== meta.sizeBytes) {
-          if (s3FileId) await prisma.file.update({ where: { id: s3FileId }, data: { status: 'deleted', deletedAt: new Date() } }).catch(() => undefined)
-          await prisma.uploadSession.update({ where: { id: session.id }, data: { status: 'failed', errorMessage: 'Streamed byte count did not match declared size.' } })
-          failed.push({ fileName, code: 'UPLOAD_SIZE_MISMATCH', message: 'Streamed byte count did not match declared size.' })
-          return
-        }
-
-        const file = account.provider === 's3' ? null : await prisma.file.create({ data: { userId: req.user!.id, connectedAccountId: account.id, folderId, provider: 'google_drive', providerFileId, name: uploadedName, mimeType: uploadedMimeType, sizeBytes: meta.sizeBytes } })
-        if (file) {
-          logUpload('database file created', { sessionId: session.id, fileId: file.id, accountId: account.id })
-          completed.push({ ...file, sizeBytes: file.sizeBytes.toString() })
-        }
         await prisma.uploadSession.update({ where: { id: session.id }, data: { status: 'completed', completedAt: new Date() } })
         if (account.provider === 's3') syncS3Quota(account.id).catch(() => undefined)
         else syncQuotaInBackground(account.id, session.id)
@@ -292,8 +337,15 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
         responded = true
         logUpload('response sent', { completed: completed.length, failed: failed.length })
         if (completed.length === 0) return res.status(400).json({ code: failed[0]?.code ?? 'UPLOAD_FAILED', message: failed[0]?.message ?? 'Upload failed', failed })
-        if (!batchMeta && completed.length === 1 && failed.length === 0) return res.status(201).json({ file: completed[0] })
-        return res.status(201).json({ files: completed, failed })
+        if (completed.length === 1 && failed.length === 0) {
+          return res.status(201).json({
+            success: true,
+            file: completed[0],
+            files: completed,
+            failed: [],
+          })
+        }
+        return res.status(201).json({ success: failed.length === 0, files: completed, failed })
       }).catch(next)
     })
 
@@ -544,7 +596,7 @@ uploadRouter.put('/resumable/chunk/:id', requireAuth, async (req: AuthRequest, r
 
       syncQuotaInBackground(account.id, session.id)
 
-      return res.status(201).json({ status: 'completed', file: { ...existingFile, sizeBytes: existingFile.sizeBytes.toString() } })
+      return res.status(201).json({ status: 'completed', file: formatFileResponse(existingFile, getBaseUrl(req)) })
     }
 
     const errorMsg = await putRes.text()

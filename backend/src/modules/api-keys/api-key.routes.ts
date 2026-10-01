@@ -53,10 +53,37 @@ apiKeyRouter.post('/', async (req: AuthRequest, res, next) => {
   }
 })
 
+apiKeyRouter.patch('/:id/status', async (req: AuthRequest, res, next) => {
+  try {
+    const statusSchema = z.object({ status: z.enum(['active', 'revoked']) })
+    const body = statusSchema.parse(req.body)
+    const key = await prisma.apiKey.findFirst({
+      where: { id: String(req.params.id), userId: req.user!.id },
+    })
+    if (!key) return res.status(404).json({ error: 'API key not found' })
+
+    const updated = await prisma.apiKey.update({
+      where: { id: key.id },
+      data: {
+        status: body.status,
+        revokedAt: body.status === 'revoked' ? new Date() : null,
+      },
+    })
+    return res.json({ apiKey: serializeApiKey(updated) })
+  } catch (error) {
+    return next(error)
+  }
+})
+
 apiKeyRouter.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
-    await prisma.apiKey.updateMany({ where: { id: String(req.params.id), userId: req.user!.id, revokedAt: null }, data: { status: 'revoked', revokedAt: new Date() } })
-    return res.json({ status: 'ok' })
+    const deleted = await prisma.apiKey.deleteMany({
+      where: { id: String(req.params.id), userId: req.user!.id },
+    })
+    if (deleted.count === 0) {
+      return res.status(404).json({ error: 'API key not found' })
+    }
+    return res.json({ status: 'ok', deletedCount: deleted.count })
   } catch (error) {
     return next(error)
   }
