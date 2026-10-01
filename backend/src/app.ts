@@ -13,16 +13,25 @@ import { publicRouter } from './modules/public/public.routes.js'
 import { inviteRouter } from './modules/invites/invite.routes.js'
 import { apiKeyRouter } from './modules/api-keys/api-key.routes.js'
 import { publicApiRouter } from './modules/public-api/public-api.routes.js'
+import { cdnRouter } from './modules/cdn/cdn.routes.js'
 import { auditLogRouter } from './modules/audit-logs/audit-log.routes.js'
 import { systemRouter } from './modules/system/system.routes.js'
 
 export const app = express()
 app.set('trust proxy', true)
 
-app.use(cors({ origin: env.FRONTEND_URL }))
+// Dynamic CORS: Allow open access for CDN delivery and public API routes, restrict internal routes to FRONTEND_URL
+app.use((req, res, next) => {
+  if (req.path.startsWith('/cdn') || req.path.startsWith('/api') || req.path.startsWith('/public')) {
+    return cors({ origin: '*' })(req, res, next)
+  }
+  return cors({ origin: env.FRONTEND_URL, credentials: true })(req, res, next)
+})
+
 app.use(express.json({ limit: '1mb' }))
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
+app.use('/cdn', cdnRouter)
 app.use('/api', publicApiRouter)
 app.use('/public', publicRouter)
 app.use('/auth', authRouter)

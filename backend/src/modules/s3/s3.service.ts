@@ -8,7 +8,7 @@ import { decryptText } from '../../utils/crypto.js'
 
 type S3Config = S3StorageConfig
 type FileWithAccount = File & { connectedAccount: ConnectedAccount }
-type StreamOptions = { disposition?: 'inline' | 'attachment' }
+type StreamOptions = { disposition?: 'inline' | 'attachment'; headers?: Record<string, string> }
 
 function contentDisposition(type: 'inline' | 'attachment', fileName: string) {
   return `${type}; filename="${fileName.replaceAll('"', '')}"`
@@ -95,6 +95,11 @@ export async function streamS3File(file: FileWithAccount, range: string | undefi
   res.setHeader('Content-Type', response.ContentType ?? file.mimeType)
   res.setHeader('Accept-Ranges', 'bytes')
   if (options.disposition) res.setHeader('Content-Disposition', contentDisposition(options.disposition, file.name))
+  if (options.headers) {
+    for (const [key, value] of Object.entries(options.headers)) {
+      res.setHeader(key, value)
+    }
+  }
   if (response.ContentLength !== undefined) res.setHeader('Content-Length', response.ContentLength.toString())
   if (response.ContentRange) res.setHeader('Content-Range', response.ContentRange)
 

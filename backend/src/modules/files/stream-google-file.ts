@@ -3,7 +3,7 @@ import type { ConnectedAccount, File } from '@prisma/client'
 import { getAuthedGoogleClient } from '../google/google.service.js'
 
 type FileWithAccount = File & { connectedAccount: ConnectedAccount }
-type StreamOptions = { disposition?: 'inline' | 'attachment' }
+type StreamOptions = { disposition?: 'inline' | 'attachment'; headers?: Record<string, string> }
 
 export const googleDownloadExportMimeTypes: Record<string, { mimeType: string; extension: string }> = {
   'application/vnd.google-apps.document': { mimeType: 'application/pdf', extension: '.pdf' },
@@ -56,6 +56,11 @@ export async function streamGoogleFile(file: FileWithAccount, range: string | un
   res.setHeader('Content-Type', responseMimeType)
   res.setHeader('Accept-Ranges', 'bytes')
   if (options.disposition) res.setHeader('Content-Disposition', contentDisposition(options.disposition, responseFileName))
+  if (options.headers) {
+    for (const [key, value] of Object.entries(options.headers)) {
+      res.setHeader(key, value)
+    }
+  }
 
   const contentLength = response.headers.get('content-length')
   const contentRange = response.headers.get('content-range')

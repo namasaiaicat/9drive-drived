@@ -200,16 +200,99 @@ systemRouter.post('/google-config', requireAuth, async (req, res, next) => {
   }
 })
 
-systemRouter.get('/backup', requireAuth, (req, res, next) => {
+systemRouter.get('/backup', requireAuth, async (req, res, next) => {
   try {
-    const dbPath = getDatabaseFilePath()
-    if (!fs.existsSync(dbPath)) {
-      return res.status(404).json({ code: 'NOT_FOUND', message: 'Database file not found.' })
+    const isSqlite = Boolean(process.env.DATABASE_URL?.startsWith('file:') || process.env.DATABASE_URL?.startsWith('sqlite:'))
+    if (isSqlite) {
+      const dbPath = getDatabaseFilePath()
+      if (fs.existsSync(dbPath)) {
+        res.setHeader('Content-Disposition', 'attachment; filename="9drive-backup.db"')
+        res.setHeader('Content-Type', 'application/octet-stream')
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition')
+        const fileStream = fs.createReadStream(dbPath)
+        return fileStream.pipe(res)
+      }
     }
-    res.setHeader('Content-Disposition', 'attachment; filename=9drive-backup.db')
-    res.setHeader('Content-Type', 'application/octet-stream')
-    const fileStream = fs.createReadStream(dbPath)
-    fileStream.pipe(res)
+
+    // Export all tables as structured snapshot
+    const [
+      users,
+      apiKeys,
+      uploadRoutingPolicies,
+      userSessions,
+      authHandoffs,
+      providerConfigs,
+      oauthStates,
+      connectedAccounts,
+      s3StorageConfigs,
+      storageAccounts,
+      folders,
+      files,
+      fileShares,
+      filePreviewTokens,
+      uploadSessions,
+      auditLogs,
+      workspaceInvites,
+    ] = await Promise.all([
+      prisma.user.findMany(),
+      prisma.apiKey.findMany(),
+      prisma.uploadRoutingPolicy.findMany(),
+      prisma.userSession.findMany(),
+      prisma.authHandoff.findMany(),
+      prisma.providerConfig.findMany(),
+      prisma.oauthState.findMany(),
+      prisma.connectedAccount.findMany(),
+      prisma.s3StorageConfig.findMany(),
+      prisma.storageAccount.findMany(),
+      prisma.folder.findMany(),
+      prisma.file.findMany(),
+      prisma.fileShare.findMany(),
+      prisma.filePreviewToken.findMany(),
+      prisma.uploadSession.findMany(),
+      prisma.auditLog.findMany(),
+      prisma.workspaceInvite.findMany(),
+    ])
+
+    const dateStr = new Date().toISOString().split('T')[0]
+    const backup = {
+      version: '1.0',
+      appName: '9Drive',
+      exportedAt: new Date().toISOString(),
+      provider: isSqlite ? 'sqlite' : 'mysql',
+      data: {
+        users,
+        apiKeys,
+        uploadRoutingPolicies,
+        userSessions,
+        authHandoffs,
+        providerConfigs,
+        oauthStates,
+        connectedAccounts,
+        s3StorageConfigs,
+        storageAccounts,
+        folders,
+        files,
+        fileShares,
+        filePreviewTokens,
+        uploadSessions,
+        auditLogs,
+        workspaceInvites,
+      },
+    }
+
+    const jsonString = JSON.stringify(
+      backup,
+      (_key, value) => {
+        if (typeof value === 'bigint') return value.toString()
+        return value
+      },
+      2
+    )
+
+    res.setHeader('Content-Disposition', `attachment; filename="9drive-backup-${dateStr}.json"`)
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition')
+    return res.send(jsonString)
   } catch (error) {
     return next(error)
   }
@@ -222,59 +305,86 @@ systemRouter.post('/restore', requireAuth, (req, res, next) => {
       return res.status(400).json({ code: 'BAD_REQUEST', message: 'multipart/form-data required.' })
     }
 
-    const busboy = Busboy({ headers: req.headers, limits: { files: 1 } })
+    const busboy = Busboy({ headers: req.headers, limits: { files: 1, fileSize: 100 * 1024 * 1024 } })
     let fileReceived = false
 
     busboy.on('file', (name, fileStream, info) => {
       fileReceived = true
-      const dbPath = getDatabaseFilePath()
-      const tempDbPath = dbPath + '.tmp'
-      const writeStream = fs.createWriteStream(tempDbPath)
+      const filename = (info.filename || '').toLowerCase()
+      const chunks: Buffer[] = []
 
-      fileStream.pipe(writeStream)
+      fileStream.on('data', (chunk) => {
+        chunks.push(chunk)
+      })
 
-      writeStream.on('finish', async () => {
+      fileStream.on('end', async () => {
         try {
-          // Disconnect prisma client first to release database lock
-          await prisma.$disconnect()
-
-          // Replace old database file with restored database file
-          fs.renameSync(tempDbPath, dbPath)
-
-          res.json({
-            status: 'success',
-            message: 'Database restored successfully. Server will restart in 2 seconds.'
-          })
-
-          // Graceful exit after response is sent
-          setTimeout(() => {
-            console.log('Database restored. Exiting to allow PM2 restart.')
-            process.exit(0)
-          }, 2000)
-
-        } catch (err: any) {
-          if (fs.existsSync(tempDbPath)) {
-            try { fs.unlinkSync(tempDbPath) } catch {}
+          const buffer = Buffer.concat(chunks)
+          if (buffer.length === 0) {
+            return res.status(400).json({ code: 'EMPTY_FILE', message: 'Uploaded backup file is empty.' })
           }
+
+          const isSqlite = Boolean(process.env.DATABASE_URL?.startsWith('file:') || process.env.DATABASE_URL?.startsWith('sqlite:'))
+
+          // Handle SQLite .db upload
+          if (filename.endsWith('.db')) {
+            if (!isSqlite) {
+              return res.status(400).json({
+                code: 'INVALID_FORMAT',
+                message: 'You uploaded a SQLite .db file, but the active database is MySQL. Please upload a 9Drive JSON backup file (.json).'
+              })
+            }
+            const dbPath = getDatabaseFilePath()
+            const tempDbPath = dbPath + '.tmp'
+            fs.writeFileSync(tempDbPath, buffer)
+            await prisma.$disconnect()
+            fs.renameSync(tempDbPath, dbPath)
+            return res.json({
+              status: 'success',
+              message: 'Database restored successfully from .db file. Please reload the application.'
+            })
+          }
+
+          // Handle JSON backup upload
+          let parsed: any
+          try {
+            parsed = JSON.parse(buffer.toString('utf-8'))
+          } catch {
+            return res.status(400).json({
+              code: 'PARSE_ERROR',
+              message: 'Invalid backup file format. Expected a valid 9Drive JSON backup file.'
+            })
+          }
+
+          const backupData = parsed.data || parsed
+          if (!backupData || (!backupData.users && !backupData.connectedAccounts && !backupData.files && !backupData.folders)) {
+            return res.status(400).json({
+              code: 'INVALID_BACKUP_STRUCTURE',
+              message: 'Uploaded file does not contain valid 9Drive backup data.'
+            })
+          }
+
+          await restoreDatabaseFromJson(backupData, isSqlite)
+
+          return res.json({
+            status: 'success',
+            message: 'Database restored successfully! All tables and data have been restored.'
+          })
+        } catch (err: any) {
           console.error('Failed to restore database:', err)
           return res.status(500).json({
             code: 'RESTORE_FAILED',
-            message: 'Failed to restore database.',
+            message: 'Failed to restore database: ' + (err.message || 'Unknown error'),
             error: err.message
           })
         }
       })
 
-      writeStream.on('error', (err) => {
-        if (fs.existsSync(tempDbPath)) {
-          try { fs.unlinkSync(tempDbPath) } catch {}
+      fileStream.on('error', (err) => {
+        console.error('File stream error:', err)
+        if (!res.headersSent) {
+          return res.status(500).json({ code: 'UPLOAD_ERROR', message: err.message })
         }
-        console.error('Write error on temp DB:', err)
-        return res.status(500).json({
-          code: 'WRITE_ERROR',
-          message: 'Failed to write temporary database file.',
-          error: err.message
-        })
       })
     })
 
@@ -297,6 +407,316 @@ systemRouter.post('/restore', requireAuth, (req, res, next) => {
   }
 })
 
+async function restoreDatabaseFromJson(backupData: any, isSqlite: boolean) {
+  await prisma.$transaction(
+    async (tx) => {
+      if (!isSqlite) {
+        await tx.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 0;')
+      }
+
+      // Delete existing records in child-to-parent order
+      await tx.workspaceInvite.deleteMany({})
+      await tx.auditLog.deleteMany({})
+      await tx.uploadSession.deleteMany({})
+      await tx.filePreviewToken.deleteMany({})
+      await tx.fileShare.deleteMany({})
+      await tx.file.deleteMany({})
+      await tx.folder.deleteMany({})
+      await tx.storageAccount.deleteMany({})
+      await tx.s3StorageConfig.deleteMany({})
+      await tx.connectedAccount.deleteMany({})
+      await tx.oauthState.deleteMany({})
+      await tx.providerConfig.deleteMany({})
+      await tx.authHandoff.deleteMany({})
+      await tx.userSession.deleteMany({})
+      await tx.uploadRoutingPolicy.deleteMany({})
+      await tx.apiKey.deleteMany({})
+      await tx.user.deleteMany({})
+
+      // Insert restored records
+      if (backupData.users?.length) {
+        const records = backupData.users.map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          passwordHash: u.passwordHash,
+          status: u.status,
+          createdAt: u.createdAt ? new Date(u.createdAt) : new Date(),
+          updatedAt: u.updatedAt ? new Date(u.updatedAt) : new Date(),
+        }))
+        await tx.user.createMany({ data: records })
+      }
+
+      if (backupData.apiKeys?.length) {
+        const records = backupData.apiKeys.map((k: any) => ({
+          id: k.id,
+          userId: k.userId,
+          name: k.name,
+          keyPrefix: k.keyPrefix,
+          keyHash: k.keyHash,
+          scopes: k.scopes,
+          status: k.status,
+          lastUsedAt: k.lastUsedAt ? new Date(k.lastUsedAt) : null,
+          expiresAt: k.expiresAt ? new Date(k.expiresAt) : null,
+          revokedAt: k.revokedAt ? new Date(k.revokedAt) : null,
+          createdAt: k.createdAt ? new Date(k.createdAt) : new Date(),
+          updatedAt: k.updatedAt ? new Date(k.updatedAt) : new Date(),
+        }))
+        await tx.apiKey.createMany({ data: records })
+      }
+
+      if (backupData.uploadRoutingPolicies?.length) {
+        const records = backupData.uploadRoutingPolicies.map((p: any) => ({
+          id: p.id,
+          userId: p.userId,
+          mode: p.mode,
+          priorityAccountIds: p.priorityAccountIds,
+          roundRobinCursor: p.roundRobinCursor ?? 0,
+          createdAt: p.createdAt ? new Date(p.createdAt) : new Date(),
+          updatedAt: p.updatedAt ? new Date(p.updatedAt) : new Date(),
+        }))
+        await tx.uploadRoutingPolicy.createMany({ data: records })
+      }
+
+      if (backupData.userSessions?.length) {
+        const records = backupData.userSessions.map((s: any) => ({
+          id: s.id,
+          userId: s.userId,
+          refreshTokenHash: s.refreshTokenHash,
+          userAgent: s.userAgent ?? null,
+          ipAddress: s.ipAddress ?? null,
+          expiresAt: s.expiresAt ? new Date(s.expiresAt) : new Date(),
+          revokedAt: s.revokedAt ? new Date(s.revokedAt) : null,
+          createdAt: s.createdAt ? new Date(s.createdAt) : new Date(),
+          updatedAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
+        }))
+        await tx.userSession.createMany({ data: records })
+      }
+
+      if (backupData.authHandoffs?.length) {
+        const records = backupData.authHandoffs.map((h: any) => ({
+          id: h.id,
+          userId: h.userId,
+          tokenHash: h.tokenHash,
+          expiresAt: h.expiresAt ? new Date(h.expiresAt) : new Date(),
+          usedAt: h.usedAt ? new Date(h.usedAt) : null,
+          createdAt: h.createdAt ? new Date(h.createdAt) : new Date(),
+        }))
+        await tx.authHandoff.createMany({ data: records })
+      }
+
+      if (backupData.providerConfigs?.length) {
+        const records = backupData.providerConfigs.map((c: any) => ({
+          id: c.id,
+          userId: c.userId ?? null,
+          provider: c.provider,
+          clientIdEncrypted: c.clientIdEncrypted,
+          clientSecretEncrypted: c.clientSecretEncrypted,
+          redirectUri: c.redirectUri,
+          scopes: c.scopes,
+          status: c.status,
+          createdAt: c.createdAt ? new Date(c.createdAt) : new Date(),
+          updatedAt: c.updatedAt ? new Date(c.updatedAt) : new Date(),
+        }))
+        await tx.providerConfig.createMany({ data: records })
+      }
+
+      if (backupData.oauthStates?.length) {
+        const records = backupData.oauthStates.map((o: any) => ({
+          id: o.id,
+          userId: o.userId ?? null,
+          providerConfigId: o.providerConfigId,
+          flow: o.flow,
+          stateHash: o.stateHash,
+          expiresAt: o.expiresAt ? new Date(o.expiresAt) : new Date(),
+          usedAt: o.usedAt ? new Date(o.usedAt) : null,
+          createdAt: o.createdAt ? new Date(o.createdAt) : new Date(),
+        }))
+        await tx.oauthState.createMany({ data: records })
+      }
+
+      if (backupData.connectedAccounts?.length) {
+        const records = backupData.connectedAccounts.map((a: any) => ({
+          id: a.id,
+          userId: a.userId,
+          providerConfigId: a.providerConfigId ?? null,
+          provider: a.provider,
+          providerAccountId: a.providerAccountId,
+          email: a.email,
+          displayName: a.displayName ?? null,
+          avatarUrl: a.avatarUrl ?? null,
+          accessTokenEncrypted: a.accessTokenEncrypted ?? null,
+          refreshTokenEncrypted: a.refreshTokenEncrypted ?? null,
+          tokenExpiresAt: a.tokenExpiresAt ? new Date(a.tokenExpiresAt) : null,
+          scopes: a.scopes,
+          status: a.status,
+          lastError: a.lastError ?? null,
+          createdAt: a.createdAt ? new Date(a.createdAt) : new Date(),
+          updatedAt: a.updatedAt ? new Date(a.updatedAt) : new Date(),
+        }))
+        await tx.connectedAccount.createMany({ data: records })
+      }
+
+      if (backupData.s3StorageConfigs?.length) {
+        const records = backupData.s3StorageConfigs.map((s: any) => ({
+          id: s.id,
+          userId: s.userId,
+          connectedAccountId: s.connectedAccountId,
+          name: s.name,
+          bucket: s.bucket,
+          region: s.region,
+          endpoint: s.endpoint ?? null,
+          accessKeyIdEncrypted: s.accessKeyIdEncrypted,
+          secretAccessKeyEncrypted: s.secretAccessKeyEncrypted,
+          forcePathStyle: Boolean(s.forcePathStyle),
+          prefix: s.prefix ?? '9drive',
+          quotaBytes: s.quotaBytes != null ? BigInt(s.quotaBytes) : null,
+          status: s.status,
+          createdAt: s.createdAt ? new Date(s.createdAt) : new Date(),
+          updatedAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
+        }))
+        await tx.s3StorageConfig.createMany({ data: records })
+      }
+
+      if (backupData.storageAccounts?.length) {
+        const records = backupData.storageAccounts.map((s: any) => ({
+          id: s.id,
+          connectedAccountId: s.connectedAccountId,
+          totalBytes: s.totalBytes != null ? BigInt(s.totalBytes) : null,
+          usedBytes: s.usedBytes != null ? BigInt(s.usedBytes) : 0n,
+          availableBytes: s.availableBytes != null ? BigInt(s.availableBytes) : null,
+          trashBytes: s.trashBytes != null ? BigInt(s.trashBytes) : null,
+          lastSyncedAt: s.lastSyncedAt ? new Date(s.lastSyncedAt) : null,
+          createdAt: s.createdAt ? new Date(s.createdAt) : new Date(),
+          updatedAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
+        }))
+        await tx.storageAccount.createMany({ data: records })
+      }
+
+      if (backupData.folders?.length) {
+        const records = backupData.folders.map((f: any) => ({
+          id: f.id,
+          userId: f.userId,
+          parentId: f.parentId ?? null,
+          connectedAccountId: f.connectedAccountId ?? null,
+          provider: f.provider ?? 'google_drive',
+          providerFolderId: f.providerFolderId ?? null,
+          name: f.name,
+          color: f.color ?? 'text-blue-500',
+          iconUrl: f.iconUrl ?? null,
+          createdAt: f.createdAt ? new Date(f.createdAt) : new Date(),
+          updatedAt: f.updatedAt ? new Date(f.updatedAt) : new Date(),
+          deletedAt: f.deletedAt ? new Date(f.deletedAt) : null,
+        }))
+        await tx.folder.createMany({ data: records })
+      }
+
+      if (backupData.files?.length) {
+        const records = backupData.files.map((f: any) => ({
+          id: f.id,
+          userId: f.userId,
+          connectedAccountId: f.connectedAccountId,
+          folderId: f.folderId ?? null,
+          provider: f.provider,
+          providerFileId: f.providerFileId,
+          name: f.name,
+          mimeType: f.mimeType,
+          sizeBytes: f.sizeBytes != null ? BigInt(f.sizeBytes) : 0n,
+          checksum: f.checksum ?? null,
+          status: f.status ?? 'active',
+          createdAt: f.createdAt ? new Date(f.createdAt) : new Date(),
+          updatedAt: f.updatedAt ? new Date(f.updatedAt) : new Date(),
+          deletedAt: f.deletedAt ? new Date(f.deletedAt) : null,
+        }))
+        await tx.file.createMany({ data: records })
+      }
+
+      if (backupData.fileShares?.length) {
+        const records = backupData.fileShares.map((s: any) => ({
+          id: s.id,
+          fileId: s.fileId,
+          userId: s.userId,
+          token: s.token ?? null,
+          tokenHash: s.tokenHash,
+          enabled: s.enabled ?? true,
+          expiresAt: s.expiresAt ? new Date(s.expiresAt) : null,
+          createdAt: s.createdAt ? new Date(s.createdAt) : new Date(),
+          updatedAt: s.updatedAt ? new Date(s.updatedAt) : new Date(),
+        }))
+        await tx.fileShare.createMany({ data: records })
+      }
+
+      if (backupData.filePreviewTokens?.length) {
+        const records = backupData.filePreviewTokens.map((t: any) => ({
+          id: t.id,
+          fileId: t.fileId,
+          userId: t.userId,
+          tokenHash: t.tokenHash,
+          expiresAt: t.expiresAt ? new Date(t.expiresAt) : new Date(),
+          createdAt: t.createdAt ? new Date(t.createdAt) : new Date(),
+        }))
+        await tx.filePreviewToken.createMany({ data: records })
+      }
+
+      if (backupData.uploadSessions?.length) {
+        const records = backupData.uploadSessions.map((u: any) => ({
+          id: u.id,
+          userId: u.userId,
+          targetConnectedAccountId: u.targetConnectedAccountId ?? null,
+          folderId: u.folderId ?? null,
+          fileName: u.fileName,
+          mimeType: u.mimeType,
+          sizeBytes: u.sizeBytes != null ? BigInt(u.sizeBytes) : 0n,
+          status: u.status,
+          googleSessionUri: u.googleSessionUri ?? null,
+          errorMessage: u.errorMessage ?? null,
+          createdAt: u.createdAt ? new Date(u.createdAt) : new Date(),
+          completedAt: u.completedAt ? new Date(u.completedAt) : null,
+        }))
+        await tx.uploadSession.createMany({ data: records })
+      }
+
+      if (backupData.auditLogs?.length) {
+        const records = backupData.auditLogs.map((l: any) => ({
+          id: l.id,
+          userId: l.userId ?? null,
+          action: l.action,
+          entityType: l.entityType,
+          entityId: l.entityId ?? null,
+          metadata: l.metadata ?? null,
+          createdAt: l.createdAt ? new Date(l.createdAt) : new Date(),
+        }))
+        await tx.auditLog.createMany({ data: records })
+      }
+
+      if (backupData.workspaceInvites?.length) {
+        const records = backupData.workspaceInvites.map((i: any) => ({
+          id: i.id,
+          inviterId: i.inviterId,
+          inviteeEmail: i.inviteeEmail,
+          targetType: i.targetType ?? 'file',
+          targetId: i.targetId ?? '',
+          role: i.role ?? 'viewer',
+          status: i.status ?? 'pending',
+          revokedAt: i.revokedAt ? new Date(i.revokedAt) : null,
+          acceptedAt: i.acceptedAt ? new Date(i.acceptedAt) : null,
+          createdAt: i.createdAt ? new Date(i.createdAt) : new Date(),
+          updatedAt: i.updatedAt ? new Date(i.updatedAt) : new Date(),
+        }))
+        await tx.workspaceInvite.createMany({ data: records })
+      }
+
+      if (!isSqlite) {
+        await tx.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 1;')
+      }
+    },
+    {
+      timeout: 60000,
+      maxWait: 10000,
+    }
+  )
+}
+
 function getDatabaseFilePath(): string {
   const dbUrl = process.env.DATABASE_URL || 'file:./dev.db'
   let cleanPath = dbUrl.replace(/^(sqlite|file):/, '')
@@ -318,3 +738,4 @@ function getDatabaseFilePath(): string {
 
   return cleanPath
 }
+
