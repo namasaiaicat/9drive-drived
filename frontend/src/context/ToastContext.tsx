@@ -62,6 +62,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       }
 
       setToasts((prev) => {
+        // Prevent duplicate toasts with the same message (e.g. multiple connection errors)
+        if (prev.some((t) => t.message === message && t.type === type)) {
+          return prev
+        }
         // Keep max 3 active toasts at once to prevent clutter
         const next = [...prev, newToast]
         return next.slice(-3)
