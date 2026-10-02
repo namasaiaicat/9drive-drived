@@ -364,6 +364,7 @@ async function handleStart() {
     ...process.env,
     NODE_PATH: nodePath,
     NINEDRIVE_CLI: 'true',
+    NINEDRIVE_VERSION: version,
     NINEDRIVE_DATA_DIR: dataDir,
     APP_PORT: String(config.APP_PORT),
     DATABASE_URL: config.DATABASE_URL,

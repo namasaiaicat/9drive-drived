@@ -22,6 +22,7 @@ import {
   Code2,
   Sparkles,
   Globe,
+  WifiOff,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/drive/BrandLogo'
 import { DriveSearchBar } from '@/components/drive/DriveSearchBar'
@@ -272,6 +273,22 @@ export function DriveLayout() {
   const [profileImageUrl, setProfileImageUrl] = useState('')
   const [avatarError, setAvatarError] = useState(false)
   const { language, setLanguage } = useLanguage()
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true))
+
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true)
+    }
+    function handleOffline() {
+      setIsOnline(false)
+    }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   // Auto-dismiss floating progress card 2 seconds after upload / processing finishes
   useEffect(() => {
@@ -462,6 +479,27 @@ export function DriveLayout() {
           </div>
         </div>
       </header>
+
+      {/* Offline Alert Banner (Material 3 Warning / Error Style) */}
+      {!isOnline && (
+        <div className="w-full bg-[#B3261E] dark:bg-[#F2B8B5] text-white dark:text-[#601410] px-4 py-2.5 flex items-center justify-between text-xs sm:text-sm font-medium shadow-md transition-all duration-300 z-30">
+          <div className="flex items-center gap-2.5">
+            <WifiOff className="h-4 w-4 shrink-0 animate-pulse" />
+            <span>
+              {language === 'id'
+                ? 'Tidak ada koneksi internet. Silakan aktifkan Wi-Fi atau internet Anda agar 9Drive dapat mengakses cloud storage.'
+                : 'No internet connection. Please enable Wi-Fi or internet connection to allow 9Drive to access cloud storage.'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="ml-3 shrink-0 rounded-full bg-white/20 hover:bg-white/30 dark:bg-black/10 dark:hover:bg-black/20 px-3 py-1 text-xs font-semibold transition-colors"
+          >
+            {language === 'id' ? 'Coba Lagi' : 'Retry'}
+          </button>
+        </div>
+      )}
 
       {/* 2. Main Body: Sidebar + Floating White Main Container */}
       <div className="flex flex-1 min-h-0 w-full overflow-hidden">

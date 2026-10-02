@@ -29,7 +29,16 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   if (!options.skipAuth && token) headers.set('Authorization', `Bearer ${token}`)
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers })
+  let response: Response
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...options, headers })
+  } catch (err: any) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Tidak ada koneksi internet. Silakan periksa jaringan Anda.')
+    }
+    throw new Error('Gagal menghubungkan, tunggu sebentar...')
+  }
+
   if (response.status === 401 && options.retry !== false && !options.skipAuth && await refreshAccessToken()) {
     return apiFetch<T>(path, { ...options, retry: false })
   }
@@ -37,7 +46,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: response.statusText }))
     if (response.status === 401) clearAuthSession()
-    throw new Error(error.message ?? 'Request failed')
+    throw new Error(error.message ?? 'Gagal menghubungkan, tunggu sebentar...')
   }
 
   return response.json() as Promise<T>

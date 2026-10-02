@@ -2,7 +2,7 @@
 
 # 9Drive — Virtual Cloud Storage & Client-Side Productivity Suite
 
-[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-1.0.4-blue.svg)](package.json)
 [![npm version](https://img.shields.io/npm/v/9drive.svg)](https://www.npmjs.com/package/9drive)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Framework](https://img.shields.io/badge/stack-React%20%7C%20Node%20Express%20%7C%20Prisma%20%7C%20SQLite%20%2F%20MySQL-orange.svg)]()

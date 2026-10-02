@@ -42,7 +42,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const addToast = useCallback(
-    (message: string, type: ToastType = 'info', options?: ToastOptions) => {
+    (rawMessage: string, type: ToastType = 'info', options?: ToastOptions) => {
+      let message = rawMessage
+      if (typeof message === 'string') {
+        if (/failed to fetch|network\s*error|net::err|load failed/i.test(message)) {
+          message = 'Gagal menghubungkan, tunggu sebentar...'
+        }
+      }
+
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
       const duration = options?.duration ?? 3500
 

@@ -22,19 +22,25 @@ function compareVersions(v1: string, v2: string): number {
 }
 
 systemRouter.get('/version', async (_req, res) => {
-  let currentVersion = '1.0.1'
+  let currentVersion = process.env.NINEDRIVE_VERSION || '1.0.4'
   try {
     const pkgPaths = [
+      path.resolve(__dirname, '../../../../package.json'),
+      path.resolve(__dirname, '../../../package.json'),
+      path.resolve(__dirname, '../../package.json'),
       path.resolve(process.cwd(), 'package.json'),
       path.resolve(process.cwd(), '../package.json'),
-      path.resolve(__dirname, '../../../package.json'),
     ]
     for (const p of pkgPaths) {
       if (fs.existsSync(p)) {
         const pkg = JSON.parse(fs.readFileSync(p, 'utf8'))
-        if (pkg.name === '9drive' && pkg.version) {
-          currentVersion = pkg.version
-          break
+        if (pkg.version) {
+          if (pkg.name === '9drive') {
+            currentVersion = pkg.version
+            break
+          } else if (!process.env.NINEDRIVE_VERSION) {
+            currentVersion = pkg.version
+          }
         }
       }
     }

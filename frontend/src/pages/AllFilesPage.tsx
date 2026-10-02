@@ -24,6 +24,7 @@ import { useUpload } from '@/context/UploadContext'
 import { useDriveFilter } from '@/context/DriveFilterContext'
 import { useLanguage } from '@/context/LanguageContext'
 import { useDriveLayoutActions } from '@/layouts/DriveLayout'
+import { OfflineScreen } from '@/components/common/OfflineScreen'
 import { cn } from '@/lib/utils'
 
 type BackendFile = { id: string; name: string; mimeType: string; sizeBytes: string; createdAt: string; folderId?: string | null; providerFileId?: string; driveUrl?: string | null; connectedAccount?: { email: string; provider: string }; folder?: { id: string; name: string } | null }
@@ -969,7 +970,7 @@ export function AllFilesPage() {
               <p className="truncate text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
                 {language === 'id' ? `Versi baru v${updateInfo.latestVersion} tersedia` : `New version v${updateInfo.latestVersion} available`}
                 <span className="hidden sm:inline font-normal text-[#444746] dark:text-[#C4C7C5] ml-2">
-                  {language === 'id' ? '— Jalankan npx 9drive@latest di terminal untuk memperbarui' : '— Run npx 9drive@latest in terminal to update'}
+                  {language === 'id' ? '— Jalankan npm install -g 9drive di terminal untuk memperbarui' : '— Run npm install -g 9drive in terminal to update'}
                 </span>
               </p>
             </div>
@@ -979,8 +980,8 @@ export function AllFilesPage() {
                 type="button"
                 size="sm"
                 onClick={() => {
-                  navigator.clipboard.writeText('npx 9drive@latest')
-                  toast.success(language === 'id' ? 'Perintah "npx 9drive@latest" disalin ke clipboard!' : 'Command copied to clipboard!')
+                  navigator.clipboard.writeText('npm install -g 9drive')
+                  toast.success(language === 'id' ? 'Perintah "npm install -g 9drive" disalin ke clipboard!' : 'Command copied to clipboard!')
                 }}
                 className="h-7 gap-1.5 rounded-full bg-[#0B57D0] px-3.5 text-xs font-medium text-white hover:bg-[#0842A0] dark:bg-[#A8C7FA] dark:text-[#001D35] dark:hover:bg-[#C2E7FF] transition-colors"
               >
@@ -1293,22 +1294,26 @@ export function AllFilesPage() {
             )}
           </div>
         ) : sortedFolders.length === 0 ? (
-          /* Google Drive Empty State */
-          <div className="flex flex-1 flex-col items-center justify-center py-20 px-4 text-center select-none">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#EDF2FC] dark:bg-[#28292A] text-[#0B57D0] dark:text-[#A8C7FA] mb-4">
-              <HardDrive className="h-12 w-12 stroke-[1.2]" />
+          /* Offline or Empty State */
+          typeof navigator !== 'undefined' && !navigator.onLine ? (
+            <OfflineScreen onRetry={loadAll} />
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center py-20 px-4 text-center select-none">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#EDF2FC] dark:bg-[#28292A] text-[#0B57D0] dark:text-[#A8C7FA] mb-4">
+                <HardDrive className="h-12 w-12 stroke-[1.2]" />
+              </div>
+              <h3 className="text-lg font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">
+                {t('empty.all_files_title', 'A place for all of your files')}
+              </h3>
+              <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F] max-w-sm">
+                {searchQuery
+                  ? (language === 'id' ? `Tidak ada file yang ditemukan untuk "${searchQuery}".` : `No files found for "${searchQuery}".`)
+                  : activeFolder
+                  ? t('empty.folder_empty', 'This folder is empty. Drag files here or use the "+ New" button to upload.')
+                  : t('empty.all_files_desc', 'Drag your files here or use the "+ New" button on the left to upload.')}
+              </p>
             </div>
-            <h3 className="text-lg font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">
-              {t('empty.all_files_title', 'A place for all of your files')}
-            </h3>
-            <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F] max-w-sm">
-              {searchQuery
-                ? (language === 'id' ? `Tidak ada file yang ditemukan untuk "${searchQuery}".` : `No files found for "${searchQuery}".`)
-                : activeFolder
-                ? t('empty.folder_empty', 'This folder is empty. Drag files here or use the "+ New" button to upload.')
-                : t('empty.all_files_desc', 'Drag your files here or use the "+ New" button on the left to upload.')}
-            </p>
-          </div>
+          )
         ) : null}
       </div>
       <EmptyAreaContextMenu x={emptyContextMenu.x} y={emptyContextMenu.y} open={emptyContextMenu.open} canPasteFolder={Boolean(cutFolder)} onClose={() => setEmptyContextMenu({ x: 0, y: 0, open: false })} onUpload={() => { fileUploadInputRef.current?.click(); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onCreateFolder={() => { setFolderOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onPasteFolder={() => { pasteFolder().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to paste folder')); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} />
