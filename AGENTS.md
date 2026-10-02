@@ -23,6 +23,7 @@
 ## Backend
 
 Stack:
+
 - Express 5
 - TypeScript
 - Prisma 6
@@ -35,6 +36,7 @@ Stack:
 - Undici for Google file streaming
 
 Important files:
+
 - `backend/src/server.ts`: server entrypoint.
 - `backend/src/app.ts`: Express app and route mounting.
 - `backend/src/config/env.ts`: environment validation.
@@ -47,6 +49,7 @@ Important files:
 - `backend/src/scripts/seed-google-config.ts`: stores encrypted global Google OAuth config.
 
 Commands:
+
 - `cd backend && npm run dev`: start development server.
 - `cd backend && npm run build`: typecheck/build backend.
 - `cd backend && npm run start`: run compiled backend from `dist/server.js`.
@@ -55,6 +58,7 @@ Commands:
 - `cd backend && npm run seed:google-config`: store encrypted Google OAuth config.
 
 Environment:
+
 - `DATABASE_URL`
 - `APP_PORT`
 - `FRONTEND_URL`
@@ -69,6 +73,7 @@ Environment:
 - `GOOGLE_REDIRECT_URI`
 
 Backend conventions:
+
 - Put route logic under `backend/src/modules/<feature>/<feature>.routes.ts`.
 - Mount new routers in `backend/src/app.ts`.
 - Use `requireAuth` for authenticated routes.
@@ -84,6 +89,7 @@ Backend conventions:
 - Email/password registration verifies reCAPTCHA only when `RECAPTCHA_SECRET_KEY` is configured.
 
 Security rules:
+
 - Never commit `.env` files or secrets.
 - Never log access tokens, refresh tokens, OAuth client secrets, JWT secrets, encryption keys, or raw public share tokens.
 - Google tokens are encrypted before database storage.
@@ -94,6 +100,7 @@ Security rules:
 - Keep auth/token storage behavior centralized; do not change without explicit reason.
 
 Database rules:
+
 - Change DB schema through Prisma schema and migrations.
 - Do not hand-edit generated Prisma client files.
 - After schema changes, run Prisma migration/generation and backend build.
@@ -102,6 +109,7 @@ Database rules:
 ## Frontend
 
 Stack:
+
 - React 19
 - Vite 8
 - TypeScript
@@ -113,6 +121,7 @@ Stack:
 - tailwind-merge
 
 Important files:
+
 - `frontend/src/main.tsx`: React entrypoint.
 - `frontend/src/App.tsx`: route registration.
 - `frontend/src/layouts/DriveLayout.tsx`: protected app shell, sidebar, header search, storage sidebar stats.
@@ -131,15 +140,18 @@ Important files:
 - `frontend/src/style.css`: Tailwind import and global styles.
 
 Commands:
+
 - `cd frontend && npm run dev`: start Vite dev server.
 - `cd frontend && npm run build`: typecheck/build frontend.
 - `cd frontend && npm run preview`: preview production build.
 
 Environment:
+
 - `VITE_API_URL`: backend base URL. Vite embeds this at build time.
 - `VITE_RECAPTCHA_SITE_KEY`: optional reCAPTCHA site key. Vite embeds this at build time; blank disables captcha UI.
 
 Frontend conventions:
+
 - Use `@/*` imports for files under `frontend/src`.
 - Keep route registration in `frontend/src/App.tsx`.
 - Use `apiFetch` for normal JSON API calls.
@@ -154,10 +166,12 @@ Frontend conventions:
 ## API Notes
 
 General:
+
 - `GET /health`
 - Authenticated routes expect `Authorization: Bearer <accessToken>` unless listed as public.
 
 Auth:
+
 - `POST /auth/register`
 - `POST /auth/login`
 - `GET /auth/google/url`
@@ -168,11 +182,13 @@ Auth:
 - `GET /auth/me`
 
 Provider configs:
+
 - `POST /provider-configs/google`
 - `GET /provider-configs`
 - `DELETE /provider-configs/:id`
 
 Google connected accounts:
+
 - `GET /connected-accounts/google/connect-url`
 - `GET /connected-accounts/google/connect`
 - `GET /connected-accounts/google/callback`
@@ -181,10 +197,12 @@ Google connected accounts:
 - `DELETE /connected-accounts/:id`
 
 Storage:
+
 - `GET /storage/summary`
 - `GET /storage/breakdown`
 
 Folders:
+
 - `GET /folders?parentId=<id>`
 - `GET /folders?all=1`
 - `GET /folders/recent?limit=4`
@@ -193,6 +211,7 @@ Folders:
 - `DELETE /folders/:id`
 
 Files:
+
 - `GET /files`
 - `GET /files?folderId=<id>`
 - `GET /files?q=<search>`
@@ -211,16 +230,19 @@ Files:
 - `GET /files/preview/:token`
 
 Invites:
+
 - `GET /invites`
 - `POST /invites`
 - `DELETE /invites/:id`
 
 Public shared files:
+
 - `GET /public/files/:token`
 - `GET /public/files/:token/download`
 - `GET /public/files/:token/preview`
 
 Uploads:
+
 - `POST /uploads`
 - Content type: `multipart/form-data`.
 - Current frontend sends metadata first as `filesMeta`: JSON array of `{ fieldName, fileName, mimeType, sizeBytes, folderId? }`.
@@ -232,6 +254,7 @@ Uploads:
 ## Docker
 
 Commands:
+
 - `docker compose up -d --build`: build and start MySQL, backend, frontend.
 - `docker compose exec backend npm run seed:google-config`: seed Google config inside backend container.
 - `docker compose logs -f backend`: backend logs.
@@ -241,6 +264,7 @@ Commands:
 - `docker compose down -v`: stop services and remove DB volume.
 
 Docker notes:
+
 - MySQL image is `mysql:8.4`.
 - Backend listens on `4000`.
 - Frontend build is served by nginx on host port `5173`.
@@ -250,16 +274,20 @@ Docker notes:
 ## Verification
 
 Before finishing backend changes:
+
 - `cd backend && npm run build`
 
 Before finishing frontend changes:
+
 - `cd frontend && npm run build`
 
 Before finishing schema changes:
+
 - `cd backend && npm run prisma:migrate`
 - `cd backend && npm run build`
 
 Manual smoke test:
+
 - Register/login.
 - Open Settings.
 - Connect Google Drive.
@@ -284,10 +312,14 @@ Manual smoke test:
 - Do not change Google OAuth scopes or redirect behavior without checking README and env requirements.
 - Do not change upload behavior to write files to disk.
 - Adhere strictly to [DESIGN.md](file:///e:/Project/9Drive/9drive/DESIGN.md) for all frontend styling (Google Drive Material Design 3 clone).
+- Always Publish to NPM after finished the new Features
 
 <!-- antislop:start -->
+
 ## antislop
+
 For UI, copy, accessibility, mobile layout, or code comments work, follow [DESIGN.md](file:///e:/Project/9Drive/9drive/DESIGN.md), read `.agents/skills/antislop/SKILL.md` (core) and then the skill for the task:
+
 - UI / visual: `.agents/skills/antislop-ui/SKILL.md`
 - Copy & text: `.agents/skills/antislop-copywriting/SKILL.md`
 - People / accessibility: `.agents/skills/antislop-human/SKILL.md`
@@ -295,4 +327,3 @@ For UI, copy, accessibility, mobile layout, or code comments work, follow [DESIG
 - Code comments: `.agents/skills/antislop-code/SKILL.md`
 Before starting UI work, verify changes against Google Drive Material Design 3 specifications in `DESIGN.md`.
 <!-- antislop:end -->
-
