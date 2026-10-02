@@ -67,14 +67,23 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   if (!options.skipAuth && token) headers.set('Authorization', `Bearer ${token}`)
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
 
-  let response: Response
-  try {
-    response = await fetch(`${API_URL}${path}`, { ...options, headers })
-  } catch (err: any) {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      throw new Error('Tidak ada koneksi internet. Silakan periksa jaringan Anda.')
+  let response!: Response
+  const maxNetworkRetries = options.retry === false ? 0 : 3
+
+  for (let attempt = 0; attempt <= maxNetworkRetries; attempt++) {
+    try {
+      response = await fetch(`${API_URL}${path}`, { ...options, headers })
+      break
+    } catch (err: any) {
+      if (attempt >= maxNetworkRetries) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          throw new Error('Tidak ada koneksi internet. Silakan periksa jaringan Anda.')
+        }
+        throw new Error('Gagal menghubungkan, tunggu sebentar...')
+      }
+      // Exponential backoff: 800ms, 1600ms, 3200ms
+      await new Promise(r => setTimeout(r, 800 * Math.pow(2, attempt)))
     }
-    throw new Error('Gagal menghubungkan, tunggu sebentar...')
   }
 
   if (response.status === 401 && options.retry !== false && !options.skipAuth && await refreshAccessToken()) {
