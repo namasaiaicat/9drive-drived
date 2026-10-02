@@ -36,7 +36,11 @@
     "build": "npm run build --prefix backend && npm run build --prefix frontend",
     "build:sqlite": "npm run prisma:generate:sqlite --prefix backend",
     "bundle:cli": "node scripts/bundle-cli.js",
-    "prepack": "node scripts/bundle-cli.js"
+    "prepack": "node scripts/bundle-cli.js",
+    "release": "node scripts/release.js",
+    "release:patch": "node scripts/release.js patch",
+    "release:minor": "node scripts/release.js minor",
+    "release:major": "node scripts/release.js major"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.954.0",
