@@ -2,7 +2,7 @@
 
 # 9Drive — Virtual Cloud Storage & Client-Side Productivity Suite
 
-[![Version](https://img.shields.io/badge/version-1.0.6-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-1.0.9-blue.svg)](package.json)
 [![npm version](https://img.shields.io/npm/v/9drive.svg)](https://www.npmjs.com/package/9drive)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Framework](https://img.shields.io/badge/stack-React%20%7C%20Node%20Express%20%7C%20Prisma%20%7C%20SQLite%20%2F%20MySQL-orange.svg)]()
@@ -340,6 +340,27 @@ Aplikasi dapat langsung diakses pada:
 
 ## 🌐 Konfigurasi Google Cloud Console
 
+> 🤖 **Cara Termudah & Paling Praktis (Rekomendasi): Panduan Interaktif Lewat AI**  
+> Konfigurasi Google Cloud Console memiliki banyak submenu (project, consent screen, scopes, test users, redirect URI) dan tata letak antarmuka Google sering kali diperbarui.  
+> Agar tidak bingung dan mendapatkan panduan interaktif step-by-step paling mutakhir, Anda bisa langsung menyalin prompt berikut ke **ChatGPT**, **Claude**, atau **Gemini**:
+>
+> ```text
+> Tolong pandu saya langkah demi langkah secara mendetail untuk membuat Google OAuth 2.0 Credentials (Client ID & Client Secret) di Google Cloud Console untuk aplikasi 9Drive:
+> 1. Cara membuat project baru di Google Cloud Console (https://console.cloud.google.com).
+> 2. Cara mengaktifkan Google Drive API di Library.
+> 3. Cara konfigurasi OAuth Consent Screen (User Type: External, Scopes apa saja yang dibutuhkan seperti Google Drive API & Userinfo).
+> 4. PENTING: Cara menambahkan email Gmail saya ke daftar "Test Users" agar tidak error 403 access_denied saat login.
+> 5. Cara membuat Credentials -> OAuth Client ID (pilih Web Application) dan memasukkan Authorized redirect URIs:
+>    - Jika via CLI / Local Dashboard: http://localhost:9999/connected-accounts/google/callback
+>    - Jika via Monorepo Dev: http://localhost:4000/connected-accounts/google/callback
+> 6. Di mana saya menyalin Client ID dan Client Secret yang dihasilkan untuk dimasukkan ke 9Drive.
+> Tolong jelaskan secara runut, ringkas, dan jelas sesuai tampilan Google Cloud Console terbaru!
+> ```
+
+---
+
+### Ringkasan Parameter Cepat (Manual Checklist):
+
 1. Buka [Google Cloud Console](https://console.cloud.google.com/).
 2. Buat atau pilih proyek Google Cloud Anda.
 3. Buka **APIs & Services** -> **Library**, cari **Google Drive API**, lalu klik **Enable**.
@@ -352,17 +373,19 @@ Aplikasi dapat langsung diakses pada:
      https://www.googleapis.com/auth/userinfo.email
      https://www.googleapis.com/auth/userinfo.profile
      ```
-   - Di bagian **Test users**, tambahkan alamat email Google yang akan digunakan untuk pengujian aplikasi.
+   - **⚠️ PENTING (Jangan Dilewati):** Di bagian **Test users**, klik **+ Add Users** dan tambahkan alamat email Gmail Anda yang akan dihubungkan. *(Jika dilewati, Google akan menolak login dengan error 403 access_denied)*.
 5. Buka **APIs & Services** -> **Credentials**:
    - Klik **Create Credentials** -> **OAuth client ID**.
    - Pilih tipe: **Web application**.
    - **Authorized JavaScript origins**:
      ```txt
      http://localhost:5173
+     http://localhost:9999
      ```
    - **Authorized redirect URIs**:
      ```txt
      http://localhost:4000/connected-accounts/google/callback
+     http://localhost:9999/connected-accounts/google/callback
      ```
    - Simpan dan salin **Client ID** serta **Client Secret**.
 6. Simpan kredensial tersebut ke dalam aplikasi melalui menu **Settings** -> **Google Credentials** pada dashboard 9Drive.
