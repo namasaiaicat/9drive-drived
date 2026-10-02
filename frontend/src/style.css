@@ -223,3 +223,15 @@ input[type="submit"]:disabled {
 .m3-press:active {
   transform: scale(0.97);
 }
+
+/* ServerHealthGate Loading Screen Animations */
+@keyframes healthgate-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.96); }
+}
+
+@keyframes healthgate-progress {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(150%); }
+  100% { transform: translateX(300%); }
+}
