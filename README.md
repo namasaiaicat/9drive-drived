@@ -2,13 +2,53 @@
 
 # 9Drive — Virtual Cloud Storage & Client-Side Productivity Suite
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](package.json)
+[![npm version](https://img.shields.io/npm/v/9drive.svg)](https://www.npmjs.com/package/9drive)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
-[![Framework](https://img.shields.io/badge/stack-React%20%7C%20Node%20Express%20%7C%20Prisma%20%7C%20MySQL-orange.svg)]()
+[![Framework](https://img.shields.io/badge/stack-React%20%7C%20Node%20Express%20%7C%20Prisma%20%7C%20SQLite%20%2F%20MySQL-orange.svg)]()
 
 **9Drive** adalah platform virtual cloud storage gateway modern yang menggabungkan banyak akun **Google Drive** dan **S3-Compatible Storage** (Cloudflare R2, MinIO, Wasabi, AWS S3, Backblaze B2) ke dalam satu dashboard terpadu bergaya **Google Drive Material Design 3 (MD3)**. 
 
 Dilengkapi dengan **High-Performance CDN Media Gateway**, **External Upload API**, serta **Client-Side Productivity Tools Suite** lengkap (alat olah PDF, AI Hapus Background Gambar, Ekstraksi Audio Video, dan Utilitas Data) yang berjalan 100% di browser secara aman, cepat, dan terintegrasi langsung dengan penyimpanan Drive Anda.
+
+---
+
+## ⚡ Jalankan Instan Tanpa Instalasi (Zero-Config CLI)
+
+9Drive kini dapat dijalankan secara instan di sistem operasi manapun (Windows, macOS, Linux) tanpa perlu setup database MySQL manual, menggunakan bundled local-first storage engine (SQLite) dan auto-launching browser dashboard.
+
+### Opsi 1: Jalankan Langsung via NPX (Tanpa Instalasi)
+Cukup buka terminal / Command Prompt dan jalankan:
+```bash
+npx 9drive
+```
+> *9Drive akan otomatis menyiapkan direktori data lokal `~/.9drive`, menyinkronkan database SQLite, dan membuka antarmuka web di browser default Anda (`http://localhost:9999`).*
+
+### Opsi 2: Instalasi Global & Buat Shortcut Desktop (Semua OS)
+Jika Anda ingin 9Drive terpasang permanen di komputer dan bisa dibuka kapan saja dengan double-click icon Desktop:
+
+```bash
+# 1. Pasang 9drive secara global
+npm install -g 9drive
+
+# 2. Pasang shortcut aplikasi di Desktop
+9drive shortcut
+```
+
+- **Windows**: Membuat icon shortcut **NineDrive** resmi di **Desktop** dan **Start Menu** (`NineDrive.lnk`). Cukup klik dua kali untuk menjalankan!
+- **macOS**: Membuat launcher script executable `9Drive.command` di Desktop.
+- **Linux**: Mendaftarkan file `.desktop` launcher di Desktop dan Application Menu.
+
+#### Perintah CLI yang Tersedia:
+| Perintah | Deskripsi |
+|---|---|
+| `9drive` / `9drive start` | Menjalankan server lokal dan membuka dashboard di browser |
+| `9drive shortcut` | Memasang shortcut / icon launcher di Desktop |
+| `9drive status` | Memeriksa lokasi direktori data, ukuran database SQLite, & konfigurasi |
+| `9drive backup` | Membuat cadangan (*snapshot backup*) database lokal secara instan |
+| `9drive open` | Membuka antarmuka 9Drive di browser |
+| `9drive --port <num>` | Menjalankan pada port kustom (contoh: `--port 8080`) |
+| `9drive --db <url>` | Menghubungkan ke database kustom (MySQL / PostgreSQL / SQLite) |
 
 ---
 
@@ -19,6 +59,9 @@ Repositori ini telah disesuaikan dan dikembangkan dengan penambahan serangkaian 
 ### 1. 🎨 Antarmuka Google Drive Material Design 3 (MD3)
 - **Tampilan Otentik Google Drive**: Navigasi sidebar dengan indikator pill aktif, floating search bar, breadcrumbs folder dinamis, surface elevation, dan palet warna resmi Google Drive (`#0B57D0`, background neutral, rounded cards).
 - **Drive Account Selector Terpadu**: Dropdown pemilih akun Drive langsung di navbar untuk memfilter tampilan berkas berdasarkan akun Google Drive tertentu atau menampilkan semua akun sekaligus.
+- **Pengurutan Berkas & Folder Fleksibel (*Smart Sorting*)**: Toolbar My Drive dilengkapi opsi pengurutan instan berdasarkan Terakhir Diubah (*Last Modified*), Nama (A-Z / Z-A), serta Ukuran Berkas / Folder (Terbesar / Terkecil).
+- **Banner Status & Panduan Setup Terpadu**: Indikator minimalis di bagian atas daftar berkas jika akun Drive belum terhubung, lengkap dengan tombol langsung menuju panduan aktivasi Google Console.
+- **Deteksi Pembaruan Versi Real-Time**: Aplikasi secara otomatis mendeteksi ketersediaan rilis versi terbaru di NPM dan menyediakan tombol 1-klik untuk menyalin perintah pembaruan.
 - **Global Search Bar Cerdas**: Pencarian instan berkas dan folder dilengkapi filter cepat berdasarkan tipe berkas (Dokumen, Gambar, Video, PDF, ZIP), rentang tanggal modifikasi, dan akun penyimpanan.
 - **Sistem Notifikasi Floating Toast (`ToastContext`)**: Notifikasi mengambang yang responsif dan interaktif untuk memberikan konfirmasi aksi (unggah, hapus, salin tautan, mutasi berkas) tanpa mengganggu alur kerja pengguna.
 - **Menu Konteks Klik Kanan Lengkap (*Right-Click Context Menu*)**:
