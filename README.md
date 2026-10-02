@@ -54,7 +54,7 @@ Setelah terpasang, cukup ketik perintah berikut dari direktori mana saja untuk m
 
 ## 🌟 Fitur Utama & Pembaruan Terkini
 
-Repositori ini telah disesuaikan dan dikembangkan dengan penambahan serangkaian fitur produktivitas mutakhir:
+Repositori ini telah disesuaikan dan dikembangkan dengan penambahan serangkaian fitur produktivitas:
 
 ### 1. 🎨 Antarmuka Google Drive Material Design 3 (MD3)
 - **Tampilan Otentik Google Drive**: Navigasi sidebar dengan indikator pill aktif, floating search bar, breadcrumbs folder dinamis, surface elevation, dan palet warna resmi Google Drive (`#0B57D0`, background neutral, rounded cards).
