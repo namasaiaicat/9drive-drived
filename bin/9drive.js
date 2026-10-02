@@ -183,30 +183,43 @@ function handleShortcut() {
   const platform = process.platform
 
   if (platform === 'win32') {
-    const iconPath = path.join(__dirname, '../backend/public/favicon.ico')
+    ensureDirectories()
+    const bundledIcon = path.resolve(__dirname, '../backend/public/favicon.ico')
+    const persistentIcon = path.join(dataDir, '9drive.ico')
+
+    if (fs.existsSync(bundledIcon)) {
+      try {
+        fs.copyFileSync(bundledIcon, persistentIcon)
+      } catch {}
+    }
+
+    const iconTarget = fs.existsSync(persistentIcon) ? persistentIcon : bundledIcon
+    const hasIcon = fs.existsSync(iconTarget)
+    const sanitizedIcon = iconTarget.replace(/\\/g, '\\')
+    const sanitizedHome = home.replace(/\\/g, '\\')
 
     const vbsScript = `
       Set oWS = WScript.CreateObject("WScript.Shell")
       sDesktop = oWS.SpecialFolders("Desktop")
       sPrograms = oWS.SpecialFolders("Programs")
 
-      sLinkFile = sDesktop & "\\9Drive.lnk"
+      sLinkFile = sDesktop & "\\NineDrive.lnk"
       Set oLink = oWS.CreateShortcut(sLinkFile)
       oLink.TargetPath = "cmd.exe"
       oLink.Arguments = "/c 9drive"
-      oLink.Description = "9Drive Personal Cloud Storage"
-      oLink.WorkingDirectory = "${home.replace(/\\/g, '\\\\')}"
-      ${fs.existsSync(iconPath) ? `oLink.IconLocation = "${iconPath.replace(/\\/g, '\\\\')}"` : ''}
+      oLink.Description = "NineDrive Personal Cloud Storage"
+      oLink.WorkingDirectory = "${sanitizedHome}"
+      ${hasIcon ? `oLink.IconLocation = "${sanitizedIcon},0"` : ''}
       oLink.Save
 
       On Error Resume Next
-      sLinkFile2 = sPrograms & "\\9Drive.lnk"
+      sLinkFile2 = sPrograms & "\\NineDrive.lnk"
       Set oLink2 = oWS.CreateShortcut(sLinkFile2)
       oLink2.TargetPath = "cmd.exe"
       oLink2.Arguments = "/c 9drive"
-      oLink2.Description = "9Drive Personal Cloud Storage"
-      oLink2.WorkingDirectory = "${home.replace(/\\/g, '\\\\')}"
-      ${fs.existsSync(iconPath) ? `oLink2.IconLocation = "${iconPath.replace(/\\/g, '\\\\')}"` : ''}
+      oLink2.Description = "NineDrive Personal Cloud Storage"
+      oLink2.WorkingDirectory = "${sanitizedHome}"
+      ${hasIcon ? `oLink2.IconLocation = "${sanitizedIcon},0"` : ''}
       oLink2.Save
 
       WScript.Echo sDesktop
@@ -217,9 +230,10 @@ function handleShortcut() {
       fs.writeFileSync(tempVbs, vbsScript)
       const output = execSync(`cscript //nologo "${tempVbs}"`, { encoding: 'utf8' }).trim()
       try { fs.unlinkSync(tempVbs) } catch {}
-      console.log(' \x1b[32m[✓]\x1b[0m Shortcut Desktop Windows berhasil dipasang!')
-      console.log(`     Lokasi Desktop:    \x1b[36m${output}\\9Drive.lnk\x1b[0m`)
-      console.log('     Sekarang Anda cukup double-click icon "9Drive" di Desktop untuk membuka aplikasi!\n')
+      console.log(' \x1b[32m[✓]\x1b[0m Shortcut Desktop Windows dengan icon logo resmi berhasil dipasang!')
+      console.log(`     Lokasi Desktop:    \x1b[36m${output}\\NineDrive.lnk\x1b[0m`)
+      console.log(`     Icon Logo:         \x1b[36m${iconTarget}\x1b[0m`)
+      console.log('     Sekarang Anda cukup double-click icon "NineDrive" di Desktop untuk membuka aplikasi!\n')
     } catch (err) {
       console.log(' \x1b[31m[x]\x1b[0m Gagal membuat shortcut:', err.message)
     }
@@ -241,18 +255,20 @@ function handleShortcut() {
       path.join(home, '.local/share/applications'),
       path.join(home, 'Desktop'),
     ]
+    const iconFile = path.resolve(__dirname, '../backend/public/favicon.ico')
     const desktopContent = `[Desktop Entry]
-Name=9Drive
-Comment=Personal Cloud Storage & Universal API Gateway
+Name=NineDrive
+Comment=NineDrive - Personal Cloud Storage & Universal API Gateway
 Exec=9drive
 Terminal=false
 Type=Application
+Icon=${iconFile}
 Categories=Network;FileTransfer;Utility;
 `
     let created = false
     for (const dir of desktopDirs) {
       if (fs.existsSync(dir)) {
-        const file = path.join(dir, '9drive.desktop')
+        const file = path.join(dir, 'ninedrive.desktop')
         try {
           fs.writeFileSync(file, desktopContent)
           fs.chmodSync(file, '755')
@@ -262,7 +278,7 @@ Categories=Network;FileTransfer;Utility;
       }
     }
     if (created) {
-      console.log('     9Drive is now available in your application launcher!\n')
+      console.log('     NineDrive is now available in your application launcher with official logo!\n')
     }
   }
 }
