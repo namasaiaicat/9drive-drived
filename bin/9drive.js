@@ -389,21 +389,38 @@ async function handleStart() {
         }
       }
 
-      process.stdout.write(' [⧗] Checking database schema... ')
-      try {
-        execSync(
-          `node "${prismaCli}" db push --schema="${sqliteSchemaPath}" --skip-generate`,
-          {
-            stdio: 'ignore',
-            env: {
-              ...process.env,
-              DATABASE_URL: config.DATABASE_URL,
-            },
-          }
-        )
-        console.log('\x1b[32m[Ready]\x1b[0m')
-      } catch (err) {
-        console.log('\x1b[33m[Notice: Using existing schema]\x1b[0m')
+      // Only run db push if database is new or schema may have changed (version upgrade)
+      const dbIsNew = !fs.existsSync(sqliteDbPath) || fs.statSync(sqliteDbPath).size === 0
+      const versionMarker = path.join(dataDir, '.schema-version')
+      let needsSchemaSync = dbIsNew
+
+      if (!dbIsNew) {
+        try {
+          const savedVersion = fs.readFileSync(versionMarker, 'utf-8').trim()
+          needsSchemaSync = savedVersion !== version
+        } catch {
+          needsSchemaSync = true
+        }
+      }
+
+      if (needsSchemaSync) {
+        process.stdout.write(' [⧗] Syncing database schema... ')
+        try {
+          execSync(
+            `node "${prismaCli}" db push --schema="${sqliteSchemaPath}" --skip-generate`,
+            {
+              stdio: 'ignore',
+              env: {
+                ...process.env,
+                DATABASE_URL: config.DATABASE_URL,
+              },
+            }
+          )
+          try { fs.writeFileSync(versionMarker, version) } catch {}
+          console.log('\x1b[32m[Ready]\x1b[0m')
+        } catch (err) {
+          console.log('\x1b[33m[Notice: Using existing schema]\x1b[0m')
+        }
       }
     }
   }
