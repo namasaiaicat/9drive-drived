@@ -1,14 +1,58 @@
 {
-  "name": "9drive-monorepo",
-  "version": "1.0.0",
-  "private": true,
-  "description": "9Drive monorepo root runner",
+  "name": "9drive",
+  "version": "1.0.2",
+  "description": "9Drive - Personal Cloud Storage & Universal API Gateway",
+  "main": "bin/9drive.js",
+  "bin": "bin/9drive.js",
+  "keywords": [
+    "cloud-storage",
+    "s3",
+    "google-drive",
+    "storage",
+    "self-hosted",
+    "local-first",
+    "drive",
+    "npx"
+  ],
+  "author": "Ninedrive",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ninedrive/9drive.git"
+  },
+  "files": [
+    "bin",
+    "backend/dist",
+    "backend/public",
+    "backend/prisma",
+    "README.md"
+  ],
   "scripts": {
+    "start": "node bin/9drive.js",
     "dev": "concurrently -n \"backend,frontend\" -c \"blue,green\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
     "install:all": "npm install --prefix backend && npm install --prefix frontend",
-    "build": "npm run build --prefix backend && npm run build --prefix frontend"
+    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "build:sqlite": "npm run prisma:generate:sqlite --prefix backend",
+    "bundle:cli": "node scripts/bundle-cli.js",
+    "prepack": "node scripts/bundle-cli.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.954.0",
+    "@aws-sdk/lib-storage": "^3.954.0",
+    "@prisma/client": "^6.19.3",
+    "archiver": "^8.0.0",
+    "argon2": "^0.44.0",
+    "busboy": "^1.6.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "googleapis": "^173.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "prisma": "^6.19.3",
+    "undici": "^7.27.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

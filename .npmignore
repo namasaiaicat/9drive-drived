@@ -1,0 +1,42 @@
+# Source files (only compiled dist & public needed)
+frontend/src/
+frontend/node_modules/
+frontend/dist/
+frontend/public/
+frontend/Dockerfile
+frontend/nginx.conf
+frontend/tsconfig.json
+frontend/vite.config.ts
+frontend/postcss.config.js
+frontend/package.json
+frontend/package-lock.json
+
+backend/src/
+backend/node_modules/
+backend/tsconfig.json
+backend/package.json
+backend/package-lock.json
+
+# Development scripts & tooling
+scripts/
+setup.sh
+setup.ps1
+docker-compose.yml
+test-cdn-preview.html
+skills-lock.json
+
+# Databases, logs, temps and environment
+*.db
+*.db-journal
+*.log
+*.tmp*
+.env*
+.git/
+.github/
+.agents/
+.gemini/
+
+# Whitelist compiled artifacts explicitly
+!backend/dist/
+!backend/public/
+!backend/prisma/

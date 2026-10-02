@@ -16,3 +16,10 @@ backend/.env.*.local
 # Local env is non-secret by default, keep example in repo instead.
 frontend/.env.local
 frontend/.env.*.local
+
+# Generated CLI bundles and clients
+backend/public/
+backend/prisma/generated/
+dist-backend/
+dist-frontend/
+
