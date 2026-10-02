@@ -155,6 +155,7 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
       maxSize: z.coerce.number().optional(),
       startDate: z.string().datetime().optional(),
       endDate: z.string().datetime().optional(),
+      modified: z.enum(['today', '7d', '30d', 'year']).optional(),
       limit: z.coerce.number().min(1).max(500).optional(),
     }).parse(req.query)
 
@@ -166,6 +167,20 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
       archive: ['application/zip', 'application/x-rar-compressed', 'application/x-tar', 'application/x-7z-compressed']
     }
 
+    let modifiedDateFilter: Date | undefined
+    if (query.modified) {
+      const now = new Date()
+      if (query.modified === 'today') {
+        modifiedDateFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      } else if (query.modified === '7d') {
+        modifiedDateFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      } else if (query.modified === '30d') {
+        modifiedDateFilter = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      } else if (query.modified === 'year') {
+        modifiedDateFilter = new Date(now.getFullYear(), 0, 1)
+      }
+    }
+
     const where: any = {
       userId: req.user!.id,
       status: 'active',
@@ -173,6 +188,7 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
       ...(query.q ? { name: { contains: query.q } } : {}),
       ...(query.accountId && query.accountId !== 'all' ? { connectedAccountId: query.accountId } : {}),
       ...(query.kind ? { mimeType: { in: typeFilters[query.kind] || [] } } : {}),
+      ...(modifiedDateFilter ? { updatedAt: { gte: modifiedDateFilter } } : {}),
       ...(query.minSize !== undefined || query.maxSize !== undefined ? {
         sizeBytes: {
           ...(query.minSize !== undefined ? { gte: BigInt(query.minSize) } : {}),

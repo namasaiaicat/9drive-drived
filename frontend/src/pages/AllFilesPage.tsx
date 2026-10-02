@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type DragEvent, type FormEvent, type MouseEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, ClipboardPaste, Download, FolderInput, FolderPlus, HardDrive, Info, LayoutGrid, Link2, List, RefreshCw, Trash2, Upload, UserPlus, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent, type MouseEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ChevronRight, ClipboardPaste, Copy, Download, ExternalLink, FolderInput, FolderPlus, HardDrive, Info, LayoutGrid, Link2, List, RefreshCw, Settings, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/context/ToastContext'
 import { DummyModal } from '@/components/drive/DummyModal'
@@ -22,6 +22,7 @@ import { getPreviewKind, officeViewerUrl } from '@/lib/preview'
 import type { FileItem, FolderItem } from '@/data/drive-data'
 import { useUpload } from '@/context/UploadContext'
 import { useDriveFilter } from '@/context/DriveFilterContext'
+import { useLanguage } from '@/context/LanguageContext'
 import { useDriveLayoutActions } from '@/layouts/DriveLayout'
 import { cn } from '@/lib/utils'
 
@@ -148,8 +149,13 @@ export function AllFilesPage() {
   const { selectedAccountId, getDriveLetter } = useDriveFilter()
   const previewVideoRef = useRef<HTMLVideoElement | null>(null)
   const { setHeaderActions } = useDriveLayoutActions()
+  const { language, t } = useLanguage()
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
   const [selectedTargetAccountId, setSelectedTargetAccountId] = useState('')
+  const [dismissStorageBanner, setDismissStorageBanner] = useState(false)
+  const [showGoogleGuideModal, setShowGoogleGuideModal] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState<{ hasUpdate: boolean; latestVersion: string; currentVersion: string } | null>(null)
+  const [dismissUpdateBanner, setDismissUpdateBanner] = useState(false)
 
   async function loadFiles() {
     const params = new URLSearchParams()
@@ -159,18 +165,20 @@ export function AllFilesPage() {
     // Add advanced search filters
     const kind = searchParams.get('kind')
     const accountId = searchParams.get('accountId')
+    const modified = searchParams.get('modified')
     const minSize = searchParams.get('minSize')
     const maxSize = searchParams.get('maxSize')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
-    if (kind) params.set('kind', kind)
+    if (kind && kind !== 'all') params.set('kind', kind)
     if (accountId) {
       if (accountId !== 'all') params.set('accountId', accountId)
     } else if (selectedAccountId && selectedAccountId !== 'all') {
       // Global drive filter applies whether searching or not!
       params.set('accountId', selectedAccountId)
     }
+    if (modified && modified !== 'all') params.set('modified', modified)
     if (minSize) params.set('minSize', minSize)
     if (maxSize) params.set('maxSize', maxSize)
     if (startDate) params.set('startDate', startDate)
@@ -231,7 +239,14 @@ export function AllFilesPage() {
   useEffect(() => {
     loadAll().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to load files'))
     setSelectedFileIds(new Set())
-  }, [activeFolderId, searchQuery, selectedAccountId, searchParams.get('accountId')])
+  }, [
+    activeFolderId,
+    searchQuery,
+    selectedAccountId,
+    searchParams.get('accountId'),
+    searchParams.get('kind'),
+    searchParams.get('modified'),
+  ])
 
   const previewFileId = searchParams.get('previewFileId')
   useEffect(() => {
@@ -252,6 +267,28 @@ export function AllFilesPage() {
       }
     }
     loadConnectedAccounts()
+  }, [])
+
+  useEffect(() => {
+    async function checkVersion() {
+      try {
+        const data = await apiFetch<{ hasUpdate: boolean; latestVersion: string; currentVersion: string }>('/system/version')
+        if (data && data.hasUpdate) {
+          setUpdateInfo(data)
+        }
+      } catch {
+        try {
+          const res = await fetch('https://registry.npmjs.org/9drive/latest')
+          if (res.ok) {
+            const npmData = (await res.json()) as any
+            if (npmData?.version && npmData.version !== '1.0.1') {
+              setUpdateInfo({ hasUpdate: true, latestVersion: npmData.version, currentVersion: '1.0.1' })
+            }
+          }
+        } catch {}
+      }
+    }
+    checkVersion()
   }, [])
 
   useEffect(() => {
@@ -451,8 +488,38 @@ export function AllFilesPage() {
     })
   }
 
+  const sortBy = searchParams.get('sort') || 'date_desc'
+
+  const sortedFolders = useMemo(() => {
+    const list = [...(!activeFolderId ? folders : folders)]
+    return list.sort((a, b) => {
+      if (sortBy === 'name_asc') return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+      if (sortBy === 'name_desc') return b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' })
+      if (sortBy === 'date_asc') return new Date(a.updated || 0).getTime() - new Date(b.updated || 0).getTime()
+      return new Date(b.updated || 0).getTime() - new Date(a.updated || 0).getTime()
+    })
+  }, [folders, activeFolderId, sortBy])
+
+  const sortedFiles = useMemo(() => {
+    const list = [...files]
+    return list.sort((a, b) => {
+      if (sortBy === 'name_asc') return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+      if (sortBy === 'name_desc') return b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' })
+      if (sortBy === 'size_desc') return Number(b.sizeBytes || 0) - Number(a.sizeBytes || 0)
+      if (sortBy === 'size_asc') return Number(a.sizeBytes || 0) - Number(b.sizeBytes || 0)
+      if (sortBy === 'date_asc') {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+        return timeA - timeB
+      }
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      return timeB - timeA
+    })
+  }, [files, sortBy])
+
   function toggleAllVisibleFiles() {
-    const visibleIds = files.map((file) => file.id).filter(Boolean) as string[]
+    const visibleIds = sortedFiles.map((file) => file.id).filter(Boolean) as string[]
     const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedFileIds.has(id))
     setSelectedFileIds(allSelected ? new Set() : new Set(visibleIds))
   }
@@ -758,7 +825,7 @@ export function AllFilesPage() {
     }
     return path
   })()
-  const allVisibleSelected = files.length > 0 && files.every((file) => file.id && selectedFileIds.has(file.id))
+  const allVisibleSelected = sortedFiles.length > 0 && sortedFiles.every((file) => file.id && selectedFileIds.has(file.id))
   const activePreviewKind = getPreviewKind(activeFile?.mimeType)
 
   return (
@@ -790,10 +857,10 @@ export function AllFilesPage() {
               <Upload className="w-8 h-8" />
             </div>
             <h3 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-              Lepaskan berkas untuk langsung mengunggah
+              {t('drag.drop_to_upload', 'Drop files to instantly upload')}
             </h3>
             <p className="text-xs text-[#747775] dark:text-[#8E918F]">
-              Akan diunggah ke: <b className="text-[#0B57D0] dark:text-[#A8C7FA]">{activeFolder ? activeFolder.name : 'My Drive'}</b>
+              {t('drag.will_upload_to', 'Will upload to:')} <b className="text-[#0B57D0] dark:text-[#A8C7FA]">{activeFolder ? activeFolder.name : 'My Drive'}</b>
             </p>
           </div>
         </div>
@@ -856,12 +923,88 @@ export function AllFilesPage() {
           </div>
         </div>
 
+        {/* Minimalist Alert: Drive Not Connected */}
+        {connectedAccounts.length === 0 && !loading && !dismissStorageBanner && (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-[#D3E3FD] bg-[#EDF2FC]/70 px-4 py-2.5 text-xs text-[#1F1F1F] dark:border-[#2C384A] dark:bg-[#1E232B]/70 dark:text-[#E3E3E3] transition-all">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#D3E3FD] text-[#0B57D0] dark:bg-[#004A77] dark:text-[#A8C7FA]">
+                <HardDrive className="h-3.5 w-3.5" />
+              </div>
+              <p className="truncate text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+                {language === 'id' ? 'Drive belum terhubung' : 'Drive not connected'}
+                <span className="hidden sm:inline font-normal text-[#444746] dark:text-[#C4C7C5] ml-2">
+                  {language === 'id' ? '— Hubungkan akun penyimpanan untuk mulai mengelola berkas' : '— Connect a storage account to manage your files'}
+                </span>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setShowGoogleGuideModal(true)}
+                className="h-7 rounded-full bg-[#0B57D0] px-3.5 text-xs font-medium text-white hover:bg-[#0842A0] dark:bg-[#A8C7FA] dark:text-[#001D35] dark:hover:bg-[#C2E7FF] transition-colors"
+              >
+                <span>{language === 'id' ? 'Hubungkan Drive' : 'Connect Drive'}</span>
+              </Button>
+              <button
+                type="button"
+                onClick={() => setDismissStorageBanner(true)}
+                className="rounded-full p-1 text-[#747775] hover:bg-black/5 hover:text-[#1F1F1F] dark:text-[#8E918F] dark:hover:bg-white/10 dark:hover:text-[#E3E3E3] transition-colors"
+                title={language === 'id' ? 'Tutup' : 'Dismiss'}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Minimalist Alert: Update Available */}
+        {updateInfo?.hasUpdate && !dismissUpdateBanner && (
+          <div className="mt-2.5 flex items-center justify-between gap-3 rounded-2xl border border-[#C2E7FF] bg-[#EDF2FC]/75 px-4 py-2.5 text-xs text-[#1F1F1F] dark:border-[#004A77] dark:bg-[#1E232B]/75 dark:text-[#E3E3E3] transition-all animate-in fade-in">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#C2E7FF] text-[#0B57D0] dark:bg-[#004A77] dark:text-[#A8C7FA]">
+                <Sparkles className="h-3.5 w-3.5" />
+              </div>
+              <p className="truncate text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+                {language === 'id' ? `Versi baru v${updateInfo.latestVersion} tersedia` : `New version v${updateInfo.latestVersion} available`}
+                <span className="hidden sm:inline font-normal text-[#444746] dark:text-[#C4C7C5] ml-2">
+                  {language === 'id' ? '— Jalankan npx 9drive@latest di terminal untuk memperbarui' : '— Run npx 9drive@latest in terminal to update'}
+                </span>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText('npx 9drive@latest')
+                  toast.success(language === 'id' ? 'Perintah "npx 9drive@latest" disalin ke clipboard!' : 'Command copied to clipboard!')
+                }}
+                className="h-7 gap-1.5 rounded-full bg-[#0B57D0] px-3.5 text-xs font-medium text-white hover:bg-[#0842A0] dark:bg-[#A8C7FA] dark:text-[#001D35] dark:hover:bg-[#C2E7FF] transition-colors"
+              >
+                <Copy className="h-3 w-3" />
+                <span>{language === 'id' ? 'Salin Perintah' : 'Copy Command'}</span>
+              </Button>
+              <button
+                type="button"
+                onClick={() => setDismissUpdateBanner(true)}
+                className="rounded-full p-1 text-[#747775] hover:bg-black/5 hover:text-[#1F1F1F] dark:text-[#8E918F] dark:hover:bg-white/10 dark:hover:text-[#E3E3E3] transition-colors"
+                title={language === 'id' ? 'Tutup' : 'Dismiss'}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Search Results Across All Drives Banner */}
         {searchQuery && (
           <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-[#E8F0FE] px-4 py-2.5 text-xs text-[#001D35] dark:bg-[#004A77]/40 dark:text-[#C2E7FF]">
             <div className="flex items-center gap-2 flex-wrap">
               <span>
-                🔍 Menampilkan hasil pencarian untuk "<b>{searchQuery}</b>"{' '}
+                🔍 {t('search.showing_results', 'Showing search results for')} "<b>{searchQuery}</b>"{' '}
                 {(() => {
                   const effectiveAccountId = searchParams.get('accountId') || (selectedAccountId !== 'all' ? selectedAccountId : '')
                   if (effectiveAccountId && effectiveAccountId !== 'all') {
@@ -869,11 +1012,11 @@ export function AllFilesPage() {
                     const letter = getDriveLetter(effectiveAccountId)
                     return (
                       <>
-                        di <b className="text-[#0B57D0] dark:text-[#A8C7FA]">Drive {letter}</b> ({acc?.email || 'selected account'})
+                        {language === 'id' ? 'di' : 'in'} <b className="text-[#0B57D0] dark:text-[#A8C7FA]">Drive {letter}</b> ({acc?.email || 'selected account'})
                       </>
                     )
                   }
-                  return <b>di seluruh akun drive</b>
+                  return <b>{t('search.in_all_accounts', 'across all drive accounts')}</b>
                 })()}
               </span>
               {(() => {
@@ -889,7 +1032,7 @@ export function AllFilesPage() {
                       }}
                       className="ml-2 font-medium underline hover:text-[#0B57D0] dark:hover:text-[#A8C7FA]"
                     >
-                      Cari di seluruh akun drive
+                      {t('search.search_all_accounts', 'Search across all drive accounts')}
                     </button>
                   )
                 }
@@ -906,7 +1049,7 @@ export function AllFilesPage() {
               className="flex items-center gap-1 font-medium hover:underline text-[#0B57D0] dark:text-[#A8C7FA] shrink-0"
             >
               <X className="h-3.5 w-3.5" />
-              <span>Hapus Pencarian</span>
+              <span>{t('search.clear_search', 'Clear Search')}</span>
             </button>
           </div>
         )}
@@ -960,42 +1103,99 @@ export function AllFilesPage() {
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 overflow-x-auto py-1">
-              <div className="w-32">
-                <Select
-                  variant="chip"
-                  value={searchParams.get('kind') || 'all'}
-                  onChange={(val) => {
+            <div className="flex items-center gap-2 flex-wrap py-1 relative z-20 overflow-visible">
+              {/* Filter 1: Type */}
+              <Select
+                variant="chip"
+                className="w-auto min-w-[110px]"
+                value={searchParams.get('kind') || 'all'}
+                onChange={(val) => {
+                  const next = new URLSearchParams(searchParams)
+                  if (!val || val === 'all') {
+                    next.delete('kind')
+                  } else {
+                    next.set('kind', val)
+                  }
+                  setSearchParams(next)
+                }}
+                options={[
+                  { value: 'all', label: language === 'id' ? 'Tipe: Semua' : 'Type: All' },
+                  { value: 'doc', label: language === 'id' ? 'Dokumen' : 'Documents' },
+                  { value: 'pdf', label: 'PDFs' },
+                  { value: 'image', label: language === 'id' ? 'Foto & Gambar' : 'Photos & images' },
+                  { value: 'video', label: 'Videos' },
+                  { value: 'archive', label: language === 'id' ? 'Arsip (ZIP/RAR)' : 'Archives' },
+                ]}
+              />
+
+              {/* Filter 2: Modified (Waktu Diubah) */}
+              <Select
+                variant="chip"
+                className="w-auto min-w-[130px]"
+                value={searchParams.get('modified') || 'all'}
+                onChange={(val) => {
+                  const next = new URLSearchParams(searchParams)
+                  if (!val || val === 'all') {
+                    next.delete('modified')
+                  } else {
+                    next.set('modified', val)
+                  }
+                  setSearchParams(next)
+                }}
+                options={[
+                  { value: 'all', label: language === 'id' ? 'Waktu: Kapan saja' : 'Modified: Anytime' },
+                  { value: 'today', label: language === 'id' ? 'Hari ini' : 'Today' },
+                  { value: '7d', label: language === 'id' ? '7 hari terakhir' : 'Last 7 days' },
+                  { value: '30d', label: language === 'id' ? '30 hari terakhir' : 'Last 30 days' },
+                  { value: 'year', label: language === 'id' ? 'Tahun ini' : 'This year' },
+                ]}
+              />
+
+              {/* Filter 3: Sort by (Urutan Tampilan) */}
+              <Select
+                variant="chip"
+                className="w-auto min-w-[140px]"
+                value={searchParams.get('sort') || 'date_desc'}
+                onChange={(val) => {
+                  const next = new URLSearchParams(searchParams)
+                  if (!val || val === 'date_desc') {
+                    next.delete('sort')
+                  } else {
+                    next.set('sort', val)
+                  }
+                  setSearchParams(next)
+                }}
+                options={[
+                  { value: 'date_desc', label: language === 'id' ? 'Urutan: Terakhir diubah' : 'Sort: Last modified' },
+                  { value: 'name_asc', label: language === 'id' ? 'Nama (A - Z)' : 'Name (A - Z)' },
+                  { value: 'name_desc', label: language === 'id' ? 'Nama (Z - A)' : 'Name (Z - A)' },
+                  { value: 'size_desc', label: language === 'id' ? 'Ukuran (Terbesar)' : 'Size (Largest)' },
+                  { value: 'size_asc', label: language === 'id' ? 'Ukuran (Terkecil)' : 'Size (Smallest)' },
+                ]}
+              />
+
+              {/* Reset Active Filters Button */}
+              {Boolean(
+                (searchParams.get('kind') && searchParams.get('kind') !== 'all') ||
+                (searchParams.get('modified') && searchParams.get('modified') !== 'all') ||
+                (searchParams.get('sort') && searchParams.get('sort') !== 'date_desc')
+              ) && (
+                <button
+                  type="button"
+                  onClick={() => {
                     const next = new URLSearchParams(searchParams)
-                    if (!val || val === 'all') {
-                      next.delete('kind')
-                    } else {
-                      next.set('kind', val)
-                    }
+                    next.delete('kind')
+                    next.delete('modified')
+                    next.delete('sort')
                     setSearchParams(next)
                   }}
-                  options={[
-                    { value: 'all', label: 'Type' },
-                    { value: 'doc', label: 'Documents' },
-                    { value: 'pdf', label: 'PDFs' },
-                    { value: 'image', label: 'Photos & images' },
-                    { value: 'video', label: 'Videos' },
-                    { value: 'archive', label: 'Archives' },
-                  ]}
-                />
-              </div>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-lg border border-[#747775]/30 bg-white px-3 py-1.5 text-xs font-medium text-[#444746] hover:bg-[#F0F4F9] dark:border-[#747775]/50 dark:bg-[#1E1F20] dark:text-[#C4C7C5] dark:hover:bg-[#28292A] cursor-pointer"
-              >
-                People <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-lg border border-[#747775]/30 bg-white px-3 py-1.5 text-xs font-medium text-[#444746] hover:bg-[#F0F4F9] dark:border-[#747775]/50 dark:bg-[#1E1F20] dark:text-[#C4C7C5] dark:hover:bg-[#28292A] cursor-pointer"
-              >
-                Modified <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-              </button>
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs text-[#B3261E] hover:bg-[#F9DEDC]/50 dark:text-[#F2B8B5] transition-colors shrink-0"
+                  title={language === 'id' ? 'Reset filter' : 'Clear filters'}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>{language === 'id' ? 'Reset' : 'Clear'}</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -1051,13 +1251,13 @@ export function AllFilesPage() {
         ) : null}
 
         {/* Folders Section */}
-        {(!activeFolder ? folders : folders).length > 0 && (
+        {sortedFolders.length > 0 && (
           <div className="mt-4">
             <h2 className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5]">
-              Folders
+              {t('section.folders', 'Folders')}
             </h2>
             <FolderGrid
-              items={!activeFolder ? folders : folders}
+              items={sortedFolders}
               mobileTwoColumns
               onFolderMenu={openFolderMenu}
               onFolderOpen={openFolder}
@@ -1067,14 +1267,14 @@ export function AllFilesPage() {
         )}
 
         {/* Files Section */}
-        {files.length > 0 ? (
+        {sortedFiles.length > 0 ? (
           <div className="mt-6 flex-1">
             <h2 className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5]">
-              Files
+              {t('section.files', 'Files')}
             </h2>
             {fileViewMode === 'grid' ? (
               <FileGrid
-                files={files}
+                files={sortedFiles}
                 selectedFileIds={selectedFileIds}
                 onToggleFile={toggleFileSelection}
                 onFileContextMenu={openContext}
@@ -1082,7 +1282,7 @@ export function AllFilesPage() {
               />
             ) : (
               <FileTable
-                files={files}
+                files={sortedFiles}
                 selectedFileIds={selectedFileIds}
                 allSelected={allVisibleSelected}
                 onToggleFile={toggleFileSelection}
@@ -1092,21 +1292,21 @@ export function AllFilesPage() {
               />
             )}
           </div>
-        ) : folders.length === 0 ? (
+        ) : sortedFolders.length === 0 ? (
           /* Google Drive Empty State */
           <div className="flex flex-1 flex-col items-center justify-center py-20 px-4 text-center select-none">
             <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#EDF2FC] dark:bg-[#28292A] text-[#0B57D0] dark:text-[#A8C7FA] mb-4">
               <HardDrive className="h-12 w-12 stroke-[1.2]" />
             </div>
             <h3 className="text-lg font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">
-              A place for all of your files
+              {t('empty.all_files_title', 'A place for all of your files')}
             </h3>
             <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F] max-w-sm">
               {searchQuery
-                ? `No files found for "${searchQuery}".`
+                ? (language === 'id' ? `Tidak ada file yang ditemukan untuk "${searchQuery}".` : `No files found for "${searchQuery}".`)
                 : activeFolder
-                ? 'This folder is empty. Drag files here or use the "+ New" button to upload.'
-                : 'Drag your files here or use the "+ New" button on the left to upload.'}
+                ? t('empty.folder_empty', 'This folder is empty. Drag files here or use the "+ New" button to upload.')
+                : t('empty.all_files_desc', 'Drag your files here or use the "+ New" button on the left to upload.')}
             </p>
           </div>
         ) : null}
@@ -1116,7 +1316,7 @@ export function AllFilesPage() {
       <FolderContextMenu x={folderContextMenu.x} y={folderContextMenu.y} folder={folderContextMenu.folder} onClose={() => setFolderContextMenu({ x: 0, y: 0, folder: null })} onCut={() => cutSelectedFolder(activeFolderForMenu ?? folderContextMenu.folder)} onRename={() => { setFolderRenameValue(activeFolderForMenu?.name ?? ''); setFolderRenameColor(normalizeFolderColor(activeFolderForMenu?.color)); setFolderRenameIconUrl(activeFolderForMenu?.iconUrl ?? defaultFolderIconUrl); setFolderRenameOpen(true); setFolderContextMenu({ x: 0, y: 0, folder: null }) }} onShare={() => shareFolder(folderContextMenu.folder ?? activeFolderForMenu)} onCopyLink={() => copyFolderLink(folderContextMenu.folder ?? activeFolderForMenu)} onDelete={() => { setFolderDeleteOpen(true); setFolderContextMenu({ x: 0, y: 0, folder: null }) }} />
       <FileDetailsDrawer open={detailOpen} file={activeFile} onClose={() => setDetailOpen(false)} onShare={shareFile} />
 
-      <DummyModal open={uploadOpen} title="Upload File" description="Stream file directly to selected Google Drive account." onClose={() => setUploadOpen(false)}>
+      <DummyModal open={uploadOpen} title={t('modal.upload_title', 'Upload File')} description={t('modal.upload_desc', 'Stream file directly to selected Google Drive account.')} onClose={() => setUploadOpen(false)}>
         <form onSubmit={uploadFile} className="grid gap-4">
           <label
             onDragEnter={handleUploadDrag}
@@ -1139,10 +1339,10 @@ export function AllFilesPage() {
               )}
             />
             <span className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-              Drop files here or click to browse
+              {t('modal.drop_or_browse', 'Drop files here or click to browse')}
             </span>
             <span className="text-xs text-[#747775] dark:text-[#8E918F]">
-              Files stream directly to Google Drive folder{' '}
+              {language === 'id' ? 'File dialirkan langsung ke folder ' : 'Files stream directly to Google Drive folder '}
               <code className="rounded bg-black/5 px-1 py-0.5 font-mono text-[11px] text-[#1F1F1F] dark:bg-white/10 dark:text-[#E3E3E3]">
                 9drive
               </code>
@@ -1157,13 +1357,13 @@ export function AllFilesPage() {
             />
           </label>
           <div className="grid gap-1.5 text-xs font-medium text-[#444746] dark:text-[#C4C7C5]">
-            <span>Target Storage Account</span>
+            <span>{t('modal.target_account', 'Target Storage Account')}</span>
             <Select
               variant="default"
               value={selectedTargetAccountId}
               onChange={(value) => setSelectedTargetAccountId(value)}
               options={[
-                { value: '', label: 'Automatic (Default)' },
+                { value: '', label: t('modal.auto_account', 'Automatic (Default)') },
                 ...connectedAccounts.map((account) => ({
                   value: account.id,
                   label: `${account.email || account.displayName || account.id} (${account.provider === 's3' ? 'S3' : 'Google Drive'})`,
@@ -1173,17 +1373,17 @@ export function AllFilesPage() {
           </div>
           {activeFolder ? (
             <p className="rounded-lg bg-[#F8FAFD] p-2.5 text-xs text-[#444746] border border-[#E0E3E7] dark:bg-[#28292A] dark:border-[#36373A] dark:text-[#C4C7C5]">
-              Uploading to: <b>{activeFolder.name}</b>
+              {t('modal.uploading_to', 'Uploading to:')} <b>{activeFolder.name}</b>
             </p>
           ) : (
             <div className="grid gap-1.5 text-xs font-medium text-[#444746] dark:text-[#C4C7C5]">
-              <span>Virtual Folder</span>
+              <span>{t('modal.virtual_folder', 'Virtual Folder')}</span>
               <Select
                 variant="default"
                 value={selectedFolderId}
                 onChange={(value) => setSelectedFolderId(value)}
                 options={[
-                  { value: '', label: 'No folder' },
+                  { value: '', label: t('modal.no_folder', 'No folder') },
                   ...allFolders.map((folder) => ({
                     value: folder.id ?? '',
                     label: folder.name,
@@ -1195,7 +1395,7 @@ export function AllFilesPage() {
           {selectedFiles.length > 0 ? (
             <div className="grid max-h-48 gap-1.5 overflow-y-auto rounded-xl bg-[#F8FAFD] p-3 text-xs text-[#444746] dark:bg-[#131314]/40 dark:border dark:border-[#36373A] dark:text-[#C4C7C5]">
               <div className="flex items-center justify-between pb-1 font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-                <span>{selectedFiles.length} file(s) selected</span>
+                <span>{selectedFiles.length} {language === 'id' ? 'file dipilih' : 'file(s) selected'}</span>
                 <span>{formatBytes(selectedFiles.reduce((total, file) => total + file.size, 0))}</span>
               </div>
               {selectedFiles.map((file, index) => (
@@ -1208,37 +1408,37 @@ export function AllFilesPage() {
             </div>
           ) : null}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setUploadOpen(false)}>Cancel</Button>
-            <Button disabled={loading || selectedFiles.length === 0}>{loading ? 'Uploading...' : `Upload${selectedFiles.length > 1 ? ` ${selectedFiles.length} files` : ''}`}</Button>
+            <Button type="button" variant="ghost" onClick={() => setUploadOpen(false)}>{t('action.cancel', 'Cancel')}</Button>
+            <Button disabled={loading || selectedFiles.length === 0}>{loading ? (language === 'id' ? 'Mengunggah...' : 'Uploading...') : (language === 'id' ? `Unggah ${selectedFiles.length} file` : `Upload${selectedFiles.length > 1 ? ` ${selectedFiles.length} files` : ''}`)}</Button>
           </div>
         </form>
       </DummyModal>
 
-      <DummyModal open={folderOpen} title="New Folder" description="Create a virtual folder for organizing files." onClose={() => setFolderOpen(false)}>
+      <DummyModal open={folderOpen} title={t('modal.new_folder_title', 'New Folder')} description={t('modal.new_folder_desc', 'Create a virtual folder for organizing files.')} onClose={() => setFolderOpen(false)}>
         <form onSubmit={createFolder} className="grid gap-4">
           <label className="grid gap-1.5 text-xs font-medium text-[#444746] dark:text-[#C4C7C5]">
-            Folder Name
-            <Input value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder="Untitled folder" required autoFocus />
+            {t('modal.folder_name', 'Folder Name')}
+            <Input value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder={t('modal.untitled_folder', 'Untitled folder')} required autoFocus />
           </label>
           <FolderAppearanceFields color={folderColor} iconUrl={folderIconUrl} onColorChange={setFolderColor} onIconChange={setFolderIconUrl} />
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setFolderOpen(false)}>Cancel</Button>
-            <Button>Create</Button>
+            <Button type="button" variant="ghost" onClick={() => setFolderOpen(false)}>{t('action.cancel', 'Cancel')}</Button>
+            <Button>{t('action.create', 'Create')}</Button>
           </div>
         </form>
       </DummyModal>
 
-      <DummyModal open={renameOpen} title="Rename" description={activeFile?.name ?? ''} onClose={() => setRenameOpen(false)}>
+      <DummyModal open={renameOpen} title={t('modal.rename_title', 'Rename')} description={activeFile?.name ?? ''} onClose={() => setRenameOpen(false)}>
         <form onSubmit={renameFile} className="grid gap-4">
           <Input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} required autoFocus />
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setRenameOpen(false)}>Cancel</Button>
-            <Button>OK</Button>
+            <Button type="button" variant="ghost" onClick={() => setRenameOpen(false)}>{t('action.cancel', 'Cancel')}</Button>
+            <Button>{t('action.ok', 'OK')}</Button>
           </div>
         </form>
       </DummyModal>
 
-      <DummyModal open={moveOpen} title="Move" description={selectedFileIds.size > 0 ? `Move ${selectedFileIds.size} files` : activeFile?.name ?? ''} onClose={() => setMoveOpen(false)}>
+      <DummyModal open={moveOpen} title={t('modal.move_title', 'Move')} description={selectedFileIds.size > 0 ? (language === 'id' ? `Pindahkan ${selectedFileIds.size} file` : `Move ${selectedFileIds.size} files`) : activeFile?.name ?? ''} onClose={() => setMoveOpen(false)}>
         <form onSubmit={moveFile} className="grid gap-4">
           <Select
             variant="default"
@@ -1253,16 +1453,16 @@ export function AllFilesPage() {
             ]}
           />
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setMoveOpen(false)}>Cancel</Button>
-            <Button>Move here</Button>
+            <Button type="button" variant="ghost" onClick={() => setMoveOpen(false)}>{t('action.cancel', 'Cancel')}</Button>
+            <Button>{t('action.move_here', 'Move here')}</Button>
           </div>
         </form>
       </DummyModal>
 
-      <DummyModal open={deleteOpen} title={selectedFileIds.size > 0 ? 'Move to trash?' : 'Move to trash?'} description={selectedFileIds.size > 0 ? `Delete ${selectedFileIds.size} files from Google Drive?` : `Delete "${activeFile?.name ?? 'file'}"?`} onClose={() => setDeleteOpen(false)}>
+      <DummyModal open={deleteOpen} title={t('modal.delete_file_title', 'Move to trash?')} description={selectedFileIds.size > 0 ? (language === 'id' ? `Pindahkan ${selectedFileIds.size} file ke sampah?` : `Delete ${selectedFileIds.size} files from Google Drive?`) : (language === 'id' ? `Pindahkan "${activeFile?.name ?? 'file'}" ke sampah?` : `Delete "${activeFile?.name ?? 'file'}"?`)} onClose={() => setDeleteOpen(false)}>
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-          <Button variant="danger" onClick={deleteFile}>Move to trash</Button>
+          <Button variant="ghost" onClick={() => setDeleteOpen(false)}>{t('action.cancel', 'Cancel')}</Button>
+          <Button variant="danger" onClick={deleteFile}>{t('menu.move_to_trash', 'Move to trash')}</Button>
         </div>
       </DummyModal>
 
@@ -1272,21 +1472,21 @@ export function AllFilesPage() {
         onClose={() => setShareOpen(false)}
       />
 
-      <DummyModal open={folderRenameOpen} title="Rename" description={activeFolderForMenu?.name ?? ''} onClose={() => setFolderRenameOpen(false)}>
+      <DummyModal open={folderRenameOpen} title={t('modal.rename_title', 'Rename')} description={activeFolderForMenu?.name ?? ''} onClose={() => setFolderRenameOpen(false)}>
         <form onSubmit={renameFolder} className="grid gap-4">
           <Input value={folderRenameValue} onChange={(event) => setFolderRenameValue(event.target.value)} required autoFocus />
           <FolderAppearanceFields color={folderRenameColor} iconUrl={folderRenameIconUrl} onColorChange={setFolderRenameColor} onIconChange={setFolderRenameIconUrl} />
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setFolderRenameOpen(false)}>Cancel</Button>
-            <Button>OK</Button>
+            <Button type="button" variant="ghost" onClick={() => setFolderRenameOpen(false)}>{t('action.cancel', 'Cancel')}</Button>
+            <Button>{t('action.ok', 'OK')}</Button>
           </div>
         </form>
       </DummyModal>
 
-      <DummyModal open={folderDeleteOpen} title="Delete folder?" description={`Delete virtual folder "${activeFolderForMenu?.name ?? ''}"? Files inside will remain uploaded.`} onClose={() => setFolderDeleteOpen(false)}>
+      <DummyModal open={folderDeleteOpen} title={t('modal.delete_folder_title', 'Delete folder?')} description={language === 'id' ? `Hapus folder virtual "${activeFolderForMenu?.name ?? ''}"? File di dalamnya akan tetap tersimpan.` : `Delete virtual folder "${activeFolderForMenu?.name ?? ''}"? Files inside will remain uploaded.`} onClose={() => setFolderDeleteOpen(false)}>
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" onClick={() => setFolderDeleteOpen(false)}>Cancel</Button>
-          <Button variant="danger" onClick={deleteFolder}>Delete</Button>
+          <Button variant="ghost" onClick={() => setFolderDeleteOpen(false)}>{t('action.cancel', 'Cancel')}</Button>
+          <Button variant="danger" onClick={deleteFolder}>{t('action.delete', 'Delete')}</Button>
         </div>
       </DummyModal>
 
@@ -1299,6 +1499,113 @@ export function AllFilesPage() {
           {!previewLoading && !previewError && activePreviewKind === 'document' && previewUrl ? <iframe src={previewUrl} title={activeFile?.name ?? 'File preview'} className="h-full w-full border-0 bg-white dark:bg-[#1E1F20]" /> : null}
           {!previewLoading && !previewError && activePreviewKind === 'office' && previewUrl ? <iframe src={officeViewerUrl(previewUrl)} title={activeFile?.name ?? 'File preview'} className="h-full w-full border-0 bg-white dark:bg-[#1E1F20]" /> : null}
           {!previewLoading && !previewError && !activePreviewKind ? <div className="p-6 text-center text-sm text-[#747775] dark:text-[#8E918F]">Preview not available for this file type. Use Download instead.</div> : null}
+        </div>
+      </DummyModal>
+
+      <DummyModal
+        open={showGoogleGuideModal}
+        title={language === 'id' ? 'Panduan Menghubungkan Google Drive & Google Cloud' : 'Google Drive & Google Cloud Connection Guide'}
+        description={language === 'id' ? 'Langkah menghubungkan Google Drive API ke 9Drive' : 'Step-by-step setup to connect Google Drive API to 9Drive'}
+        onClose={() => setShowGoogleGuideModal(false)}
+        className="sm:max-w-[560px]"
+      >
+        <div className="space-y-3.5 text-xs text-[#444746] dark:text-[#C4C7C5] leading-relaxed">
+          <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#18191A] p-3.5 border border-[#E0E3E7] dark:border-[#36373A]">
+            <h4 className="font-semibold text-sm text-[#1F1F1F] dark:text-[#E3E3E3] mb-2 flex items-center gap-1.5">
+              <span>🚀</span> {language === 'id' ? '4 Langkah Setup di Google Cloud Console:' : '4 Steps Setup in Google Cloud Console:'}
+            </h4>
+            <ol className="list-decimal pl-4 space-y-2">
+              <li>
+                {language === 'id' ? (
+                  <>Buka <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-[#0B57D0] hover:underline font-medium inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="h-3 w-3 inline" /></a> dan buat atau pilih Project Anda.</>
+                ) : (
+                  <>Open <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-[#0B57D0] hover:underline font-medium inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="h-3 w-3 inline" /></a> and select or create your Project.</>
+                )}
+              </li>
+              <li>
+                {language === 'id' ? (
+                  <>Di menu <strong>APIs & Services &gt; Library</strong>, cari dan aktifkan <strong>Google Drive API</strong>.</>
+                ) : (
+                  <>In <strong>APIs & Services &gt; Library</strong>, search and enable <strong>Google Drive API</strong>.</>
+                )}
+              </li>
+              <li>
+                {language === 'id' ? (
+                  <>Buka <strong>APIs & Services &gt; Credentials</strong> &gt; klik <strong>Create Credentials &gt; OAuth client ID</strong> (Pilih Application type: <em>Web application</em>).</>
+                ) : (
+                  <>Go to <strong>APIs & Services &gt; Credentials</strong> &gt; click <strong>Create Credentials &gt; OAuth client ID</strong> (Select Application type: <em>Web application</em>).</>
+                )}
+              </li>
+              <li>
+                {language === 'id' ? (
+                  <>Masukkan URL ini persis di bagian <strong>Authorized redirect URIs</strong>:</>
+                ) : (
+                  <>Add this exact URL under <strong>Authorized redirect URIs</strong>:</>
+                )}
+                <div className="mt-1 font-mono text-[11px] bg-white dark:bg-[#1E1F20] p-1.5 rounded-lg border border-[#E0E3E7] dark:border-[#36373A] text-[#0B57D0] select-all break-all">
+                  {typeof window !== 'undefined' ? `${window.location.origin}/connected-accounts/google/callback` : 'http://localhost:9999/connected-accounts/google/callback'}
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <div className="rounded-xl border border-[#D3E3FD] bg-[#EDF2FC] p-3.5 text-[#1F1F1F] dark:border-[#2C384A] dark:bg-[#1E232B] dark:text-[#E3E3E3]">
+            <h4 className="font-semibold text-xs flex items-center gap-1.5 mb-1 text-[#1F1F1F] dark:text-[#E3E3E3]">
+              <Info className="h-4 w-4 text-[#0B57D0] dark:text-[#A8C7FA] shrink-0" />
+              <span>{language === 'id' ? 'PENTING: Wajib Menambahkan Email Anda ke "Test Users"' : 'IMPORTANT: Add Your Email to "Test Users"'}</span>
+            </h4>
+            <p className="text-[11px] leading-relaxed text-[#444746] dark:text-[#C4C7C5]">
+              {language === 'id' ? (
+                <>Jika status aplikasi Anda di Google Console masih <strong>"Testing"</strong> (belum diajukan verifikasi publik), Google <strong>hanya mengizinkan akun email yang terdaftar sebagai Test User</strong>.</>
+              ) : (
+                <>If your app in Google Console is in <strong>"Testing"</strong> status (unverified), Google <strong>only allows Google accounts that are explicitly registered under Test Users</strong>.</>
+              )}
+            </p>
+            <div className="mt-2 pl-3 border-l-2 border-[#0B57D0] dark:border-[#A8C7FA] text-[11px] space-y-1 text-[#444746] dark:text-[#C4C7C5]">
+              {language === 'id' ? (
+                <>
+                  <p>👉 Buka menu <strong>APIs & Services &gt; OAuth consent screen &gt; Test users</strong>.</p>
+                  <p>👉 Klik <strong>+ Add Users</strong>, lalu masukkan alamat Gmail yang ingin Anda hubungkan ke 9Drive.</p>
+                  <p className="text-[10px] text-[#747775] dark:text-[#8E918F] italic">
+                    *Jika akun Anda tidak didaftarkan di Test Users, login akan gagal dengan pesan: "Access blocked: 403 access_denied / Not a test user".
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>👉 Go to <strong>APIs & Services &gt; OAuth consent screen &gt; Test users</strong>.</p>
+                  <p>👉 Click <strong>+ Add Users</strong>, and enter the Gmail address you want to connect.</p>
+                  <p className="text-[10px] text-[#747775] dark:text-[#8E918F] italic">
+                    *If omitted, Google rejects login with: "Access blocked: 403 access_denied / Not a test user".
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-[#F0F4F9] dark:bg-[#1A1C1E] p-3 text-[11px] text-[#444746] dark:text-[#C4C7C5] border border-[#E0E3E7] dark:border-[#36373A]">
+            <p className="font-semibold text-[#1F1F1F] dark:text-[#E3E3E3] mb-0.5">
+              {language === 'id' ? '💡 Alternatif Tanpa Google Console:' : '💡 Alternative Without Google Console:'}
+            </p>
+            <p>
+              {language === 'id'
+                ? 'Anda juga bisa langsung menghubungkan S3 Storage (Cloudflare R2, AWS, MinIO) di menu Pengaturan tanpa perlu konfigurasi Google Console sama sekali!'
+                : 'You can also connect S3 Compatible Storage (Cloudflare R2, AWS, MinIO, Wasabi) in Settings without requiring Google Cloud Console at all!'}
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setShowGoogleGuideModal(false)}>
+              {language === 'id' ? 'Tutup' : 'Close'}
+            </Button>
+            <Link
+              to="/settings"
+              onClick={() => setShowGoogleGuideModal(false)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#0B57D0] px-4 py-2 text-xs font-medium text-white hover:bg-[#0B57D0]/90 dark:bg-[#A8C7FA] dark:text-[#003366]"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              <span>{language === 'id' ? 'Buka Menu Settings' : 'Open Settings'}</span>
+            </Link>
+          </div>
         </div>
       </DummyModal>
     </>

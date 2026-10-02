@@ -9,6 +9,63 @@ import Busboy from 'busboy'
 
 export const systemRouter = Router()
 
+function compareVersions(v1: string, v2: string): number {
+  const p1 = v1.split('.').map(Number)
+  const p2 = v2.split('.').map(Number)
+  for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+    const n1 = p1[i] || 0
+    const n2 = p2[i] || 0
+    if (n1 > n2) return 1
+    if (n1 < n2) return -1
+  }
+  return 0
+}
+
+systemRouter.get('/version', async (_req, res) => {
+  let currentVersion = '1.0.1'
+  try {
+    const pkgPaths = [
+      path.resolve(process.cwd(), 'package.json'),
+      path.resolve(process.cwd(), '../package.json'),
+      path.resolve(__dirname, '../../../package.json'),
+    ]
+    for (const p of pkgPaths) {
+      if (fs.existsSync(p)) {
+        const pkg = JSON.parse(fs.readFileSync(p, 'utf8'))
+        if (pkg.name === '9drive' && pkg.version) {
+          currentVersion = pkg.version
+          break
+        }
+      }
+    }
+  } catch {}
+
+  let latestVersion = currentVersion
+  let hasUpdate = false
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000)
+    const npmRes = await fetch('https://registry.npmjs.org/9drive/latest', {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+    clearTimeout(timeout)
+    if (npmRes.ok) {
+      const data = (await npmRes.json()) as any
+      if (data?.version) {
+        latestVersion = data.version
+        hasUpdate = compareVersions(latestVersion, currentVersion) > 0
+      }
+    }
+  } catch {}
+
+  res.json({
+    currentVersion,
+    latestVersion,
+    hasUpdate,
+  })
+})
 
 systemRouter.post('/update', requireAuth, (req, res, next) => {
   const projectRoot = path.resolve(process.cwd(), '..')
