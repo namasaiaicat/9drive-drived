@@ -9,6 +9,7 @@ const fs = require('fs')
 const path = require('path')
 const os = require('os')
 const crypto = require('crypto')
+const http = require('http')
 const { spawn, execSync } = require('child_process')
 
 // Version from root package.json
@@ -141,6 +142,36 @@ function openBrowser(url) {
   try {
     execSync(`${start} ${url}`, { stdio: 'ignore' })
   } catch {}
+}
+
+function waitForServerReady(url, timeoutMs = 30000) {
+  const start = Date.now()
+  return new Promise((resolve) => {
+    const check = () => {
+      const req = http.get(`${url}/health`, { timeout: 1000 }, (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 400) {
+          resolve(true)
+        } else {
+          retry()
+        }
+      })
+      req.on('error', () => retry())
+      req.on('timeout', () => {
+        req.destroy()
+        retry()
+      })
+    }
+
+    const retry = () => {
+      if (Date.now() - start > timeoutMs) {
+        resolve(false)
+        return
+      }
+      setTimeout(check, 250)
+    }
+
+    check()
+  })
 }
 
 function handleStatus() {
@@ -426,16 +457,19 @@ async function handleStart() {
         stdio: 'inherit',
       })
 
-  // Open browser after short delay
-  if (!noOpen) {
-    setTimeout(() => {
-      openBrowser(serverUrl)
-    }, 1500)
-  }
-
+  let childExited = false
   child.on('exit', (code) => {
+    childExited = true
     process.exit(code || 0)
   })
+
+  // Open browser only when the server is genuinely ready to handle requests
+  if (!noOpen) {
+    waitForServerReady(serverUrl).then((ready) => {
+      if (childExited) return
+      openBrowser(serverUrl)
+    })
+  }
 }
 
 // Route commands
