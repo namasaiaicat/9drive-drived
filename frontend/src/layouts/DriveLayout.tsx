@@ -388,7 +388,7 @@ export function DriveLayout() {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-[#F8FAFD] dark:bg-[#131314]">
       {/* 1. Google Drive Top Header (64px) */}
-      <header className="flex h-16 w-full shrink-0 items-center justify-between px-4 bg-[#F8FAFD] dark:bg-[#131314] z-20">
+      <header className="relative flex h-16 w-full shrink-0 items-center justify-between px-4 bg-[#F8FAFD] dark:bg-[#131314] z-40">
         {/* Left: Hamburger + Google Drive Logo & Title */}
         <div className="flex items-center gap-3 w-60 shrink-0">
           <button
@@ -517,14 +517,14 @@ export function DriveLayout() {
         {/* Mobile Drawer */}
         <div
           className={cn(
-            'fixed inset-0 z-40 bg-black/32 transition-opacity lg:hidden',
+            'fixed inset-0 z-50 bg-black/32 transition-opacity lg:hidden',
             sidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
           )}
           onClick={() => setSidebarOpen(false)}
         />
         <div
           className={cn(
-            'fixed inset-y-0 left-0 z-50 w-64 transform bg-[#F8FAFD] shadow-2xl transition-transform duration-200 ease-out lg:hidden dark:bg-[#131314]',
+            'fixed inset-y-0 left-0 z-[60] w-64 transform bg-[#F8FAFD] shadow-2xl transition-transform duration-200 ease-out lg:hidden dark:bg-[#131314]',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >

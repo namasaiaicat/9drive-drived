@@ -102,7 +102,7 @@ export function Select({
   return (
     <div
       ref={containerRef}
-      className={cn('relative inline-block text-left', isOpen ? 'z-50' : 'z-20', className)}
+      className={cn('relative inline-block text-left', isOpen ? 'z-50' : 'z-auto', className)}
     >
       {/* Hidden input for form submission compatibility */}
       {name && <input type="hidden" name={name} value={value ?? ''} />}
