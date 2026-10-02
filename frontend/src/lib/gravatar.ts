@@ -20,14 +20,19 @@ export async function getGravatarUrl(email: string | undefined, size: number) {
   }
 
   // Try Gravatar first; fallback to DiceBear bottts (cute robots)
-  // d=404 means Gravatar returns 404 if no image → we catch and fall through to DiceBear
+  // We test using an Image object instead of fetch() to avoid browser CORS "Failed to fetch" errors
   if (normalized && hash.length === 64) {
     const gravatarUrl = `https://www.gravatar.com/avatar/${hash}?s=${size}&d=404`
     try {
-      const res = await fetch(gravatarUrl, { method: 'HEAD' })
-      if (res.ok) return gravatarUrl
+      const exists = await new Promise<boolean>((resolve) => {
+        const img = new Image()
+        img.onload = () => resolve(true)
+        img.onerror = () => resolve(false)
+        img.src = gravatarUrl
+      })
+      if (exists) return gravatarUrl
     } catch {
-      // Network error → fall through
+      // Fall through to DiceBear
     }
   }
 
