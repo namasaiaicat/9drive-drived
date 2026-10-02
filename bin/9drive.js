@@ -325,8 +325,28 @@ async function handleStart() {
     ].find((p) => fs.existsSync(p)) || null
 
     if (fs.existsSync(sqliteSchemaPath) && prismaCli) {
-      if (!fs.existsSync(sqliteClientIndex)) {
-        process.stdout.write(' [⧗] Generating SQLite database client... ')
+      const generatedDir = path.join(backendDir, 'prisma/generated/sqlite-client')
+      const hasClientIndex = fs.existsSync(sqliteClientIndex)
+      
+      let platformEngineExists = false
+      if (hasClientIndex && fs.existsSync(generatedDir)) {
+        try {
+          const files = fs.readdirSync(generatedDir)
+          const isMacArm = process.platform === 'darwin' && process.arch === 'arm64'
+          const isMacX64 = process.platform === 'darwin' && process.arch === 'x64'
+          const isWin = process.platform === 'win32'
+          const isLinux = process.platform === 'linux'
+
+          if (isMacArm && files.some(f => f.includes('darwin-arm64'))) platformEngineExists = true
+          else if (isMacX64 && files.some(f => f.includes('darwin') && !f.includes('arm64'))) platformEngineExists = true
+          else if (isWin && files.some(f => f.includes('windows'))) platformEngineExists = true
+          else if (isLinux && files.some(f => f.includes('linux') || f.includes('debian'))) platformEngineExists = true
+          else if (files.some(f => f.includes('query_engine') || f.includes('query-engine'))) platformEngineExists = true
+        } catch {}
+      }
+
+      if (!hasClientIndex || !platformEngineExists) {
+        process.stdout.write(' [⧗] Configuring database client for current OS... ')
         try {
           execSync(`node "${prismaCli}" generate --schema="${sqliteSchemaPath}"`, {
             stdio: 'ignore',

@@ -22,7 +22,7 @@ function compareVersions(v1: string, v2: string): number {
 }
 
 systemRouter.get('/version', async (_req, res) => {
-  let currentVersion = process.env.NINEDRIVE_VERSION || '1.0.5'
+  let currentVersion = process.env.NINEDRIVE_VERSION || '1.0.6'
   try {
     const pkgPaths = [
       path.resolve(__dirname, '../../../../package.json'),

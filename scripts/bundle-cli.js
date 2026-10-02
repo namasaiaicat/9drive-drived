@@ -23,14 +23,9 @@ execSync('npm run build', { cwd: frontendDir, stdio: 'inherit' })
 console.log('2. Compiling TypeScript backend...')
 execSync('npm run build', { cwd: backendDir, stdio: 'inherit' })
 
-// 3. Generate SQLite Prisma client
-const sqliteClientIndex = path.join(backendDir, 'prisma/generated/sqlite-client/index.js')
-if (!fs.existsSync(sqliteClientIndex)) {
-  console.log('3. Generating SQLite Prisma client...')
-  execSync('npm run prisma:generate:sqlite', { cwd: backendDir, stdio: 'inherit' })
-} else {
-  console.log('3. SQLite Prisma client already generated. Skipping to prevent file lock.')
-}
+// 3. Generate SQLite Prisma client with all cross-platform binary engines
+console.log('3. Generating SQLite Prisma client with multi-platform engines...')
+execSync('npm run prisma:generate:sqlite', { cwd: backendDir, stdio: 'inherit' })
 
 // 4. Copy frontend/dist into backend/public
 console.log('4. Copying static frontend into backend/public...')
