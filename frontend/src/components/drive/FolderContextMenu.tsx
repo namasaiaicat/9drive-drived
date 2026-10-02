@@ -1,5 +1,6 @@
 import { Edit3, ExternalLink, Folder, Link2, Scissors, Trash2, UserPlus } from 'lucide-react'
 import type { FolderItem } from '@/data/drive-data'
+import { useLanguage } from '@/context/LanguageContext'
 
 type Props = {
   x: number
@@ -59,6 +60,7 @@ export function FolderContextMenu({
   onCopyLink,
   onDelete,
 }: Props) {
+  const { t } = useLanguage()
   if (!folder) return null
 
   const safeX = Math.max(12, Math.min(x, window.innerWidth - 240))
@@ -93,19 +95,19 @@ export function FolderContextMenu({
           {folder?.driveUrl ? (
             <MenuItem
               icon={ExternalLink}
-              label="Open in Google Drive"
+              label={t('menu.open_in_gdrive', 'Open in Google Drive')}
               onClick={() => {
                 window.open(folder.driveUrl, '_blank')
                 onClose()
               }}
             />
           ) : null}
-          <MenuItem icon={UserPlus} label="Share" onClick={onShare} />
-          <MenuItem icon={Link2} label="Copy link" onClick={onCopyLink} />
-          <MenuItem icon={Scissors} label="Move / Cut" onClick={onCut} kbd="Ctrl+X" />
-          <MenuItem icon={Edit3} label="Rename" onClick={onRename} />
+          <MenuItem icon={UserPlus} label={t('menu.share', 'Share')} onClick={onShare} />
+          <MenuItem icon={Link2} label={t('menu.copy_link', 'Copy link')} onClick={onCopyLink} />
+          <MenuItem icon={Scissors} label={t('menu.cut_folder', 'Move / Cut')} onClick={onCut} kbd="Ctrl+X" />
+          <MenuItem icon={Edit3} label={t('menu.rename', 'Rename')} onClick={onRename} />
           <div className="my-1.5 h-px bg-[#E0E3E7] dark:bg-[#36373A]" />
-          <MenuItem icon={Trash2} label="Move to trash" onClick={onDelete} danger />
+          <MenuItem icon={Trash2} label={t('menu.move_to_trash', 'Move to trash')} onClick={onDelete} danger />
         </div>
       </div>
     </>

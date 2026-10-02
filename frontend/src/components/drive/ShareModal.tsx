@@ -18,6 +18,7 @@ import { getStoredUser, type AuthUser } from '@/lib/auth'
 import { getGravatarUrl } from '@/lib/gravatar'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/context/ToastContext'
+import { useLanguage } from '@/context/LanguageContext'
 
 export type ShareFileTarget = {
   id?: string
@@ -61,6 +62,7 @@ export function ShareModal({
 }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
   const { toast } = useToast()
+  const { t } = useLanguage()
   const [avatarUrl, setAvatarUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [updating, setUpdating] = useState(false)
@@ -318,7 +320,7 @@ export function ShareModal({
           <div className="flex items-start justify-between gap-4 pb-2">
             <div className="min-w-0 pr-2">
               <h2 className="truncate text-[22px] font-normal tracking-tight text-[#1F1F1F] dark:text-[#E3E3E3]">
-                Share &ldquo;{file?.name ?? 'Item'}&rdquo;
+                {t('share_modal.title', 'Share')} &ldquo;{file?.name ?? 'Item'}&rdquo;
               </h2>
             </div>
             <div className="flex items-center gap-1 shrink-0">
@@ -361,7 +363,7 @@ export function ShareModal({
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="Add people, groups, or calendar events"
+                placeholder={t('share_modal.add_people', 'Add people, groups, or calendar events')}
                 className="w-full bg-transparent text-sm text-[#1F1F1F] placeholder-[#747775] outline-none dark:text-[#E3E3E3] dark:placeholder-[#8E918F]"
               />
               {inviteEmail.trim() ? (
@@ -371,8 +373,8 @@ export function ShareModal({
                     onChange={(e) => setInviteRole(e.target.value as 'viewer' | 'editor')}
                     className="rounded-lg border border-[#E0E3E7] bg-white px-2 py-1 text-xs font-medium text-[#1F1F1F] dark:border-[#36373A] dark:bg-[#28292A] dark:text-[#E3E3E3]"
                   >
-                    <option value="viewer">Viewer</option>
-                    <option value="editor">Editor</option>
+                    <option value="viewer">{t('share_modal.viewer', 'Viewer')}</option>
+                    <option value="editor">{t('share_modal.editor', 'Editor')}</option>
                   </select>
                   <Button
                     type="submit"
@@ -380,7 +382,7 @@ export function ShareModal({
                     disabled={inviting}
                     className="rounded-full bg-[#0B57D0] px-3.5 text-xs text-white hover:bg-[#0842A0] dark:bg-[#A8C7FA] dark:text-[#001D35]"
                   >
-                    {inviting ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Send'}
+                    {inviting ? <Loader2 className="h-3 w-3 animate-spin" /> : t('action.send', 'Send')}
                   </Button>
                 </div>
               ) : null}
@@ -390,7 +392,7 @@ export function ShareModal({
           {/* Section 2: People with access */}
           <div className="mt-6">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[#444746] dark:text-[#C4C7C5] mb-2.5">
-              People with access
+              {t('share_modal.people_with_access', 'People with access')}
             </h3>
 
             <div className="space-y-2">
@@ -410,7 +412,7 @@ export function ShareModal({
                   )}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-                      {currentUser?.name ?? 'You'} <span className="text-xs text-[#747775] font-normal">(you)</span>
+                      {currentUser?.name ?? 'You'} <span className="text-xs text-[#747775] font-normal">({t('share_modal.you', 'you')})</span>
                     </p>
                     <p className="truncate text-xs text-[#747775] dark:text-[#8E918F]">
                       {currentUser?.email ?? 'Owner'}
@@ -418,7 +420,7 @@ export function ShareModal({
                   </div>
                 </div>
                 <span className="text-xs font-normal text-[#747775] dark:text-[#8E918F] shrink-0">
-                  Owner
+                  {t('share_modal.owner', 'Owner')}
                 </span>
               </div>
 
@@ -459,7 +461,7 @@ export function ShareModal({
           <div className="mt-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#444746] dark:text-[#C4C7C5]">
-                General access
+                {t('share_modal.general_access', 'General access')}
               </h3>
               {updating || loading ? (
                 <span className="inline-flex items-center gap-1.5 text-xs text-[#0B57D0] dark:text-[#A8C7FA]">
@@ -496,7 +498,7 @@ export function ShareModal({
                       onClick={() => setAccessMenuOpen(!accessMenuOpen)}
                       className="flex items-center gap-1.5 rounded-lg px-2 py-0.5 -ml-2 text-sm font-semibold text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 transition-colors"
                     >
-                      <span>{generalAccess === 'anyone' ? 'Anyone with the link' : 'Restricted'}</span>
+                      <span>{generalAccess === 'anyone' ? t('share_modal.anyone', 'Anyone with the link') : t('share_modal.restricted', 'Restricted')}</span>
                       <ChevronDown className={cn('h-4 w-4 text-[#747775] transition-transform duration-200', accessMenuOpen && 'rotate-180')} />
                     </button>
 
@@ -515,7 +517,7 @@ export function ShareModal({
                             )}
                           </div>
                           <span className={cn('text-sm font-medium', generalAccess === 'restricted' ? 'text-[#0B57D0] dark:text-[#A8C7FA]' : 'text-[#1F1F1F] dark:text-[#E3E3E3]')}>
-                            Restricted
+                            {t('share_modal.restricted', 'Restricted')}
                           </span>
                         </button>
 
@@ -531,7 +533,7 @@ export function ShareModal({
                             )}
                           </div>
                           <span className={cn('text-sm font-medium', generalAccess === 'anyone' ? 'text-[#0B57D0] dark:text-[#A8C7FA]' : 'text-[#1F1F1F] dark:text-[#E3E3E3]')}>
-                            Anyone with the link
+                            {t('share_modal.anyone', 'Anyone with the link')}
                           </span>
                         </button>
                       </div>
@@ -603,12 +605,12 @@ export function ShareModal({
             {copied ? (
               <>
                 <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                <span className="text-emerald-600 dark:text-emerald-400">Link copied</span>
+                <span className="text-emerald-600 dark:text-emerald-400">{t('share_modal.link_copied', 'Link copied')}</span>
               </>
             ) : (
               <>
                 <Link2 className="h-4 w-4" />
-                <span>Copy link</span>
+                <span>{t('share_modal.copy_link', 'Copy link')}</span>
               </>
             )}
           </Button>
@@ -622,7 +624,7 @@ export function ShareModal({
                 onClick={() => window.open(file.driveUrl ?? '', '_blank')}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                Open in Drive
+                {t('menu.open_in_gdrive', 'Open in Google Drive')}
               </Button>
             ) : null}
 
@@ -631,7 +633,7 @@ export function ShareModal({
               className="rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white px-7 text-sm font-medium shadow-sm transition-all active:scale-95 dark:bg-[#A8C7FA] dark:text-[#001D35] dark:hover:bg-[#D3E3FD]"
               onClick={onClose}
             >
-              Done
+              {t('action.done', 'Done')}
             </Button>
           </div>
         </div>
@@ -642,11 +644,11 @@ export function ShareModal({
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md rounded-2xl border border-[#E0E3E7] bg-white p-6 shadow-2xl dark:border-[#36373A] dark:bg-[#1E1F20] animate-in zoom-in-95">
             <h3 className="text-base font-semibold text-[#1F1F1F] dark:text-[#E3E3E3]">
-              Ubah akses folder induk ke Restricted?
+              {t('share_modal.cascade_title', 'Change parent folder access to Restricted?')}
             </h3>
             <p className="mt-2.5 text-xs text-[#444746] dark:text-[#C4C7C5] leading-relaxed">
-              File ini mewarisi hak akses publik dari folder induk <b>"{parentName || 'Folder Induk'}"</b>.
-              Mengubahnya ke Restricted akan membuat folder induk beserta seluruh file di dalamnya ikut menjadi Restricted.
+              {t('share_modal.cascade_desc', 'This file inherits public access from parent folder. Changing it to Restricted will make the parent folder and all files inside it Restricted as well.')}
+              {parentName ? ` (${parentName})` : ''}
             </p>
             <div className="mt-6 flex items-center justify-end gap-2">
               <Button
@@ -656,7 +658,7 @@ export function ShareModal({
                 onClick={() => setConfirmCascadeOpen(false)}
                 disabled={updating}
               >
-                Batal
+                {t('action.cancel', 'Cancel')}
               </Button>
               <Button
                 type="button"
@@ -665,7 +667,7 @@ export function ShareModal({
                 disabled={updating}
               >
                 {updating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-                Ubah Folder Induk
+                {t('share_modal.cascade_confirm', 'Change Parent Folder')}
               </Button>
             </div>
           </div>

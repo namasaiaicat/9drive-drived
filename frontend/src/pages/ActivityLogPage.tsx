@@ -14,6 +14,7 @@ import {
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { apiFetch, formatDate } from '@/lib/api'
+import { useLanguage } from '@/context/LanguageContext'
 import { cn } from '@/lib/utils'
 
 type AuditLog = {
@@ -29,6 +30,7 @@ export function ActivityLogPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { t } = useLanguage()
 
   async function loadLogs() {
     setLoading(true)
@@ -137,10 +139,10 @@ export function ActivityLogPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
         <div>
           <h1 className="text-[22px] font-normal tracking-tight text-[#1F1F1F] dark:text-[#E3E3E3]">
-            Activity Log
+            {t('activity.title', 'Activity Log')}
           </h1>
           <p className="text-xs text-[#747775] dark:text-[#8E918F] mt-0.5">
-            Audit trail of file activities, moves, syncs, and deletions.
+            {t('activity.desc', 'Audit trail of file activities, moves, syncs, and deletions.')}
           </p>
         </div>
 
@@ -152,7 +154,7 @@ export function ActivityLogPage() {
           disabled={loading}
         >
           <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-          Refresh
+          {t('action.refresh', 'Refresh')}
         </Button>
       </div>
 
@@ -167,7 +169,7 @@ export function ActivityLogPage() {
         <div className="border-b border-[#E0E3E7] dark:border-[#36373A] bg-[#F8FAFD] dark:bg-[#18191A] px-6 py-3.5">
           <h2 className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3] flex items-center gap-2">
             <History className="h-4 w-4 text-[#747775] dark:text-[#8E918F]" />
-            Recent Activity Trail
+            {t('activity.trail_title', 'Recent Activity Trail')}
           </h2>
         </div>
 
@@ -175,13 +177,13 @@ export function ActivityLogPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 text-[#747775] dark:text-[#8E918F]">
               <RefreshCw className="h-7 w-7 animate-spin text-[#0B57D0] mb-2" />
-              <p className="text-sm">Loading activity logs...</p>
+              <p className="text-sm">{t('activity.loading', 'Loading activity logs...')}</p>
             </div>
           ) : logs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-[#747775] dark:text-[#8E918F]">
               <History className="h-12 w-12 stroke-[1.5] mb-3 text-[#C4C7C5] dark:text-[#444746]" />
-              <p className="font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">No activity yet</p>
-              <p className="text-xs text-[#747775] dark:text-[#8E918F] mt-1">Actions you perform on files and folders will appear here.</p>
+              <p className="font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">{t('activity.empty_title', 'No activity yet')}</p>
+              <p className="text-xs text-[#747775] dark:text-[#8E918F] mt-1">{t('activity.empty_desc', 'Actions you perform on files and folders will appear here.')}</p>
             </div>
           ) : (
             logs.map((log) => {

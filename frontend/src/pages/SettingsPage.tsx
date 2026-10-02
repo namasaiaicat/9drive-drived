@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react'
-import { Bell, Check, Cloud, Database, Globe, HardDrive, Layers, Link2, RefreshCw, Trash2 } from 'lucide-react'
+import { Bell, Check, Cloud, Database, Globe, HardDrive, Info, Layers, Link2, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
@@ -8,7 +8,9 @@ import { apiFetch, formatBytes, API_URL } from '@/lib/api'
 import { getGravatarUrl } from '@/lib/gravatar'
 import { getStoredUser, getAccessToken, clearAuthSession } from '@/lib/auth'
 import { useDriveFilter } from '@/context/DriveFilterContext'
+import { useLanguage } from '@/context/LanguageContext'
 import { useToast } from '@/context/ToastContext'
+import { cn } from '@/lib/utils'
 
 type ConnectedAccount = { id: string; provider: string; email: string; displayName?: string | null; status: string; storageAccount?: { totalBytes: string | null; usedBytes: string; availableBytes: string | null; lastSyncedAt: string | null } | null }
 
@@ -30,6 +32,7 @@ function availableLabel(account: ConnectedAccount) {
 export function SettingsPage() {
   const user = getStoredUser()
   const { defaultAccountId, setDefaultAccountId } = useDriveFilter()
+  const { language, setLanguage, t } = useLanguage()
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const { toast } = useToast()
   const [connecting, setConnecting] = useState(false)
@@ -429,16 +432,63 @@ export function SettingsPage() {
             </div>
           </Card>
 
+          {/* Language Preference Card */}
+          <Card className="rounded-2xl border border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#1E1F20] p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <Globe className="h-5 w-5 text-[#0B57D0]" />
+                  <h2 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+                    {t('settings.language_title', 'Language / Bahasa')}
+                  </h2>
+                </div>
+                <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F]">
+                  {t('settings.language_desc', 'Select your preferred interface language.')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setLanguage('en')}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-150',
+                    language === 'en'
+                      ? 'bg-[#0B57D0] text-white shadow-xs dark:bg-[#A8C7FA] dark:text-[#001D35]'
+                      : 'border border-[#E0E3E7] text-[#444746] hover:bg-black/5 dark:border-[#36373A] dark:text-[#C4C7C5] dark:hover:bg-white/10'
+                  )}
+                >
+                  {language === 'en' && <Check className="h-3.5 w-3.5" />}
+                  <span>{t('settings.lang_en', 'English (Default)')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLanguage('id')}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-150',
+                    language === 'id'
+                      ? 'bg-[#0B57D0] text-white shadow-xs dark:bg-[#A8C7FA] dark:text-[#001D35]'
+                      : 'border border-[#E0E3E7] text-[#444746] hover:bg-black/5 dark:border-[#36373A] dark:text-[#C4C7C5] dark:hover:bg-white/10'
+                  )}
+                >
+                  {language === 'id' && <Check className="h-3.5 w-3.5" />}
+                  <span>{t('settings.lang_id', 'Bahasa Indonesia')}</span>
+                </button>
+              </div>
+            </div>
+          </Card>
+
           {/* Google Drive Connection Card */}
           <Card className="rounded-2xl border border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#1E1F20] p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-2.5">
                   <Cloud className="h-5 w-5 text-[#0B57D0]" />
-                  <h2 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">Google Drive</h2>
+                  <h2 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+                    {t('settings.google_title', 'Google Drive')}
+                  </h2>
                 </div>
                 <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F]">
-                  Connect Google Drive accounts. 9Drive routes uploads to accounts with available quota.
+                  {t('settings.google_desc', 'Connect Google Drive accounts. 9Drive routes uploads to accounts with available quota.')}
                 </p>
               </div>
               <Button
@@ -448,7 +498,7 @@ export function SettingsPage() {
                 disabled={connecting}
               >
                 <Link2 className="h-3.5 w-3.5" />
-                {connecting ? 'Opening...' : 'Connect Drive'}
+                {connecting ? (language === 'id' ? 'Membuka...' : 'Opening...') : t('settings.connect_drive', 'Connect Drive')}
               </Button>
             </div>
           </Card>
@@ -633,19 +683,29 @@ export function SettingsPage() {
 
             {showGoogleHelp && (
               <div className="mb-4 rounded-xl bg-[#F8FAFD] dark:bg-[#18191A] p-4 text-xs leading-relaxed text-[#444746] dark:text-[#C4C7C5] border border-[#E0E3E7] dark:border-[#36373A]">
-                <p className="font-medium text-[#1F1F1F] dark:text-[#E3E3E3] mb-1.5">How to setup Google credentials:</p>
+                <p className="font-medium text-[#1F1F1F] dark:text-[#E3E3E3] mb-1.5">Langkah Setup Google OAuth Credentials:</p>
                 <ol className="list-decimal pl-4 space-y-1.5">
-                  <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-[#0B57D0] hover:underline">Google Cloud Console</a>.</li>
-                  <li>Enable the <strong>Google Drive API</strong> in your project.</li>
-                  <li>Go to <strong>APIs & Services &gt; Credentials</strong>, click <strong>Create Credentials &gt; OAuth client ID</strong>.</li>
-                  <li>Set application type to <strong>Web application</strong>.</li>
-                  <li>Add this exact URL under <strong>Authorized redirect URIs</strong>:
+                  <li>Buka <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-[#0B57D0] hover:underline font-medium">Google Cloud Console</a> dan pilih/buat project Anda.</li>
+                  <li>Aktifkan <strong>Google Drive API</strong> di menu <em>Enabled APIs & services</em>.</li>
+                  <li>Masuk ke <strong>APIs & Services &gt; Credentials</strong>, klik <strong>Create Credentials &gt; OAuth client ID</strong>.</li>
+                  <li>Pilih application type: <strong>Web application</strong>.</li>
+                  <li>Masukkan URL ini persis di bagian <strong>Authorized redirect URIs</strong>:
                     <div className="mt-1 flex items-center gap-1.5 font-mono text-[11px] bg-white dark:bg-[#1E1F20] p-1.5 rounded-lg border border-[#E0E3E7] dark:border-[#36373A] select-all overflow-x-auto text-[#0B57D0]">
                       {googleRedirectUri || defaultRedirectUri}
                     </div>
                   </li>
-                  <li>Copy the generated <strong>Client ID</strong> and <strong>Client Secret</strong> into the form below and save.</li>
+                  <li>Copy <strong>Client ID</strong> dan <strong>Client Secret</strong> yang diberikan Google ke form di bawah ini, lalu klik Simpan.</li>
                 </ol>
+
+                <div className="mt-3 rounded-xl border border-[#D3E3FD] bg-[#EDF2FC] p-3 text-[11px] text-[#1F1F1F] dark:border-[#2C384A] dark:bg-[#1E232B] dark:text-[#E3E3E3]">
+                  <p className="font-semibold flex items-center gap-1.5 mb-1 text-[#1F1F1F] dark:text-[#E3E3E3]">
+                    <Info className="h-3.5 w-3.5 text-[#0B57D0] dark:text-[#A8C7FA]" />
+                    <span>Catatan Google Cloud Console (Mode Testing):</span>
+                  </p>
+                  <p className="text-[#444746] dark:text-[#C4C7C5] leading-relaxed">
+                    Jika status aplikasi di Google Console masih <strong>"Testing"</strong> (belum diverifikasi publik), buka menu <strong>APIs & Services &gt; OAuth consent screen &gt; Test users</strong>. Klik <strong>+ Add Users</strong> dan daftarkan alamat Gmail Anda. Jika terlewat, Google akan menolak koneksi dengan pesan: <em>"Access blocked: 403 access_denied / Not a test user"</em>.
+                  </p>
+                </div>
               </div>
             )}
 

@@ -12,6 +12,7 @@ import {
   HardDrive
 } from 'lucide-react'
 import { useDriveFilter } from '@/context/DriveFilterContext'
+import { useLanguage } from '@/context/LanguageContext'
 import { apiFetch } from '@/lib/api'
 import { FileIcon } from './FileIcon'
 import { cn } from '@/lib/utils'
@@ -104,6 +105,7 @@ export function DriveSearchBar() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { accounts, selectedAccountId, getDriveLetter } = useDriveFilter()
+  const { t } = useLanguage()
 
   const [query, setQuery] = useState(searchParams.get('q') ?? '')
   const [isOpen, setIsOpen] = useState(false)
@@ -350,7 +352,7 @@ export function DriveSearchBar() {
             if (!isOpen) setIsOpen(true)
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Search in Drive"
+          placeholder={t('search.placeholder', 'Search in Drive')}
           className="h-full flex-1 bg-transparent text-sm text-[#1F1F1F] placeholder:text-[#444746] outline-none dark:text-[#E3E3E3] dark:placeholder:text-[#8E918F]"
         />
 

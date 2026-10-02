@@ -25,14 +25,15 @@ import { DataToolsView } from '@/pages/tools/DataToolsView'
 import { UploadProvider } from '@/context/UploadContext'
 import { DriveFilterProvider } from '@/context/DriveFilterContext'
 import { ToastProvider } from '@/context/ToastContext'
-
+import { LanguageProvider } from '@/context/LanguageContext'
 
 function App() {
   return (
-    <ToastProvider>
-      <DriveFilterProvider>
-        <UploadProvider>
-          <Routes>
+    <LanguageProvider>
+      <ToastProvider>
+        <DriveFilterProvider>
+          <UploadProvider>
+            <Routes>
       <Route path="login" element={<LoginPage />} />
       <Route path="register" element={<RegisterPage />} />
       <Route path="google-auth" element={<GoogleAuthPage />} />
@@ -61,10 +62,11 @@ function App() {
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/all-files" replace />} />
-      </Routes>
-      </UploadProvider>
-    </DriveFilterProvider>
-    </ToastProvider>
+          </Routes>
+          </UploadProvider>
+        </DriveFilterProvider>
+      </ToastProvider>
+    </LanguageProvider>
   )
 }
 

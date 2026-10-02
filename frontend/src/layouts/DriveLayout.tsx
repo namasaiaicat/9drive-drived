@@ -21,27 +21,29 @@ import {
   X,
   Code2,
   Sparkles,
+  Globe,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/drive/BrandLogo'
 import { DriveSearchBar } from '@/components/drive/DriveSearchBar'
 import { apiFetch, formatBytes } from '@/lib/api'
 import { useUpload } from '@/context/UploadContext'
+import { useLanguage } from '@/context/LanguageContext'
 import { clearAuthSession, getStoredUser, updateStoredUser, type AuthUser } from '@/lib/auth'
 import { getGravatarUrl } from '@/lib/gravatar'
 import { cn } from '@/lib/utils'
 import { DriveAccountSelector } from '@/components/drive/DriveAccountSelector'
 
-const navItems = [
-  { label: 'My Drive', icon: HardDrive, href: '/all-files' },
-  { label: 'Tools Studio', icon: Sparkles, href: '/tools' },
-  { label: 'Shared with me', icon: Share2, href: '/shared' },
-  { label: 'Recent', icon: History, href: '/recent' },
-  { label: 'Starred', icon: Star, href: '/starred' },
-  { label: 'Trash', icon: Trash2, href: '/trash' },
-  { label: 'Storage', icon: Cloud, href: '/quota' },
-  { label: 'Activity', icon: History, href: '/activity' },
-  { label: 'Settings', icon: Settings, href: '/settings' },
-  { label: 'API Keys', icon: Code2, href: '/api' },
+const navItemDefs = [
+  { key: 'nav.my_drive', defaultLabel: 'My Drive', icon: HardDrive, href: '/all-files' },
+  { key: 'nav.tools', defaultLabel: 'Tools Studio', icon: Sparkles, href: '/tools' },
+  { key: 'nav.shared', defaultLabel: 'Shared with me', icon: Share2, href: '/shared' },
+  { key: 'nav.recent', defaultLabel: 'Recent', icon: History, href: '/recent' },
+  { key: 'nav.starred', defaultLabel: 'Starred', icon: Star, href: '/starred' },
+  { key: 'nav.trash', defaultLabel: 'Trash', icon: Trash2, href: '/trash' },
+  { key: 'nav.storage', defaultLabel: 'Storage', icon: Cloud, href: '/quota' },
+  { key: 'nav.activity', defaultLabel: 'Activity', icon: History, href: '/activity' },
+  { key: 'nav.settings', defaultLabel: 'Settings', icon: Settings, href: '/settings' },
+  { key: 'nav.api_keys', defaultLabel: 'API Keys', icon: Code2, href: '/api' },
 ]
 
 type StorageSummary = {
@@ -101,6 +103,7 @@ function SystemInfoDropdown({ storage, onClose }: { storage: any; onClose: () =>
 function SidebarNewButton({ onNewFolder, onUploadFile }: { onNewFolder: () => void; onUploadFile: () => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const { t } = useLanguage()
 
   useEffect(() => {
     function handleClickOutside(event: globalThis.MouseEvent) {
@@ -131,7 +134,7 @@ function SidebarNewButton({ onNewFolder, onUploadFile }: { onNewFolder: () => vo
           <path fill="#34A853" d="M16 30h4v-14h-4z" />
           <path fill="#EA4335" d="M2 16h14v-4H2z" />
         </svg>
-        <span className="text-sm font-medium pr-1">New</span>
+        <span className="text-sm font-medium pr-1">{t('action.new', 'New')}</span>
       </button>
 
       {open && (
@@ -145,7 +148,7 @@ function SidebarNewButton({ onNewFolder, onUploadFile }: { onNewFolder: () => vo
             }}
           >
             <FolderPlus className="h-4 w-4 text-[#444746] dark:text-[#C4C7C5]" />
-            <span>New folder</span>
+            <span>{t('action.new_folder', 'New folder')}</span>
           </button>
           <div className="my-1 h-px bg-[#E0E3E7] dark:bg-[#36373A]" />
           <button
@@ -157,7 +160,7 @@ function SidebarNewButton({ onNewFolder, onUploadFile }: { onNewFolder: () => vo
             }}
           >
             <Upload className="h-4 w-4 text-[#444746] dark:text-[#C4C7C5]" />
-            <span>File upload</span>
+            <span>{t('action.file_upload', 'File upload')}</span>
           </button>
         </div>
       )}
@@ -180,6 +183,7 @@ function SidebarContent({
   onNewFolder: () => void
   onUploadFile: () => void
 }) {
+  const { t, language } = useLanguage()
   const used = Number(storage?.usedBytes ?? 0)
   const total = Number(storage?.totalBytes ?? 0)
   const progress = total > 0 ? Math.min(100, (used / total) * 100) : 0
@@ -191,9 +195,9 @@ function SidebarContent({
 
       {/* Navigation list */}
       <nav className="space-y-0.5 px-1">
-        {navItems.map((item) => (
+        {navItemDefs.map((item) => (
           <NavLink
-            key={item.label}
+            key={item.key}
             to={item.href}
             onClick={onNavigate}
             className={({ isActive }) =>
@@ -206,7 +210,7 @@ function SidebarContent({
             }
           >
             <item.icon className="h-5 w-5 shrink-0" />
-            <span className="truncate">{item.label}</span>
+            <span className="truncate">{t(item.key, item.defaultLabel)}</span>
           </NavLink>
         ))}
       </nav>
@@ -220,7 +224,7 @@ function SidebarContent({
         >
           <div className="flex items-center gap-2 text-xs font-medium text-[#444746] dark:text-[#C4C7C5]">
             <Cloud className="h-4 w-4 text-[#0B57D0]" />
-            <span>Storage</span>
+            <span>{t('nav.storage', 'Storage')}</span>
           </div>
           <div className="mt-2 h-1 w-full rounded-full bg-[#E0E3E7] dark:bg-[#36373A] overflow-hidden">
             <div
@@ -229,10 +233,10 @@ function SidebarContent({
             />
           </div>
           <p className="mt-1.5 text-xs text-[#747775] dark:text-[#8E918F]">
-            {formatBytes(storage?.usedBytes)} of {formatBytes(storage?.totalBytes)} used
+            {formatBytes(storage?.usedBytes)} {language === 'id' ? 'dari' : 'of'} {formatBytes(storage?.totalBytes)} {language === 'id' ? 'terpakai' : 'used'}
           </p>
           <span className="mt-1 inline-block text-xs font-medium text-[#0B57D0] group-hover:underline dark:text-[#A8C7FA]">
-            Manage storage
+            {language === 'id' ? 'Kelola penyimpanan' : 'Manage storage'}
           </span>
         </NavLink>
 
@@ -244,7 +248,7 @@ function SidebarContent({
           <button
             type="button"
             onClick={onLogout}
-            title="Log out"
+            title={t('nav.sign_out', 'Sign out')}
             className="flex h-8 w-8 items-center justify-center rounded-full text-[#444746] hover:bg-[#F0F4F9] hover:text-[#B3261E] dark:text-[#C4C7C5] dark:hover:bg-[#28292A]"
           >
             <LogOut className="h-4 w-4" />
@@ -267,6 +271,7 @@ export function DriveLayout() {
   const [uploadProgressCollapsed, setUploadProgressCollapsed] = useState(false)
   const [profileImageUrl, setProfileImageUrl] = useState('')
   const [avatarError, setAvatarError] = useState(false)
+  const { language, setLanguage } = useLanguage()
 
   // Auto-dismiss floating progress card 2 seconds after upload / processing finishes
   useEffect(() => {
@@ -427,6 +432,17 @@ export function DriveLayout() {
             aria-label="Toggle theme"
           >
             {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setLanguage(language === 'en' ? 'id' : 'en')}
+            className="flex h-8 items-center gap-1.5 rounded-full border border-[#E0E3E7] px-2.5 text-[11px] font-semibold text-[#444746] transition-colors hover:bg-black/5 dark:border-[#36373A] dark:text-[#C4C7C5] dark:hover:bg-white/10 select-none"
+            aria-label="Toggle language"
+            title={language === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}
+          >
+            <Globe className="h-3.5 w-3.5 text-[#0B57D0] dark:text-[#A8C7FA]" />
+            <span className="uppercase tracking-wider">{language}</span>
           </button>
 
           {/* Profile Circle */}

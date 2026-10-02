@@ -18,6 +18,7 @@ import { FileIcon } from '@/components/drive/FileIcon'
 import { API_URL } from '@/lib/api'
 import { getAccessToken } from '@/lib/auth'
 import { useToast } from '@/context/ToastContext'
+import { useLanguage } from '@/context/LanguageContext'
 
 type Props = {
   x: number
@@ -87,6 +88,7 @@ export function FileContextMenu({
 }: Props) {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useLanguage()
   if (!file) return null
 
   const handleCopyCdn = () => {
@@ -184,27 +186,27 @@ export function FileContextMenu({
           {file.driveUrl ? (
             <MenuItem
               icon={ExternalLink}
-              label="Open in Google Drive"
+              label={t('menu.open_in_gdrive', 'Open in Google Drive')}
               onClick={() => {
                 window.open(file.driveUrl, '_blank')
                 onClose()
               }}
             />
           ) : null}
-          <MenuItem icon={Eye} label="Preview" onClick={onView} kbd="↵" />
-          <MenuItem icon={Download} label="Download" onClick={onDownload} />
+          <MenuItem icon={Eye} label={t('menu.preview', 'Preview')} onClick={onView} kbd="↵" />
+          <MenuItem icon={Download} label={t('menu.download', 'Download')} onClick={onDownload} />
 
           {/* Quick Tools Action */}
           {isImage && (
             <>
               <MenuItem
                 icon={Sparkles}
-                label="Remove Background (AI)"
+                label={t('menu.remove_bg', 'Remove Background (AI)')}
                 onClick={handleRemoveBg}
               />
               <MenuItem
                 icon={FileText}
-                label="Convert to PDF"
+                label={t('menu.convert_pdf', 'Convert to PDF')}
                 onClick={handleConvertToPdf}
               />
             </>
@@ -213,24 +215,24 @@ export function FileContextMenu({
           {isPdf && (
             <MenuItem
               icon={FileText}
-              label="Process with PDF Tools"
+              label={t('menu.process_pdf', 'Process with PDF Tools')}
               onClick={handleOpenPdfTools}
             />
           )}
 
-          <MenuItem icon={Edit3} label="Rename" onClick={onRename} />
-          <MenuItem icon={FolderInput} label="Move to" onClick={onMove} />
-          <MenuItem icon={Info} label="File information" onClick={onDetails} />
+          <MenuItem icon={Edit3} label={t('menu.rename', 'Rename')} onClick={onRename} />
+          <MenuItem icon={FolderInput} label={t('menu.move_to', 'Move to')} onClick={onMove} />
+          <MenuItem icon={Info} label={t('menu.file_info', 'File information')} onClick={onDetails} />
 
           <div className="my-1.5 h-px bg-[#E0E3E7] dark:bg-[#36373A]" />
 
-          <MenuItem icon={UserPlus} label="Share" onClick={onShare} />
-          <MenuItem icon={Link2} label="Copy link" onClick={onCopyLink} kbd="Ctrl+L" />
-          <MenuItem icon={Globe} label="Copy CDN Direct URL" onClick={handleCopyCdn} />
+          <MenuItem icon={UserPlus} label={t('menu.share', 'Share')} onClick={onShare} />
+          <MenuItem icon={Link2} label={t('menu.copy_link', 'Copy link')} onClick={onCopyLink} kbd="Ctrl+L" />
+          <MenuItem icon={Globe} label={t('menu.copy_cdn', 'Copy CDN Direct URL')} onClick={handleCopyCdn} />
 
           <div className="my-1.5 h-px bg-[#E0E3E7] dark:bg-[#36373A]" />
 
-          <MenuItem icon={Trash2} label="Move to trash" onClick={onDelete} danger />
+          <MenuItem icon={Trash2} label={t('menu.move_to_trash', 'Move to trash')} onClick={onDelete} danger />
         </div>
       </div>
     </>

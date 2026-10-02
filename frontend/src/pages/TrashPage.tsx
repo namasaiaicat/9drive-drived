@@ -7,6 +7,7 @@ import { apiFetch, formatBytes } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useDriveFilter } from '@/context/DriveFilterContext'
 import { useToast } from '@/context/ToastContext'
+import { useLanguage } from '@/context/LanguageContext'
 
 type TrashFile = {
   id: string
@@ -23,6 +24,7 @@ type TrashFile = {
 
 export function TrashPage() {
   const { selectedAccountId } = useDriveFilter()
+  const { language, t } = useLanguage()
   const [files, setFiles] = useState<TrashFile[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
@@ -76,7 +78,7 @@ export function TrashPage() {
         ids.forEach((id) => next.delete(id))
         return next
       })
-      toast.success(`Restored ${ids.length} item(s) to My Drive.`)
+      toast.success(language === 'id' ? `Memulihkan ${ids.length} item ke Drive Saya.` : `Restored ${ids.length} item(s) to My Drive.`)
       window.dispatchEvent(new Event('9drive:storage-changed'))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to restore files')
@@ -89,7 +91,9 @@ export function TrashPage() {
     if (ids.length === 0) return
     if (
       !confirm(
-        `Are you sure you want to delete ${ids.length} file(s) forever? This action cannot be undone.`
+        language === 'id'
+          ? `Yakin ingin menghapus ${ids.length} file selamanya? Tindakan ini tidak dapat dibatalkan.`
+          : `Are you sure you want to delete ${ids.length} file(s) forever? This action cannot be undone.`
       )
     )
       return
@@ -105,7 +109,7 @@ export function TrashPage() {
         ids.forEach((id) => next.delete(id))
         return next
       })
-      toast.success(`Deleted ${ids.length} item(s) forever.`)
+      toast.success(language === 'id' ? `Menghapus ${ids.length} item selamanya.` : `Deleted ${ids.length} item(s) forever.`)
       window.dispatchEvent(new Event('9drive:storage-changed'))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete files')
@@ -116,14 +120,14 @@ export function TrashPage() {
 
   async function handleEmptyTrash() {
     if (files.length === 0) return
-    if (!confirm('Empty trash? All items in trash will be deleted forever.')) return
+    if (!confirm(language === 'id' ? 'Kosongkan sampah? Semua item di sampah akan dihapus selamanya.' : 'Empty trash? All items in trash will be deleted forever.')) return
     await handlePermanentDelete(files.map((f) => f.id))
   }
 
   return (
     <div className="flex flex-col min-h-full w-full min-w-0">
       <PageHeader
-        title="Trash"
+        title={t('trash.title', 'Trash')}
         actions={
           files.length > 0 ? (
             <div className="flex items-center gap-2">
@@ -135,7 +139,7 @@ export function TrashPage() {
                     onClick={() => handleRestore(Array.from(selectedIds))}
                     disabled={loading}
                   >
-                    <RotateCcw className="h-4 w-4" /> Restore ({selectedIds.size})
+                    <RotateCcw className="h-4 w-4" /> {t('trash.restore', 'Restore')} ({selectedIds.size})
                   </Button>
                   <Button
                     size="sm"
@@ -143,12 +147,12 @@ export function TrashPage() {
                     onClick={() => handlePermanentDelete(Array.from(selectedIds))}
                     disabled={loading}
                   >
-                    <Trash2 className="h-4 w-4" /> Delete forever ({selectedIds.size})
+                    <Trash2 className="h-4 w-4" /> {t('trash.delete_forever', 'Delete forever')} ({selectedIds.size})
                   </Button>
                 </>
               ) : (
                 <Button size="sm" variant="ghost" onClick={handleEmptyTrash} disabled={loading}>
-                  Empty trash
+                  {t('trash.empty_trash', 'Empty trash')}
                 </Button>
               )}
             </div>
@@ -158,19 +162,17 @@ export function TrashPage() {
 
       {/* Info notice bar */}
       <div className="mt-3 rounded-lg bg-[#EDF2FC] px-4 py-2.5 text-xs text-[#444746] dark:bg-[#28292A] dark:text-[#C4C7C5]">
-        Items in trash are deleted forever after 30 days.
+        {t('trash.info_bar', 'Items in trash are deleted forever after 30 days.')}
       </div>
-
-
 
       {files.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center py-20 px-4 text-center select-none">
           <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#EDF2FC] dark:bg-[#28292A] text-[#747775] dark:text-[#8E918F] mb-4">
             <Trash2 className="h-12 w-12 stroke-[1.2]" />
           </div>
-          <h3 className="text-lg font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">Trash is empty</h3>
+          <h3 className="text-lg font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">{t('trash.empty_title', 'Trash is empty')}</h3>
           <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F]">
-            Items moved to the trash will show up here.
+            {t('trash.empty_desc', 'Items moved to the trash will show up here.')}
           </p>
         </div>
       ) : (
@@ -186,11 +188,11 @@ export function TrashPage() {
                     className="h-4 w-4 rounded accent-[#0B57D0] cursor-pointer"
                   />
                 </th>
-                <th className="py-2.5 font-medium">Name</th>
-                <th className="py-2.5 font-medium">Storage account</th>
-                <th className="py-2.5 font-medium">Original size</th>
-                <th className="py-2.5 font-medium">Date trashed</th>
-                <th className="py-2.5 pr-3 text-right">Actions</th>
+                <th className="py-2.5 font-medium">{t('table.name', 'Name')}</th>
+                <th className="py-2.5 font-medium">{t('trash.storage_account', 'Storage account')}</th>
+                <th className="py-2.5 font-medium">{t('trash.original_size', 'Original size')}</th>
+                <th className="py-2.5 font-medium">{t('trash.date_trashed', 'Date trashed')}</th>
+                <th className="py-2.5 pr-3 text-right">{t('trash.actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -254,7 +256,7 @@ export function TrashPage() {
                             handleRestore([file.id])
                           }}
                           disabled={loading}
-                          title="Restore"
+                          title={t('trash.restore', 'Restore')}
                         >
                           <RotateCcw className="h-4 w-4" />
                         </button>
@@ -266,7 +268,7 @@ export function TrashPage() {
                             handlePermanentDelete([file.id])
                           }}
                           disabled={loading}
-                          title="Delete forever"
+                          title={t('trash.delete_forever', 'Delete forever')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

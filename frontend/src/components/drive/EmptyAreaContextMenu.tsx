@@ -1,4 +1,5 @@
 import { ClipboardPaste, FolderPlus, Upload } from 'lucide-react'
+import { useLanguage } from '@/context/LanguageContext'
 
 type Props = {
   x: number
@@ -42,6 +43,7 @@ export function EmptyAreaContextMenu({
   onCreateFolder,
   onPasteFolder,
 }: Props) {
+  const { t } = useLanguage()
   if (!open) return null
   const safeX = Math.max(12, Math.min(x, window.innerWidth - 240))
   const safeY = Math.max(12, Math.min(y, window.innerHeight - 180))
@@ -62,13 +64,13 @@ export function EmptyAreaContextMenu({
         }
       >
         <div className="py-1">
-          <MenuItem icon={FolderPlus} label="New folder" onClick={onCreateFolder} />
+          <MenuItem icon={FolderPlus} label={t('action.new_folder', 'New folder')} onClick={onCreateFolder} />
           <div className="my-1.5 h-px bg-[#E0E3E7] dark:bg-[#36373A]" />
-          <MenuItem icon={Upload} label="File upload" onClick={onUpload} />
+          <MenuItem icon={Upload} label={t('action.file_upload', 'File upload')} onClick={onUpload} />
           {canPasteFolder && onPasteFolder ? (
             <>
               <div className="my-1.5 h-px bg-[#E0E3E7] dark:bg-[#36373A]" />
-              <MenuItem icon={ClipboardPaste} label="Paste folder here" onClick={onPasteFolder} />
+              <MenuItem icon={ClipboardPaste} label={t('menu.paste_folder', 'Paste folder here')} onClick={onPasteFolder} />
             </>
           ) : null}
         </div>

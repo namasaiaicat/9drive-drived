@@ -6,6 +6,7 @@ import type { FileItem } from '@/data/drive-data'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/context/ToastContext'
+import { useLanguage } from '@/context/LanguageContext'
 
 export function FileTable({
   files,
@@ -29,6 +30,7 @@ export function FileTable({
   onShare?: (file: FileItem) => void
 }) {
   const { toast } = useToast()
+  const { t } = useLanguage()
   const [copiedFileId, setCopiedFileId] = useState<string | null>(null)
 
   return (
@@ -37,7 +39,7 @@ export function FileTable({
       <div className="grid gap-2 sm:hidden">
         {onToggleAll ? (
           <label className="flex items-center justify-between rounded-xl border border-[#E0E3E7] bg-white px-3.5 py-2.5 text-xs font-medium text-[#444746] dark:border-[#36373A] dark:bg-[#1E1F20] dark:text-[#C4C7C5]">
-            <span>Select all files</span>
+            <span>{t('table.select_all_files', 'Select all files')}</span>
             <input
               type="checkbox"
               className="h-4 w-4 rounded accent-[#0B57D0]"
@@ -147,19 +149,19 @@ export function FileTable({
                   aria-label="Select all"
                 />
               </th>
-              <th className="py-2.5 font-medium">Name</th>
-              {mode === 'default' ? <th className="py-2.5 font-medium text-[#747775]">Location</th> : null}
-              {mode === 'shared' ? <th className="py-2.5 font-medium">Owner</th> : null}
-              {mode === 'recent' ? <th className="py-2.5 font-medium">Last opened</th> : null}
-              {mode === 'starred' ? <th className="py-2.5 font-medium">Starred on</th> : null}
+              <th className="py-2.5 font-medium">{t('table.name', 'Name')}</th>
+              {mode === 'default' ? <th className="py-2.5 font-medium text-[#747775]">{t('table.location', 'Location')}</th> : null}
+              {mode === 'shared' ? <th className="py-2.5 font-medium">{t('table.owner', 'Owner')}</th> : null}
+              {mode === 'recent' ? <th className="py-2.5 font-medium">{t('table.last_opened', 'Last opened')}</th> : null}
+              {mode === 'starred' ? <th className="py-2.5 font-medium">{t('table.starred_on', 'Starred on')}</th> : null}
               {mode === 'archived' ? <th className="py-2.5 font-medium">Archived date</th> : null}
               {mode === 'archived' ? (
                 <th className="py-2.5 font-medium">Original location</th>
               ) : (
-                <th className="py-2.5 font-medium">Last modified</th>
+                <th className="py-2.5 font-medium">{t('table.last_modified', 'Last modified')}</th>
               )}
-              <th className="py-2.5 font-medium">File size</th>
-              <th className="py-2.5 font-medium">Sharing</th>
+              <th className="py-2.5 font-medium">{t('table.file_size', 'File size')}</th>
+              <th className="py-2.5 font-medium">{t('table.sharing', 'Sharing')}</th>
               <th className="w-32 py-2.5 pr-3 text-right" />
             </tr>
           </thead>

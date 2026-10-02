@@ -23,6 +23,7 @@ import { getAccessToken } from '@/lib/auth'
 import { getPreviewKind, officeViewerUrl } from '@/lib/preview'
 import type { FileItem, FolderItem } from '@/data/drive-data'
 import { useDriveFilter } from '@/context/DriveFilterContext'
+import { useLanguage } from '@/context/LanguageContext'
 
 type BackendFile = {
   id: string
@@ -101,6 +102,7 @@ export function StarredPage() {
   const [previewError, setPreviewError] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
   const { toast } = useToast()
+  const { t } = useLanguage()
 
   async function loadStarred() {
     setLoading(true)
@@ -342,7 +344,7 @@ export function StarredPage() {
       {/* Google Drive Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
         <h1 className="text-[22px] font-normal tracking-tight text-[#1F1F1F] dark:text-[#E3E3E3]">
-          Starred
+          {t('nav.starred', 'Starred')}
         </h1>
 
         <div className="flex items-center gap-1.5">
@@ -383,11 +385,11 @@ export function StarredPage() {
             value={typeFilter}
             onChange={setTypeFilter}
             options={[
-              { value: 'all', label: 'Type: All' },
-              { value: 'docs', label: 'Documents' },
-              { value: 'images', label: 'Images' },
-              { value: 'videos', label: 'Videos' },
-              { value: 'pdfs', label: 'PDFs' },
+              { value: 'all', label: t('filter.all', 'Type: All') },
+              { value: 'docs', label: t('filter.docs', 'Documents') },
+              { value: 'images', label: t('filter.images', 'Images') },
+              { value: 'videos', label: t('filter.videos', 'Videos') },
+              { value: 'pdfs', label: t('filter.pdfs', 'PDFs') },
             ]}
           />
         </div>
@@ -397,13 +399,13 @@ export function StarredPage() {
       {selectedFileIds.size > 0 && (
         <div className="flex items-center justify-between rounded-xl bg-[#C2E7FF]/50 px-4 py-2 text-sm text-[#001D35] dark:bg-[#004A77]/40 dark:text-[#C2E7FF]">
           <div className="flex items-center gap-3">
-            <span className="font-medium">{selectedFileIds.size} selected</span>
+            <span className="font-medium">{selectedFileIds.size} {t('action.selected', 'selected')}</span>
             <button
               type="button"
               onClick={clearSelection}
               className="text-xs underline hover:opacity-80"
             >
-              Clear selection
+              {t('action.clear_selection', 'Clear selection')}
             </button>
           </div>
           <div className="flex items-center gap-2">
@@ -420,7 +422,7 @@ export function StarredPage() {
                   className="h-8 gap-1.5 rounded-full border-[#747775]/40 text-[#0B57D0] hover:bg-[#0B57D0]/10 hover:border-[#0B57D0] dark:border-[#747775]/60 dark:text-[#A8C7FA]"
                 >
                   <UserPlus className="h-3.5 w-3.5" />
-                  Share
+                  {t('action.share', 'Share')}
                 </Button>
                 <Button
                   variant="outline"
@@ -433,7 +435,7 @@ export function StarredPage() {
                   className="h-8 gap-1.5 rounded-full border-[#747775]/40 text-[#444746] hover:bg-black/5 dark:border-[#747775]/60 dark:text-[#C4C7C5]"
                 >
                   <Link2 className="h-3.5 w-3.5" />
-                  Copy link
+                  {t('action.copy_link', 'Copy link')}
                 </Button>
               </>
             )}
@@ -444,7 +446,7 @@ export function StarredPage() {
               className="h-8 gap-1.5 text-xs text-[#B3261E] hover:bg-[#F9DEDC]/50 dark:text-[#F2B8B5]"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Move to trash
+              {t('action.delete', 'Move to trash')}
             </Button>
           </div>
         </div>
@@ -461,10 +463,10 @@ export function StarredPage() {
             <Star className="h-10 w-10 stroke-[1.5] fill-[#FBBC04]" />
           </div>
           <h2 className="mt-5 text-lg font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-            No starred files
+            {t('starred.empty_title', 'No starred files')}
           </h2>
           <p className="mt-1 max-w-sm text-sm text-[#747775] dark:text-[#8E918F]">
-            Add stars to files that you want to easily find later.
+            {t('starred.empty_desc', 'Add stars to files that you want to easily find later.')}
           </p>
         </div>
       ) : viewMode === 'list' ? (

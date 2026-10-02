@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { PageHeader } from '@/components/drive/PageHeader'
 import { apiFetch, formatBytes } from '@/lib/api'
+import { useLanguage } from '@/context/LanguageContext'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/context/ToastContext'
 
@@ -59,6 +60,7 @@ export function QuotaTrackerPage() {
     roundRobinCursor: 0,
   })
   const { toast } = useToast()
+  const { t } = useLanguage()
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [syncingAccountId, setSyncingAccountId] = useState<string | null>(null)
@@ -178,44 +180,42 @@ export function QuotaTrackerPage() {
   return (
     <div className="flex flex-col min-h-full w-full min-w-0">
       <PageHeader
-        title="Storage"
-        description="Monitor combined Google Drive storage quota and routing."
+        title={t('quota.title', 'Storage')}
+        description={t('quota.desc', 'Monitor combined Google Drive storage quota and routing.')}
         actions={
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => setAutoRefresh(!autoRefresh)}>
-              <CheckCircle className="h-4 w-4" /> Auto-refresh {autoRefresh ? 'On' : 'Off'}
+              <CheckCircle className="h-4 w-4" /> {t('quota.auto_refresh', 'Auto-refresh')} {autoRefresh ? 'On' : 'Off'}
             </Button>
             <Button size="sm" variant="outline" onClick={refresh} disabled={refreshing}>
               <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-              {refreshing ? 'Refreshing...' : 'Refresh'}
+              {refreshing ? t('action.refreshing', 'Refreshing...') : t('action.refresh', 'Refresh')}
             </Button>
             <Button size="sm" onClick={connectDrive}>
-              <Link2 className="h-4 w-4" /> Connect Drive
+              <Link2 className="h-4 w-4" /> {t('settings.connect_drive', 'Connect Drive')}
             </Button>
           </div>
         }
       />
-
-
 
       {/* Main Quota Overview Card */}
       <div className="mt-6 rounded-2xl border border-[#E0E3E7] bg-white p-6 dark:border-[#36373A] dark:bg-[#1E1F20]">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <span className="text-xs font-medium uppercase tracking-wider text-[#747775] dark:text-[#8E918F]">
-              Total Storage Usage
+              {t('quota.total_usage', 'Total Storage Usage')}
             </span>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-3xl font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">
                 {formatBytes(summary?.usedBytes)}
               </span>
               <span className="text-sm text-[#747775] dark:text-[#8E918F]">
-                of {formatBytes(summary?.totalBytes)} used ({totalPercent}%)
+                {t('quota.of_used', 'of')} {formatBytes(summary?.totalBytes)} {t('quota.used_label', 'used')} ({totalPercent}%)
               </span>
             </div>
           </div>
           <div className="text-xs text-[#747775] dark:text-[#8E918F]">
-            <span>{accounts.length} connected account(s)</span>
+            <span>{accounts.length} {t('quota.connected_accounts', 'connected account(s)')}</span>
           </div>
         </div>
 
@@ -233,10 +233,10 @@ export function QuotaTrackerPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-[#E0E3E7]/60 dark:border-[#36373A]/60">
           <div>
             <h2 className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-              Upload Routing Policy
+              {t('quota.routing_policy', 'Upload Routing Policy')}
             </h2>
             <p className="text-xs text-[#747775] dark:text-[#8E918F]">
-              Define which connected Google Drive account receives uploads.
+              {t('quota.routing_desc', 'Define which connected Google Drive account receives uploads.')}
             </p>
           </div>
           <div className="w-full sm:w-60">
@@ -250,9 +250,9 @@ export function QuotaTrackerPage() {
                 )
               }
               options={[
-                { value: 'most_available', label: 'Most available free space' },
-                { value: 'round_robin', label: 'Round robin' },
-                { value: 'priority', label: 'Priority order' },
+                { value: 'most_available', label: t('quota.mode_most_available', 'Most available free space') },
+                { value: 'round_robin', label: t('quota.mode_round_robin', 'Round robin') },
+                { value: 'priority', label: t('quota.mode_priority', 'Priority order') },
               ]}
             />
           </div>
@@ -280,7 +280,7 @@ export function QuotaTrackerPage() {
                   onClick={() => moveAccount(account.id, -1)}
                   disabled={index === 0}
                 >
-                  Up
+                  {t('action.up', 'Up')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -288,13 +288,13 @@ export function QuotaTrackerPage() {
                   onClick={() => moveAccount(account.id, 1)}
                   disabled={index === accounts.length - 1}
                 >
-                  Down
+                  {t('action.down', 'Down')}
                 </Button>
               </div>
             </div>
           ))}
           {accounts.length === 0 && (
-            <p className="text-xs text-[#747775] py-2">No connected accounts yet.</p>
+            <p className="text-xs text-[#747775] py-2">{t('quota.no_accounts', 'No connected accounts yet.')}</p>
           )}
         </div>
       </div>

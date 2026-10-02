@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/drive/PageHeader'
 import { DummyModal } from '@/components/drive/DummyModal'
 import { API_URL, apiFetch, formatDate } from '@/lib/api'
+import { useLanguage } from '@/context/LanguageContext'
 import { useToast } from '@/context/ToastContext'
 
 type ApiKey = {
@@ -34,6 +35,7 @@ export function ApiManagementPage() {
   const [keyName, setKeyName] = useState('')
   const [secret, setSecret] = useState('')
   const { toast } = useToast()
+  const { t } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [activeCodeTab, setActiveCodeTab] = useState<CodeTab>('curl')
   const [copiedSnippet, setCopiedSnippet] = useState(false)
@@ -187,8 +189,8 @@ console.log('CDN View URL:', file.url)
   return (
     <div className="flex flex-col min-h-full w-full min-w-0">
       <PageHeader
-        title="API Keys"
-        description="Manage API keys for your applications. Use your keys to authenticate external uploads and deliver media through the local CDN gateway."
+        title={t('api_keys.title', 'API Keys')}
+        description={t('api_keys.desc', 'Manage API keys for your applications. Use your keys to authenticate external uploads and deliver media through the local CDN gateway.')}
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -198,7 +200,7 @@ console.log('CDN View URL:', file.url)
               onClick={() => setDocsOpen(true)}
             >
               <BookOpen className="h-3.5 w-3.5 text-[#747775] dark:text-[#8E918F]" />
-              <span>Documentation</span>
+              <span>{t('api_keys.docs_btn', 'Documentation')}</span>
             </Button>
             <Button
               size="sm"
@@ -206,7 +208,7 @@ console.log('CDN View URL:', file.url)
               onClick={() => setCreateOpen(true)}
             >
               <Plus className="h-4 w-4" />
-              <span>Generate New Key</span>
+              <span>{t('api_keys.generate_btn', 'Generate New Key')}</span>
             </Button>
           </div>
         }
@@ -216,7 +218,7 @@ console.log('CDN View URL:', file.url)
         {/* API Environment Variable Bar (Reference 2 style) */}
         <div>
           <p className="text-xs font-medium text-[#747775] dark:text-[#8E918F] mb-1.5">
-            API environment variable
+            {t('api_keys.env_var', 'API environment variable')}
           </p>
           <div className="flex items-center justify-between rounded-xl border border-[#E0E3E7] dark:border-[#36373A] bg-[#F8FAFD] dark:bg-[#18191A] px-3.5 py-2.5">
             <code className="font-mono text-xs text-[#1F1F1F] dark:text-[#E3E3E3] truncate">
@@ -239,12 +241,12 @@ console.log('CDN View URL:', file.url)
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-[#E0E3E7] dark:border-[#36373A] bg-[#F8FAFD]/50 dark:bg-[#18191A]/50 text-[#747775] dark:text-[#8E918F]">
-                <th className="py-3 px-4 font-medium">Key Name</th>
-                <th className="py-3 px-4 font-medium">Date Created</th>
-                <th className="py-3 px-4 font-medium">API Key (Prefix)</th>
-                <th className="py-3 px-4 font-medium">API Secret</th>
-                <th className="py-3 px-4 font-medium">Status</th>
-                <th className="py-3 px-4 font-medium text-right">Actions</th>
+                <th className="py-3 px-4 font-medium">{t('api_keys.table_name', 'Key Name')}</th>
+                <th className="py-3 px-4 font-medium">{t('api_keys.table_created', 'Date Created')}</th>
+                <th className="py-3 px-4 font-medium">{t('api_keys.table_prefix', 'API Key (Prefix)')}</th>
+                <th className="py-3 px-4 font-medium">{t('api_keys.table_secret', 'API Secret')}</th>
+                <th className="py-3 px-4 font-medium">{t('api_keys.table_status', 'Status')}</th>
+                <th className="py-3 px-4 font-medium text-right">{t('api_keys.table_actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E0E3E7]/60 dark:divide-[#36373A]/60">
@@ -252,8 +254,8 @@ console.log('CDN View URL:', file.url)
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-[#747775] dark:text-[#8E918F]">
                     <KeyRound className="mx-auto h-8 w-8 opacity-40 mb-2" />
-                    <p className="text-sm font-medium">No API keys generated yet</p>
-                    <p className="text-xs mt-0.5">Click "Generate New API Key" above to create one.</p>
+                    <p className="text-sm font-medium">{t('api_keys.empty_title', 'No API keys generated yet')}</p>
+                    <p className="text-xs mt-0.5">{t('api_keys.empty_desc', 'Click "Generate New Key" above to create one.')}</p>
                   </td>
                 </tr>
               ) : (

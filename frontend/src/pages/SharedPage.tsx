@@ -28,6 +28,7 @@ import { getAccessToken } from '@/lib/auth'
 import { getPreviewKind, officeViewerUrl } from '@/lib/preview'
 import type { FileItem, FolderItem } from '@/data/drive-data'
 import { useDriveFilter } from '@/context/DriveFilterContext'
+import { useLanguage } from '@/context/LanguageContext'
 import { cn } from '@/lib/utils'
 
 type BackendFile = {
@@ -143,6 +144,7 @@ export function SharedPage() {
   const [previewError, setPreviewError] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
   const { toast } = useToast()
+  const { t } = useLanguage()
 
   // Internal workspace invites
   const [activeTab, setActiveTab] = useState<'shared' | 'invites'>('shared')
@@ -378,10 +380,10 @@ export function SharedPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
         <div className="flex items-center gap-3">
           <h1 className="text-[22px] font-normal tracking-tight text-[#1F1F1F] dark:text-[#E3E3E3]">
-            Shared with me
+            {t('shared.title', 'Shared with me')}
           </h1>
           <span className="rounded-full bg-[#EDF2FC] px-2.5 py-0.5 text-xs font-medium text-[#0B57D0] dark:bg-[#1E1F20] dark:text-[#A8C7FA]">
-            {totalSharedCount} items
+            {totalSharedCount} {t('shared.items', 'items')}
           </span>
         </div>
 
@@ -398,7 +400,7 @@ export function SharedPage() {
                   : 'text-[#444746] hover:bg-[#F0F4F9] dark:text-[#C4C7C5] dark:hover:bg-[#282A2C]'
               )}
             >
-              Google Drive Files
+              {t('shared.tab_files', 'Google Drive Files')}
             </button>
             <button
               type="button"
@@ -410,7 +412,7 @@ export function SharedPage() {
                   : 'text-[#444746] hover:bg-[#F0F4F9] dark:text-[#C4C7C5] dark:hover:bg-[#282A2C]'
               )}
             >
-              <span>Workspace Invites</span>
+              <span>{t('shared.tab_invites', 'Workspace Invites')}</span>
               {(sentInvites.length > 0 || receivedInvites.length > 0) && (
                 <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.2 text-[10px] text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
                   {sentInvites.length + receivedInvites.length}
@@ -460,11 +462,11 @@ export function SharedPage() {
                 value={typeFilter}
                 onChange={setTypeFilter}
                 options={[
-                  { value: 'all', label: 'Type: All' },
-                  { value: 'docs', label: 'Documents' },
-                  { value: 'images', label: 'Images' },
-                  { value: 'videos', label: 'Videos' },
-                  { value: 'pdfs', label: 'PDFs' },
+                  { value: 'all', label: t('filter.all', 'Type: All') },
+                  { value: 'docs', label: t('filter.docs', 'Documents') },
+                  { value: 'images', label: t('filter.images', 'Images') },
+                  { value: 'videos', label: t('filter.videos', 'Videos') },
+                  { value: 'pdfs', label: t('filter.pdfs', 'PDFs') },
                 ]}
               />
             </div>
@@ -474,13 +476,13 @@ export function SharedPage() {
           {selectedFileIds.size > 0 && (
             <div className="flex items-center justify-between rounded-xl bg-[#C2E7FF]/50 px-4 py-2 text-sm text-[#001D35] dark:bg-[#004A77]/40 dark:text-[#C2E7FF]">
               <div className="flex items-center gap-3">
-                <span className="font-medium">{selectedFileIds.size} selected</span>
+                <span className="font-medium">{selectedFileIds.size} {t('action.selected', 'selected')}</span>
                 <button
                   type="button"
                   onClick={clearSelection}
                   className="text-xs underline hover:opacity-80"
                 >
-                  Clear selection
+                  {t('action.clear_selection', 'Clear selection')}
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -497,7 +499,7 @@ export function SharedPage() {
                       className="h-8 gap-1.5 rounded-full border-[#747775]/40 text-[#0B57D0] hover:bg-[#0B57D0]/10 hover:border-[#0B57D0] dark:border-[#747775]/60 dark:text-[#A8C7FA]"
                     >
                       <UserPlus className="h-3.5 w-3.5" />
-                      Share
+                      {t('action.share', 'Share')}
                     </Button>
                     <Button
                       variant="outline"
@@ -510,7 +512,7 @@ export function SharedPage() {
                       className="h-8 gap-1.5 rounded-full border-[#747775]/40 text-[#444746] hover:bg-black/5 dark:border-[#747775]/60 dark:text-[#C4C7C5]"
                     >
                       <Link2 className="h-3.5 w-3.5" />
-                      Copy link
+                      {t('action.copy_link', 'Copy link')}
                     </Button>
                   </>
                 )}
@@ -524,7 +526,7 @@ export function SharedPage() {
                   }}
                   className="h-8 gap-1.5 text-xs"
                 >
-                  Download
+                  {t('action.download', 'Download')}
                 </Button>
               </div>
             </div>
@@ -541,10 +543,10 @@ export function SharedPage() {
                 <Share2 className="h-12 w-12 stroke-[1.5]" />
               </div>
               <h2 className="mt-5 text-lg font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-                No files shared with you
+                {t('shared.empty_title', 'No files shared with you')}
               </h2>
               <p className="mt-1.5 max-w-sm text-sm text-[#747775] dark:text-[#8E918F]">
-                Files and folders that people share with your connected Google accounts will automatically appear here.
+                {t('shared.empty_desc', 'Files and folders that people share with your connected Google accounts will automatically appear here.')}
               </p>
             </div>
           ) : (
@@ -553,7 +555,7 @@ export function SharedPage() {
               {folderList.length > 0 && (
                 <div>
                   <h2 className="text-xs font-medium uppercase tracking-wider text-[#747775] dark:text-[#8E918F] mb-2">
-                    Folders
+                    {t('section.folders', 'Folders')}
                   </h2>
                   <FolderGrid
                     items={folderList}
@@ -571,7 +573,7 @@ export function SharedPage() {
                 <div>
                   {folderList.length > 0 && (
                     <h2 className="text-xs font-medium uppercase tracking-wider text-[#747775] dark:text-[#8E918F] mb-2">
-                      Files
+                      {t('section.files', 'Files')}
                     </h2>
                   )}
 
