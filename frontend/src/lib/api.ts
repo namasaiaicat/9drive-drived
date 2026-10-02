@@ -23,6 +23,44 @@ async function refreshAccessToken() {
   return true
 }
 
+export function cleanErrorMessage(rawMessage: unknown): string {
+  if (!rawMessage || typeof rawMessage !== 'string') {
+    return 'Gagal menghubungkan, tunggu sebentar...'
+  }
+  const trimmed = rawMessage.trim()
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed
+          .map((item: any) => {
+            const field = Array.isArray(item.path) ? item.path.join('.') : ''
+            const fieldName =
+              field === 'password'
+                ? 'Password'
+                : field === 'email'
+                ? 'Email'
+                : field === 'name'
+                ? 'Nama'
+                : field
+            if (item.code === 'too_small' && field === 'password') {
+              return `Password minimal ${item.minimum || 8} karakter.`
+            }
+            if (item.code === 'too_small') {
+              return `${fieldName || 'Input'} minimal ${item.minimum} karakter.`
+            }
+            if (item.code === 'invalid_string' && item.validation === 'email') {
+              return 'Format email tidak valid.'
+            }
+            return fieldName ? `${fieldName}: ${item.message}` : item.message
+          })
+          .join(' ')
+      }
+    } catch {}
+  }
+  return rawMessage
+}
+
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers)
   const token = getAccessToken()
@@ -46,7 +84,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: response.statusText }))
     if (response.status === 401) clearAuthSession()
-    throw new Error(error.message ?? 'Gagal menghubungkan, tunggu sebentar...')
+    throw new Error(cleanErrorMessage(error.message))
   }
 
   return response.json() as Promise<T>
