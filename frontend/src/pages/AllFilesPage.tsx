@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent, type MouseEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronRight, ClipboardPaste, Copy, Download, ExternalLink, FolderInput, FolderPlus, HardDrive, Info, LayoutGrid, Link2, List, RefreshCw, Settings, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
+import { ChevronRight, ClipboardPaste, Copy, Download, FolderInput, FolderPlus, HardDrive, Info, LayoutGrid, Link2, List, RefreshCw, Settings, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/context/ToastContext'
 import { DummyModal } from '@/components/drive/DummyModal'
+import { GoogleOAuthAiHelper } from '@/components/drive/GoogleOAuthAiHelper'
 import { ShareModal, type ShareFileTarget } from '@/components/drive/ShareModal'
 import { EmptyAreaContextMenu } from '@/components/drive/EmptyAreaContextMenu'
 import { FileContextMenu } from '@/components/drive/FileContextMenu'
@@ -1104,7 +1105,7 @@ export function AllFilesPage() {
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 flex-wrap py-1 relative z-20 overflow-visible">
+            <div className="flex items-center gap-2 flex-wrap py-1 relative z-10 overflow-visible">
               {/* Filter 1: Type */}
               <Select
                 variant="chip"
@@ -1509,107 +1510,36 @@ export function AllFilesPage() {
 
       <DummyModal
         open={showGoogleGuideModal}
-        title={language === 'id' ? 'Panduan Menghubungkan Google Drive & Google Cloud' : 'Google Drive & Google Cloud Connection Guide'}
-        description={language === 'id' ? 'Langkah menghubungkan Google Drive API ke 9Drive' : 'Step-by-step setup to connect Google Drive API to 9Drive'}
+        title={language === 'id' ? 'Panduan Google Cloud Console' : 'Google Cloud Console Setup'}
+        description={language === 'id' ? 'Hubungkan akun Google Drive Anda dengan kredensial OAuth 2.0' : 'Connect your Google Drive account with OAuth 2.0 credentials'}
         onClose={() => setShowGoogleGuideModal(false)}
-        className="sm:max-w-[560px]"
+        className="sm:max-w-[580px]"
       >
-        <div className="space-y-3.5 text-xs text-[#444746] dark:text-[#C4C7C5] leading-relaxed">
-          <div className="rounded-xl bg-[#F8FAFD] dark:bg-[#18191A] p-3.5 border border-[#E0E3E7] dark:border-[#36373A]">
-            <h4 className="font-semibold text-sm text-[#1F1F1F] dark:text-[#E3E3E3] mb-2 flex items-center gap-1.5">
-              <span>🚀</span> {language === 'id' ? '4 Langkah Setup di Google Cloud Console:' : '4 Steps Setup in Google Cloud Console:'}
-            </h4>
-            <ol className="list-decimal pl-4 space-y-2">
-              <li>
-                {language === 'id' ? (
-                  <>Buka <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-[#0B57D0] hover:underline font-medium inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="h-3 w-3 inline" /></a> dan buat atau pilih Project Anda.</>
-                ) : (
-                  <>Open <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-[#0B57D0] hover:underline font-medium inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="h-3 w-3 inline" /></a> and select or create your Project.</>
-                )}
-              </li>
-              <li>
-                {language === 'id' ? (
-                  <>Di menu <strong>APIs & Services &gt; Library</strong>, cari dan aktifkan <strong>Google Drive API</strong>.</>
-                ) : (
-                  <>In <strong>APIs & Services &gt; Library</strong>, search and enable <strong>Google Drive API</strong>.</>
-                )}
-              </li>
-              <li>
-                {language === 'id' ? (
-                  <>Buka <strong>APIs & Services &gt; Credentials</strong> &gt; klik <strong>Create Credentials &gt; OAuth client ID</strong> (Pilih Application type: <em>Web application</em>).</>
-                ) : (
-                  <>Go to <strong>APIs & Services &gt; Credentials</strong> &gt; click <strong>Create Credentials &gt; OAuth client ID</strong> (Select Application type: <em>Web application</em>).</>
-                )}
-              </li>
-              <li>
-                {language === 'id' ? (
-                  <>Masukkan URL ini persis di bagian <strong>Authorized redirect URIs</strong>:</>
-                ) : (
-                  <>Add this exact URL under <strong>Authorized redirect URIs</strong>:</>
-                )}
-                <div className="mt-1 font-mono text-[11px] bg-white dark:bg-[#1E1F20] p-1.5 rounded-lg border border-[#E0E3E7] dark:border-[#36373A] text-[#0B57D0] select-all break-all">
-                  {typeof window !== 'undefined' ? `${window.location.origin}/connected-accounts/google/callback` : 'http://localhost:9999/connected-accounts/google/callback'}
-                </div>
-              </li>
-            </ol>
-          </div>
+        <div className="space-y-4">
+          <GoogleOAuthAiHelper />
 
-          <div className="rounded-xl border border-[#D3E3FD] bg-[#EDF2FC] p-3.5 text-[#1F1F1F] dark:border-[#2C384A] dark:bg-[#1E232B] dark:text-[#E3E3E3]">
-            <h4 className="font-semibold text-xs flex items-center gap-1.5 mb-1 text-[#1F1F1F] dark:text-[#E3E3E3]">
-              <Info className="h-4 w-4 text-[#0B57D0] dark:text-[#A8C7FA] shrink-0" />
-              <span>{language === 'id' ? 'PENTING: Wajib Menambahkan Email Anda ke "Test Users"' : 'IMPORTANT: Add Your Email to "Test Users"'}</span>
-            </h4>
-            <p className="text-[11px] leading-relaxed text-[#444746] dark:text-[#C4C7C5]">
-              {language === 'id' ? (
-                <>Jika status aplikasi Anda di Google Console masih <strong>"Testing"</strong> (belum diajukan verifikasi publik), Google <strong>hanya mengizinkan akun email yang terdaftar sebagai Test User</strong>.</>
-              ) : (
-                <>If your app in Google Console is in <strong>"Testing"</strong> status (unverified), Google <strong>only allows Google accounts that are explicitly registered under Test Users</strong>.</>
-              )}
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-[#E0E3E7] dark:border-[#36373A]">
+            <p className="text-[11px] text-[#747775] dark:text-[#8E918F]">
+              {language === 'id' ? 'Atau gunakan S3 Storage tanpa Google Console' : 'Or connect S3 Storage without Google Console'}
             </p>
-            <div className="mt-2 pl-3 border-l-2 border-[#0B57D0] dark:border-[#A8C7FA] text-[11px] space-y-1 text-[#444746] dark:text-[#C4C7C5]">
-              {language === 'id' ? (
-                <>
-                  <p>👉 Buka menu <strong>APIs & Services &gt; OAuth consent screen &gt; Test users</strong>.</p>
-                  <p>👉 Klik <strong>+ Add Users</strong>, lalu masukkan alamat Gmail yang ingin Anda hubungkan ke 9Drive.</p>
-                  <p className="text-[10px] text-[#747775] dark:text-[#8E918F] italic">
-                    *Jika akun Anda tidak didaftarkan di Test Users, login akan gagal dengan pesan: "Access blocked: 403 access_denied / Not a test user".
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p>👉 Go to <strong>APIs & Services &gt; OAuth consent screen &gt; Test users</strong>.</p>
-                  <p>👉 Click <strong>+ Add Users</strong>, and enter the Gmail address you want to connect.</p>
-                  <p className="text-[10px] text-[#747775] dark:text-[#8E918F] italic">
-                    *If omitted, Google rejects login with: "Access blocked: 403 access_denied / Not a test user".
-                  </p>
-                </>
-              )}
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowGoogleGuideModal(false)}
+                className="h-9 rounded-full border-[#747775]/30 px-4 text-xs font-medium text-[#1F1F1F] hover:bg-[#F0F4F9] dark:border-[#36373A] dark:text-[#E3E3E3] dark:hover:bg-[#282A2C]"
+              >
+                {language === 'id' ? 'Tutup' : 'Close'}
+              </Button>
+              <Link
+                to="/settings"
+                onClick={() => setShowGoogleGuideModal(false)}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#0B57D0] px-4 text-xs font-medium text-white hover:bg-[#0842A0] dark:bg-[#A8C7FA] dark:text-[#001D35] transition-colors"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span>{language === 'id' ? 'Buka Pengaturan' : 'Open Settings'}</span>
+              </Link>
             </div>
-          </div>
-
-          <div className="rounded-xl bg-[#F0F4F9] dark:bg-[#1A1C1E] p-3 text-[11px] text-[#444746] dark:text-[#C4C7C5] border border-[#E0E3E7] dark:border-[#36373A]">
-            <p className="font-semibold text-[#1F1F1F] dark:text-[#E3E3E3] mb-0.5">
-              {language === 'id' ? '💡 Alternatif Tanpa Google Console:' : '💡 Alternative Without Google Console:'}
-            </p>
-            <p>
-              {language === 'id'
-                ? 'Anda juga bisa langsung menghubungkan S3 Storage (Cloudflare R2, AWS, MinIO) di menu Pengaturan tanpa perlu konfigurasi Google Console sama sekali!'
-                : 'You can also connect S3 Compatible Storage (Cloudflare R2, AWS, MinIO, Wasabi) in Settings without requiring Google Cloud Console at all!'}
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setShowGoogleGuideModal(false)}>
-              {language === 'id' ? 'Tutup' : 'Close'}
-            </Button>
-            <Link
-              to="/settings"
-              onClick={() => setShowGoogleGuideModal(false)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#0B57D0] px-4 py-2 text-xs font-medium text-white hover:bg-[#0B57D0]/90 dark:bg-[#A8C7FA] dark:text-[#003366]"
-            >
-              <Settings className="h-3.5 w-3.5" />
-              <span>{language === 'id' ? 'Buka Menu Settings' : 'Open Settings'}</span>
-            </Link>
           </div>
         </div>
       </DummyModal>

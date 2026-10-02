@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react'
-import { Bell, Check, Cloud, Database, Globe, HardDrive, Info, Layers, Link2, RefreshCw, Trash2 } from 'lucide-react'
+import { Bell, Check, Cloud, Database, Globe, HardDrive, Layers, Link2, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { DummyModal } from '@/components/drive/DummyModal'
+import { GoogleOAuthAiHelper } from '@/components/drive/GoogleOAuthAiHelper'
 import { apiFetch, formatBytes, API_URL } from '@/lib/api'
 import { getGravatarUrl } from '@/lib/gravatar'
 import { getStoredUser, getAccessToken, clearAuthSession } from '@/lib/auth'
@@ -682,30 +683,10 @@ export function SettingsPage() {
             </div>
 
             {showGoogleHelp && (
-              <div className="mb-4 rounded-xl bg-[#F8FAFD] dark:bg-[#18191A] p-4 text-xs leading-relaxed text-[#444746] dark:text-[#C4C7C5] border border-[#E0E3E7] dark:border-[#36373A]">
-                <p className="font-medium text-[#1F1F1F] dark:text-[#E3E3E3] mb-1.5">Langkah Setup Google OAuth Credentials:</p>
-                <ol className="list-decimal pl-4 space-y-1.5">
-                  <li>Buka <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-[#0B57D0] hover:underline font-medium">Google Cloud Console</a> dan pilih/buat project Anda.</li>
-                  <li>Aktifkan <strong>Google Drive API</strong> di menu <em>Enabled APIs & services</em>.</li>
-                  <li>Masuk ke <strong>APIs & Services &gt; Credentials</strong>, klik <strong>Create Credentials &gt; OAuth client ID</strong>.</li>
-                  <li>Pilih application type: <strong>Web application</strong>.</li>
-                  <li>Masukkan URL ini persis di bagian <strong>Authorized redirect URIs</strong>:
-                    <div className="mt-1 flex items-center gap-1.5 font-mono text-[11px] bg-white dark:bg-[#1E1F20] p-1.5 rounded-lg border border-[#E0E3E7] dark:border-[#36373A] select-all overflow-x-auto text-[#0B57D0]">
-                      {googleRedirectUri || defaultRedirectUri}
-                    </div>
-                  </li>
-                  <li>Copy <strong>Client ID</strong> dan <strong>Client Secret</strong> yang diberikan Google ke form di bawah ini, lalu klik Simpan.</li>
-                </ol>
-
-                <div className="mt-3 rounded-xl border border-[#D3E3FD] bg-[#EDF2FC] p-3 text-[11px] text-[#1F1F1F] dark:border-[#2C384A] dark:bg-[#1E232B] dark:text-[#E3E3E3]">
-                  <p className="font-semibold flex items-center gap-1.5 mb-1 text-[#1F1F1F] dark:text-[#E3E3E3]">
-                    <Info className="h-3.5 w-3.5 text-[#0B57D0] dark:text-[#A8C7FA]" />
-                    <span>Catatan Google Cloud Console (Mode Testing):</span>
-                  </p>
-                  <p className="text-[#444746] dark:text-[#C4C7C5] leading-relaxed">
-                    Jika status aplikasi di Google Console masih <strong>"Testing"</strong> (belum diverifikasi publik), buka menu <strong>APIs & Services &gt; OAuth consent screen &gt; Test users</strong>. Klik <strong>+ Add Users</strong> dan daftarkan alamat Gmail Anda. Jika terlewat, Google akan menolak koneksi dengan pesan: <em>"Access blocked: 403 access_denied / Not a test user"</em>.
-                  </p>
-                </div>
+              <div className="mb-4">
+                <GoogleOAuthAiHelper
+                  redirectUri={googleRedirectUri || defaultRedirectUri}
+                />
               </div>
             )}
 
