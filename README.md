@@ -13,37 +13,37 @@ Dilengkapi dengan **High-Performance CDN Media Gateway**, **External Upload API*
 
 ---
 
-## ⚡ Jalankan Instan Tanpa Instalasi (Zero-Config CLI)
+## ⚡ Panduan Menjalankan 9Drive (CLI)
 
-9Drive kini dapat dijalankan secara instan di sistem operasi manapun (Windows, macOS, Linux) tanpa perlu setup database MySQL manual, menggunakan bundled local-first storage engine (SQLite) dan auto-launching browser dashboard.
+9Drive dapat dipasang secara global di sistem operasi manapun (Windows, macOS, Linux) tanpa perlu setup database manual, menggunakan bundled local-first storage engine (SQLite) dan auto-launching browser dashboard.
 
-### Opsi 1: Jalankan Langsung via NPX (Tanpa Instalasi)
-Cukup buka terminal / Command Prompt dan jalankan:
+### 1. Pasang Secara Global
+Buka terminal / Command Prompt dan jalankan:
 ```bash
-npx 9drive
+npm install -g 9drive
+```
+
+### 2. Jalankan Aplikasi Kapan Saja
+Setelah terpasang, cukup ketik perintah berikut dari direktori mana saja untuk membuka 9Drive:
+```bash
+9drive
 ```
 > *9Drive akan otomatis menyiapkan direktori data lokal `~/.9drive`, menyinkronkan database SQLite, dan membuka antarmuka web di browser default Anda (`http://localhost:9999`).*
 
-### Opsi 2: Instalasi Global & Buat Shortcut Desktop (Semua OS)
-Jika Anda ingin 9Drive terpasang permanen di komputer dan bisa dibuka kapan saja dengan double-click icon Desktop:
+> **💡 Pasang Icon di Desktop (Opsional):**  
+> Bagi Anda yang ingin membuka 9Drive cukup dengan klik dua kali icon Desktop/Start Menu tanpa membuka terminal, jalankan:
+> ```bash
+> 9drive shortcut
+> ```
+> *(Tersedia untuk Windows, macOS, dan Linux).*
 
-```bash
-# 1. Pasang 9drive secara global
-npm install -g 9drive
-
-# 2. Pasang shortcut aplikasi di Desktop
-9drive shortcut
-```
-
-- **Windows**: Membuat icon shortcut **NineDrive** resmi di **Desktop** dan **Start Menu** (`NineDrive.lnk`). Cukup klik dua kali untuk menjalankan!
-- **macOS**: Membuat launcher script executable `9Drive.command` di Desktop.
-- **Linux**: Mendaftarkan file `.desktop` launcher di Desktop dan Application Menu.
+*(Catatan: Anda juga bisa menjalankannya instan tanpa instalasi menggunakan `npx 9drive`)*
 
 #### Perintah CLI yang Tersedia:
 | Perintah | Deskripsi |
 |---|---|
 | `9drive` / `9drive start` | Menjalankan server lokal dan membuka dashboard di browser |
-| `9drive shortcut` | Memasang shortcut / icon launcher di Desktop |
+| `9drive shortcut` | Memasang shortcut / icon launcher di Desktop (Opsional) |
 | `9drive status` | Memeriksa lokasi direktori data, ukuran database SQLite, & konfigurasi |
 | `9drive backup` | Membuat cadangan (*snapshot backup*) database lokal secara instan |
 | `9drive open` | Membuka antarmuka 9Drive di browser |
