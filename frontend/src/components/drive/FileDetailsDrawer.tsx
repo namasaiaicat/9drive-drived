@@ -5,6 +5,7 @@ import { useLanguage } from '@/context/LanguageContext'
 import type { FileItem } from '@/data/drive-data'
 import { FileIcon } from '@/components/drive/FileIcon'
 import { Button } from '@/components/ui/button'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -26,6 +27,7 @@ export function FileDetailsDrawer({
   onClose: () => void
   onShare?: (file: FileItem) => void
 }) {
+  const dialogRef = useDialogFocus(open, onClose)
   const { toast } = useToast()
   const { t } = useLanguage()
   if (!open) return null
@@ -33,11 +35,11 @@ export function FileDetailsDrawer({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/20 lg:hidden"
+        className="fixed inset-0 z-50 bg-black/32"
         aria-hidden="true"
         onClick={onClose}
       />
-      <aside className="fixed right-0 top-16 z-40 h-[calc(100vh-4rem)] w-80 border-l border-[#E0E3E7] bg-white shadow-xl dark:border-[#36373A] dark:bg-[#1E1F20] flex flex-col">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('drawer.details', 'Details')} tabIndex={-1} className="fixed right-0 top-0 z-[60] h-dvh w-80 max-w-[90vw] border-l border-[#E0E3E7] bg-white shadow-xl dark:border-[#36373A] dark:bg-[#1E1F20] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#E0E3E7] px-4 py-3 dark:border-[#36373A]">
           <div className="flex items-center gap-2 min-w-0">
@@ -49,7 +51,7 @@ export function FileDetailsDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5]"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5]"
             aria-label="Close details"
           >
             <X className="h-4 w-4" />
@@ -81,21 +83,22 @@ export function FileDetailsDrawer({
                   {t('drawer.file_details', 'File details')}
                 </h3>
                 <DetailRow label={t('drawer.type', 'Type')} value={file.mimeType ?? 'Unknown'} />
+                <DetailRow label={t('drawer.file_id', 'File ID')} value={file.providerFileId || file.id || '--'} />
                 <DetailRow
                   label={t('drawer.size', 'Size')}
-                  value={file.sizeBytes ? formatBytes(file.sizeBytes) : file.size}
+                  value={file.mimeType?.startsWith('application/vnd.google-apps.') ? '--' : file.sizeBytes ? formatBytes(file.sizeBytes) : file.size}
                 />
                 <DetailRow
                   label={t('drawer.location', 'Location')}
                   value={file.folderName ? file.folderName : 'My Drive'}
                 />
                 <DetailRow
-                  label={t('drawer.owner', 'Owner')}
+                  label={t('drawer.storage_account', 'Storage account')}
                   value={file.accountEmail ?? file.access}
                 />
                 <DetailRow
                   label={t('drawer.modified', 'Modified')}
-                  value={file.createdAt ? formatDate(file.createdAt) : file.date}
+                  value={file.updatedAt ? formatDate(file.updatedAt) : file.date}
                 />
                 <DetailRow
                   label={t('drawer.storage_provider', 'Storage provider')}
@@ -108,14 +111,15 @@ export function FileDetailsDrawer({
                       <Globe className="h-3.5 w-3.5 text-emerald-500" />
                       <p className="text-xs font-medium text-[#747775] dark:text-[#8E918F]">{t('drawer.cdn_direct', 'CDN Direct URL')}</p>
                     </div>
-                    <span className="text-[10px] rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 font-medium">Public</span>
+                    <span className="text-[10px] rounded bg-[#E6F4EA] text-[#137333] dark:bg-[#0E3D1E] dark:text-[#A8DAB5] px-1.5 py-0.5 font-medium">Public</span>
                   </div>
                   <div className="mt-1.5 flex items-center gap-1.5">
                     <input
                       type="text"
+                      aria-label={t('drawer.cdn_direct', 'CDN Direct URL')}
                       readOnly
                       value={`${API_URL}/cdn/view/${file.id}`}
-                      className="flex-1 rounded-lg border border-[#E0E3E7] bg-[#F8FAFD] dark:bg-[#18191A] dark:border-[#36373A] px-2 py-1 text-[11px] font-mono text-[#1F1F1F] dark:text-[#E3E3E3] select-all outline-none"
+                      className="min-w-0 flex-1 rounded-lg border border-[#E0E3E7] bg-[#F8FAFD] dark:bg-[#18191A] dark:border-[#36373A] px-2 py-1 text-[11px] font-mono text-[#1F1F1F] dark:text-[#E3E3E3] select-all outline-none"
                     />
                     <Button
                       size="sm"
@@ -156,7 +160,7 @@ export function FileDetailsDrawer({
             <p className="text-xs text-[#747775]">{t('drawer.select_file', 'Select a file to see details')}</p>
           )}
         </div>
-      </aside>
+      </div>
     </>
   )
 }

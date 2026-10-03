@@ -2,6 +2,8 @@ export type FolderItem = {
   id?: string
   name: string
   updated: string
+  updatedAt?: string
+  connectedAccountId?: string | null
   color: string
   iconUrl?: string | null
   parentId?: string | null
@@ -20,7 +22,8 @@ export type FileItem = {
   accountEmail?: string
   accountProvider?: string
   createdAt?: string
-  kind: 'doc' | 'image' | 'video' | 'pdf'
+  updatedAt?: string
+  kind: 'doc' | 'sheet' | 'slides' | 'image' | 'video' | 'pdf' | 'archive' | 'other'
   shared: number
   owner?: string
   location?: string

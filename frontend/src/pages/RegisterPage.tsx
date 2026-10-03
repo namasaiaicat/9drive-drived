@@ -6,6 +6,7 @@ import { GoogleLogo } from '@/components/auth/GoogleLogo'
 import { Input } from '@/components/ui/input'
 import { apiFetch } from '@/lib/api'
 import { setAuthSession, type AuthUser } from '@/lib/auth'
+import { useLanguage } from '@/context/LanguageContext'
 
 type AuthResponse = { accessToken: string; refreshToken: string; user: AuthUser }
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY?.trim()
@@ -21,6 +22,7 @@ declare global {
 
 export function RegisterPage() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -99,30 +101,31 @@ export function RegisterPage() {
       <div className="w-full max-w-[420px] rounded-[28px] border border-[#E0E3E7] bg-white p-8 shadow-sm dark:border-[#36373A] dark:bg-[#1E1F20]">
         <div className="flex flex-col items-center text-center">
           <BrandLogo className="h-12 w-12" />
-          <h1 className="mt-4 text-2xl font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">Create account</h1>
-          <p className="mt-1 text-sm text-[#747775] dark:text-[#8E918F]">to start using 9Drive</p>
+          <h1 className="mt-4 text-2xl font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">{t('auth.create_account', 'Create account')}</h1>
+          <p className="mt-1 text-sm text-[#747775] dark:text-[#8E918F]">{t('auth.start', 'to start using 9Drive')}</p>
         </div>
 
         <form onSubmit={submit} className="mt-8 grid gap-4">
           <div>
-            <label className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5] block mb-1">
-              Your name
+            <label htmlFor="register-name" className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5] block mb-1">
+              {t('auth.name', 'Your name')}
             </label>
             <Input
               value={name}
+              id="register-name" name="name" autoComplete="name" aria-invalid={Boolean(error)} aria-describedby={error ? 'register-error' : undefined}
               onChange={(e) => setName(e.target.value)}
-              placeholder="First and last name"
+              placeholder={t('auth.full_name', 'First and last name')}
               required
-              autoFocus
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5] block mb-1">
+            <label htmlFor="register-email" className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5] block mb-1">
               Email
             </label>
             <Input
               type="email"
+              id="register-email" name="email" autoComplete="email" aria-invalid={Boolean(error)} aria-describedby={error ? 'register-error' : undefined}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
@@ -131,14 +134,15 @@ export function RegisterPage() {
           </div>
 
           <div>
-            <label className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5] block mb-1">
-              Password
+            <label htmlFor="register-password" className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5] block mb-1">
+              {t('auth.password', 'Password')}
             </label>
             <Input
               type="password"
+              id="register-password" name="password" autoComplete="new-password" aria-invalid={Boolean(error)} aria-describedby={error ? 'register-error' : undefined}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Choose a strong password"
+              placeholder={t('auth.choose_password', 'Choose a strong password')}
               required
             />
           </div>
@@ -150,7 +154,7 @@ export function RegisterPage() {
           )}
 
           {error ? (
-            <p className="rounded-lg bg-[#F9DEDC]/50 border border-[#F9DEDC] p-2.5 text-xs text-[#B3261E]">
+            <p id="register-error" role="alert" className="rounded-lg bg-[#F9DEDC]/50 border border-[#F9DEDC] p-2.5 text-xs text-[#B3261E] dark:bg-[#8C1D18]/30 dark:border-[#F2B8B5] dark:text-[#F2B8B5]">
               {error}
             </p>
           ) : null}
@@ -160,10 +164,10 @@ export function RegisterPage() {
               to="/login"
               className="text-xs font-medium text-[#0B57D0] hover:underline dark:text-[#A8C7FA]"
             >
-              Sign in instead
+              {t('auth.sign_in_instead', 'Sign in instead')}
             </Link>
             <Button disabled={loading}>
-              {loading ? 'Creating...' : 'Next'}
+              {loading ? t('auth.creating', 'Creating account…') : t('auth.create_account', 'Create account')}
             </Button>
           </div>
         </form>
@@ -176,7 +180,7 @@ export function RegisterPage() {
             onClick={continueWithGoogle}
           >
             <GoogleLogo />
-            <span>{googleLoading ? 'Redirecting...' : 'Sign up with Google'}</span>
+            <span>{googleLoading ? t('auth.redirecting', 'Redirecting…') : t('auth.google_sign_up', 'Sign up with Google')}</span>
           </Button>
         </div>
       </div>

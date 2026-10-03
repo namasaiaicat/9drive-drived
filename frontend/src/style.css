@@ -15,7 +15,7 @@
   --primary-accent-hover: #0842A0;
   --text-primary: #1F1F1F;
   --text-secondary: #444746;
-  --text-tertiary: #747775;
+  --text-tertiary: #444746;
   --border-subtle: #E0E3E7;
   --border-focus: #0B57D0;
   --shadow-elevation-1: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
@@ -56,6 +56,31 @@
 
 * {
   box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 3px;
+}
+
+input[type="checkbox"] { min-width: 24px; min-height: 24px; }
+
+.text-\[\#747775\] { color: var(--text-secondary); }
+.dark .text-\[\#747775\] { color: var(--text-secondary); }
+
+@media (hover: none) {
+  .group .opacity-0 { opacity: 1; }
+}
+
+.group:focus-within .opacity-0 { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 body {

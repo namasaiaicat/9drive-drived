@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
 import {
   Archive,
   CheckCircle,
@@ -45,8 +46,12 @@ export function SaveDestinationModal({
   defaultZipName = 'processed_files.zip',
   toolName = 'Tool Studio',
 }: Props) {
+  const dialogRef = useDialogFocus(open, onClose)
+  const titleId = useId()
   const [folders, setFolders] = useState<BackendFolder[]>([])
   const [loadingFolders, setLoadingFolders] = useState(false)
+  const [foldersError, setFoldersError] = useState('')
+  const [folderRetry, setFolderRetry] = useState(0)
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
@@ -72,17 +77,18 @@ export function SaveDestinationModal({
     if (!open) return
     async function loadFolders() {
       setLoadingFolders(true)
+      setFoldersError('')
       try {
         const data = await apiFetch<{ folders: BackendFolder[] }>('/folders')
         setFolders(data.folders || [])
       } catch (err) {
-        console.error('Failed to load folders:', err)
+        setFoldersError(err instanceof Error ? err.message : 'Gagal memuat folder')
       } finally {
         setLoadingFolders(false)
       }
     }
     loadFolders()
-  }, [open])
+  }, [open, folderRetry])
 
   if (!open || files.length === 0) return null
 
@@ -184,12 +190,12 @@ export function SaveDestinationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/32 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="flex flex-col w-full max-w-lg max-h-[85vh] bg-white dark:bg-[#1E1F20] rounded-[28px] shadow-2xl border border-[#E0E3E7] dark:border-[#36373A] overflow-hidden">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/32">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="flex flex-col w-full max-w-lg max-h-[90dvh] bg-white dark:bg-[#1E1F20] rounded-[28px] shadow-2xl border border-[#E0E3E7] dark:border-[#36373A] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E0E3E7] dark:border-[#36373A]">
           <div>
-            <h2 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
+            <h2 id={titleId} className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
               Simpan Hasil Berkas
             </h2>
             <p className="text-xs text-[#747775] dark:text-[#8E918F] mt-0.5">
@@ -199,7 +205,8 @@ export function SaveDestinationModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center justify-center w-8 h-8 rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
+            aria-label="Close save destination"
+            className="flex items-center justify-center w-11 h-11 rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
           >
             <X className="w-5 h-5" />
           </button>
@@ -257,11 +264,11 @@ export function SaveDestinationModal({
                   <Input
                     type="text"
                     placeholder="Nama folder baru..."
+                    aria-label="Nama folder baru"
                     value={newFolderName}
                     onChange={(e) => setNewFolderName(e.target.value)}
                     className="h-8 text-xs bg-white dark:bg-[#1E1F20]"
                     onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
-                    autoFocus
                   />
                   <Button size="sm" onClick={handleCreateFolder} className="h-8 text-xs rounded-lg">
                     Buat
@@ -272,9 +279,9 @@ export function SaveDestinationModal({
               {/* Folder List */}
               <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
                 {/* Root Option */}
-                <div
+                <button type="button" aria-pressed={selectedFolderId === null}
                   onClick={() => setSelectedFolderId(null)}
-                  className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors border ${
+                  className={`flex w-full items-center justify-between p-2.5 rounded-xl cursor-pointer text-left transition-colors border ${
                     selectedFolderId === null
                       ? 'border-[#0B57D0] bg-[#C2E7FF] text-[#001D35] dark:border-[#004A77] dark:bg-[#004A77] dark:text-[#C2E7FF]'
                       : 'border-[#E0E3E7] hover:bg-[#F8FAFD] text-[#444746] dark:border-[#36373A] dark:hover:bg-[#28292A] dark:text-[#C4C7C5]'
@@ -285,32 +292,32 @@ export function SaveDestinationModal({
                     <span className="text-xs font-medium">My Drive (Utama)</span>
                   </div>
                   {selectedFolderId === null && <CheckCircle className="w-4 h-4 text-[#0B57D0] dark:text-[#C2E7FF]" />}
-                </div>
+                </button>
 
                 {loadingFolders ? (
                   <div className="flex items-center justify-center p-4 text-xs text-[#747775]">
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     Memuat daftar folder...
                   </div>
-                ) : (
+                ) : foldersError ? <div role="alert" className="p-3 text-sm text-[#B3261E] dark:text-[#F2B8B5]"><p>{foldersError}</p><Button variant="outline" onClick={() => setFolderRetry(folderRetry + 1)}>Coba lagi</Button></div> : (
                   folders.map((folder) => {
                     const isSelected = selectedFolderId === folder.id
                     return (
-                      <div
+                      <button type="button" aria-pressed={isSelected} title={folder.name}
                         key={folder.id}
                         onClick={() => setSelectedFolderId(folder.id)}
-                        className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors border ${
+                        className={`flex w-full items-center justify-between p-2.5 rounded-xl cursor-pointer text-left transition-colors border ${
                           isSelected
                             ? 'border-[#0B57D0] bg-[#C2E7FF] text-[#001D35] dark:border-[#004A77] dark:bg-[#004A77] dark:text-[#C2E7FF]'
                             : 'border-[#E0E3E7] hover:bg-[#F8FAFD] text-[#444746] dark:border-[#36373A] dark:hover:bg-[#28292A] dark:text-[#C4C7C5]'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex min-w-0 items-center gap-2.5">
                           <FolderIcon className="w-4 h-4 text-[#5F6368]" />
                           <span className="text-xs font-medium truncate">{folder.name}</span>
                         </div>
                         {isSelected && <CheckCircle className="w-4 h-4 text-[#0B57D0] dark:text-[#C2E7FF]" />}
-                      </div>
+                      </button>
                     )
                   })
                 )}
@@ -328,6 +335,7 @@ export function SaveDestinationModal({
                 <Input
                   type="text"
                   value={zipName}
+                  aria-label="Nama file ZIP"
                   onChange={(e) => setZipName(e.target.value)}
                   className="h-8 text-xs rounded-lg"
                   placeholder="arsip.zip"

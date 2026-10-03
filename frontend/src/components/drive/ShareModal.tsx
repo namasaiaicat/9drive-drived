@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import {
   Lock,
   Globe,
@@ -9,7 +9,6 @@ import {
   ChevronDown,
   X,
   UserPlus,
-  Settings,
   Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,6 +18,9 @@ import { getGravatarUrl } from '@/lib/gravatar'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/context/ToastContext'
 import { useLanguage } from '@/context/LanguageContext'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
+import { useMenuFocus } from '@/hooks/useMenuFocus'
+import { DummyModal } from '@/components/drive/DummyModal'
 
 export type ShareFileTarget = {
   id?: string
@@ -60,11 +62,14 @@ export function ShareModal({
   file: ShareFileTarget | null
   onClose: () => void
 }) {
+  const dialogRef = useDialogFocus(open, onClose)
+  const titleId = useId()
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
   const { toast } = useToast()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const [avatarUrl, setAvatarUrl] = useState('')
   const [loading, setLoading] = useState(false)
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false)
   const [updating, setUpdating] = useState(false)
   const [generalAccess, setGeneralAccess] = useState<'restricted' | 'anyone'>('restricted')
   const [role, setRole] = useState<'reader' | 'commenter' | 'writer'>('reader')
@@ -80,6 +85,8 @@ export function ShareModal({
   const [roleMenuOpen, setRoleMenuOpen] = useState(false)
   const accessMenuRef = useRef<HTMLDivElement>(null)
   const roleMenuRef = useRef<HTMLDivElement>(null)
+  const accessOptionsRef = useMenuFocus(accessMenuOpen, () => setAccessMenuOpen(false))
+  const roleOptionsRef = useMenuFocus(roleMenuOpen, () => setRoleMenuOpen(false))
 
   // Quick invite
   const [inviteEmail, setInviteEmail] = useState('')
@@ -122,11 +129,15 @@ export function ShareModal({
 
     let isMounted = true
     setLoading(true)
+    setPermissionsLoaded(false)
     setError(null)
-
-    if (file.driveUrl) {
-      setShareUrl(file.driveUrl)
-    }
+    setShareUrl(file.driveUrl || '')
+    setGeneralAccess('restricted')
+    setRole('reader')
+    setIsInherited(false)
+    setParentName(null)
+    setCollaborators([])
+    setCopied(false)
 
     const endpoint = file.type === 'folder'
       ? `/folders/${file.id}/permissions`
@@ -135,6 +146,7 @@ export function ShareModal({
     apiFetch<PermissionsResponse>(endpoint)
       .then((data) => {
         if (!isMounted) return
+        setPermissionsLoaded(true)
         setGeneralAccess(data.generalAccess)
         setRole(data.role || 'reader')
         setIsInherited(Boolean(data.isInherited))
@@ -170,7 +182,7 @@ export function ShareModal({
   }, [open, file])
 
   async function handleAccessChange(newAccess: 'restricted' | 'anyone', cascadeParent = false) {
-    if (!file?.id || updating || (!cascadeParent && newAccess === generalAccess)) {
+    if (!file?.id || !permissionsLoaded || updating || (!cascadeParent && newAccess === generalAccess)) {
       setAccessMenuOpen(false)
       return
     }
@@ -243,21 +255,16 @@ export function ShareModal({
   }
 
   async function copyLink() {
-    let url = shareUrl || file?.driveUrl
-    if (!url && file?.id) {
-      try {
-        const res = await apiFetch<{ url: string }>(`/files/${file.id}/share`, { method: 'POST' })
-        url = res.url
-        setShareUrl(url)
-      } catch {
-        url = window.location.href
-      }
-    }
+    const url = shareUrl || file?.driveUrl || (file?.id ? `${window.location.origin}/all-files?${file.type === 'folder' ? 'folderId' : 'previewFileId'}=${encodeURIComponent(file.id)}` : '')
     if (!url) return
-    await navigator.clipboard.writeText(url)
-    setCopied(true)
-    toast.success('Link copied to clipboard!')
-    setTimeout(() => setCopied(false), 2500)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      toast.success(language === 'id' ? 'Tautan disalin. Izin akses tetap berlaku.' : 'Link copied. Existing access permissions apply.')
+      setTimeout(() => setCopied(false), 2500)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to copy link')
+    }
   }
 
   async function handleSendInvite(e: FormEvent) {
@@ -294,8 +301,8 @@ export function ShareModal({
       await apiFetch(`/invites/${inviteId}`, { method: 'DELETE' })
       setCollaborators((prev) => prev.filter((i) => i.id !== inviteId))
       window.dispatchEvent(new Event('9drive:invites-changed'))
-    } catch {
-      /* ignore */
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to remove invitation')
     }
   }
 
@@ -305,36 +312,31 @@ export function ShareModal({
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/45 backdrop-blur-[2px] animate-m3-scrim"
+        className="fixed inset-0 bg-black/32 animate-m3-scrim"
         aria-hidden="true"
         onClick={onClose}
       />
 
       {/* Google Drive Material 3 Share Dialog */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        className="relative z-10 w-full max-h-[92vh] overflow-visible rounded-[28px] border border-[#E0E3E7] bg-white p-6 shadow-2xl animate-m3-dialog sm:max-w-[560px] dark:border-[#36373A] dark:bg-[#1E1F20]"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="relative z-10 w-full max-h-[90dvh] overflow-y-auto overscroll-contain rounded-[28px] border border-[#E0E3E7] bg-white p-4 shadow-2xl animate-m3-dialog sm:max-w-[560px] sm:p-6 dark:border-[#36373A] dark:bg-[#1E1F20]"
       >
         {/* Header */}
           <div className="flex items-start justify-between gap-4 pb-2">
             <div className="min-w-0 pr-2">
-              <h2 className="truncate text-[22px] font-normal tracking-tight text-[#1F1F1F] dark:text-[#E3E3E3]">
+              <h2 id={titleId} className="break-words text-[22px] font-normal tracking-tight text-[#1F1F1F] dark:text-[#E3E3E3]">
                 {t('share_modal.title', 'Share')} &ldquo;{file?.name ?? 'Item'}&rdquo;
               </h2>
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
-                title="Settings"
-                onClick={() => toast.info('Editors can change permissions and share. Viewers and commenters can see the option to download, print, and copy.')}
-              >
-                <Settings className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10 transition-transform duration-200 hover:rotate-90 active:scale-90"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
                 onClick={onClose}
                 aria-label="Close dialog"
               >
@@ -345,7 +347,7 @@ export function ShareModal({
 
           {/* Error / Success Banners */}
           {error ? (
-            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
               {error}
             </div>
           ) : null}
@@ -361,9 +363,10 @@ export function ShareModal({
               <UserPlus className="h-5 w-5 text-[#747775] shrink-0" />
               <input
                 type="email"
+                aria-label={language === 'id' ? 'Email kolaborator' : 'Collaborator email'} autoComplete="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder={t('share_modal.add_people', 'Add people, groups, or calendar events')}
+                placeholder={language === 'id' ? 'Email kolaborator' : 'Collaborator email'}
                 className="w-full bg-transparent text-sm text-[#1F1F1F] placeholder-[#747775] outline-none dark:text-[#E3E3E3] dark:placeholder-[#8E918F]"
               />
               {inviteEmail.trim() ? (
@@ -494,21 +497,24 @@ export function ShareModal({
                   <div className="relative inline-block" ref={accessMenuRef}>
                     <button
                       type="button"
-                      disabled={updating || loading}
+                      disabled={updating || loading || !permissionsLoaded}
+                      aria-expanded={accessMenuOpen}
+                      aria-haspopup="menu"
                       onClick={() => setAccessMenuOpen(!accessMenuOpen)}
                       className="flex items-center gap-1.5 rounded-lg px-2 py-0.5 -ml-2 text-sm font-semibold text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 transition-colors"
                     >
-                      <span>{generalAccess === 'anyone' ? t('share_modal.anyone', 'Anyone with the link') : t('share_modal.restricted', 'Restricted')}</span>
+                      <span>{!permissionsLoaded ? (language === 'id' ? 'Izin belum tersedia' : 'Permissions unavailable') : generalAccess === 'anyone' ? t('share_modal.anyone', 'Anyone with the link') : t('share_modal.restricted', 'Restricted')}</span>
                       <ChevronDown className={cn('h-4 w-4 text-[#747775] transition-transform duration-200', accessMenuOpen && 'rotate-180')} />
                     </button>
 
                     {/* Popover Menu - Opens cleanly downwards right under the button */}
                     {accessMenuOpen && (
-                      <div className="absolute left-0 top-full z-50 mt-1.5 w-56 sm:w-60 overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white py-1.5 shadow-2xl animate-in fade-in zoom-in-95 origin-top-left dark:border-[#36373A] dark:bg-[#1E1F20]">
+                      <div ref={accessOptionsRef} data-menu-surface role="menu" aria-label={language === 'id' ? 'Izin akses' : 'Access permissions'} className="absolute left-0 top-full z-50 mt-1.5 w-56 sm:w-60 overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white py-1.5 shadow-2xl animate-in fade-in zoom-in-95 origin-top-left dark:border-[#36373A] dark:bg-[#1E1F20]">
                         {/* Option: Restricted */}
                         <button
                           type="button"
                           onClick={() => handleAccessChange('restricted')}
+                          role="menuitem"
                           className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm hover:bg-[#F0F4F9] dark:hover:bg-[#28292A] transition-colors"
                         >
                           <div className="w-4 shrink-0">
@@ -525,6 +531,7 @@ export function ShareModal({
                         <button
                           type="button"
                           onClick={() => handleAccessChange('anyone')}
+                          role="menuitem"
                           className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm hover:bg-[#F0F4F9] dark:hover:bg-[#28292A] transition-colors"
                         >
                           <div className="w-4 shrink-0">
@@ -541,9 +548,11 @@ export function ShareModal({
                   </div>
 
                   <p className="text-xs text-[#747775] dark:text-[#8E918F] mt-0.5">
-                    {generalAccess === 'anyone'
-                      ? 'Anyone on the internet with the link can access'
-                      : 'Only people with access can open with the link'}
+                    {!permissionsLoaded
+                      ? (language === 'id' ? 'Izin akses tidak dapat dipastikan sampai pemuatan berhasil.' : 'Access permissions cannot be confirmed until loading succeeds.')
+                      : generalAccess === 'anyone'
+                      ? (language === 'id' ? 'Siapa pun dengan tautan dapat mengakses.' : 'Anyone on the internet with the link can access.')
+                      : (language === 'id' ? 'Hanya orang yang memiliki akses dapat membuka tautan.' : 'Only people with access can open the link.')}
                   </p>
                   {isInherited && generalAccess === 'anyone' ? (
                     <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
@@ -558,7 +567,9 @@ export function ShareModal({
                 <div className="relative shrink-0 self-center" ref={roleMenuRef}>
                   <button
                     type="button"
-                    disabled={updating || loading}
+                    disabled={updating || loading || !permissionsLoaded}
+                    aria-expanded={roleMenuOpen}
+                    aria-haspopup="menu"
                     onClick={() => setRoleMenuOpen(!roleMenuOpen)}
                     className="flex items-center gap-2 rounded-xl border border-[#E0E3E7] bg-white px-3.5 py-1.5 text-xs font-medium text-[#1F1F1F] shadow-sm hover:bg-[#F0F4F9] dark:border-[#36373A] dark:bg-[#1E1F20] dark:text-[#E3E3E3] dark:hover:bg-[#28292A] transition-colors"
                   >
@@ -568,7 +579,7 @@ export function ShareModal({
 
                   {/* Popover Role Menu - Opens cleanly downwards */}
                   {roleMenuOpen && (
-                    <div className="absolute right-0 top-full z-50 mt-1.5 w-44 overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white py-1.5 shadow-2xl animate-in fade-in zoom-in-95 origin-top-right dark:border-[#36373A] dark:bg-[#1E1F20]">
+                    <div ref={roleOptionsRef} data-menu-surface role="menu" aria-label={language === 'id' ? 'Peran akses' : 'Access role'} className="absolute right-0 top-full z-50 mt-1.5 w-44 overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white py-1.5 shadow-2xl animate-in fade-in zoom-in-95 origin-top-right dark:border-[#36373A] dark:bg-[#1E1F20]">
                       {[
                         { value: 'reader', label: 'Viewer' },
                         { value: 'commenter', label: 'Commenter' },
@@ -578,6 +589,7 @@ export function ShareModal({
                           key={opt.value}
                           type="button"
                           onClick={() => handleRoleChange(opt.value as any)}
+                          role="menuitem"
                           className="flex w-full items-center justify-between px-3.5 py-2 text-xs hover:bg-[#F0F4F9] dark:hover:bg-[#28292A] text-left transition-colors"
                         >
                           <span className={cn(role === opt.value ? 'font-semibold text-[#0B57D0] dark:text-[#A8C7FA]' : 'text-[#1F1F1F] dark:text-[#E3E3E3]')}>
@@ -640,12 +652,7 @@ export function ShareModal({
       </div>
 
       {/* Confirmation Modal for Cascading Restricted Access to Parent Folder */}
-      {confirmCascadeOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-[#E0E3E7] bg-white p-6 shadow-2xl dark:border-[#36373A] dark:bg-[#1E1F20] animate-in zoom-in-95">
-            <h3 className="text-base font-semibold text-[#1F1F1F] dark:text-[#E3E3E3]">
-              {t('share_modal.cascade_title', 'Change parent folder access to Restricted?')}
-            </h3>
+      <DummyModal open={confirmCascadeOpen} onClose={() => setConfirmCascadeOpen(false)} title={t('share_modal.cascade_title', 'Change parent folder access to Restricted?')}>
             <p className="mt-2.5 text-xs text-[#444746] dark:text-[#C4C7C5] leading-relaxed">
               {t('share_modal.cascade_desc', 'This file inherits public access from parent folder. Changing it to Restricted will make the parent folder and all files inside it Restricted as well.')}
               {parentName ? ` (${parentName})` : ''}
@@ -670,9 +677,7 @@ export function ShareModal({
                 {t('share_modal.cascade_confirm', 'Change Parent Folder')}
               </Button>
             </div>
-          </div>
-        </div>
-      )}
+      </DummyModal>
     </div>
   )
 }

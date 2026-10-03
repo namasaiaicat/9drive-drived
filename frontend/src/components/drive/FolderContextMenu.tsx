@@ -1,6 +1,7 @@
 import { Edit3, ExternalLink, Folder, Link2, Scissors, Trash2, UserPlus } from 'lucide-react'
 import type { FolderItem } from '@/data/drive-data'
 import { useLanguage } from '@/context/LanguageContext'
+import { useMenuFocus } from '@/hooks/useMenuFocus'
 
 type Props = {
   x: number
@@ -30,6 +31,7 @@ function MenuItem({
   return (
     <button
       type="button"
+      role="menuitem"
       onClick={onClick}
       className={[
         'flex h-9 w-full items-center gap-3 px-3.5 text-[13px] font-normal transition-all duration-150 active:scale-[0.98] text-left select-none',
@@ -61,6 +63,7 @@ export function FolderContextMenu({
   onDelete,
 }: Props) {
   const { t } = useLanguage()
+  const menuRef = useMenuFocus(Boolean(folder), onClose)
   if (!folder) return null
 
   const safeX = Math.max(12, Math.min(x, window.innerWidth - 240))
@@ -74,7 +77,8 @@ export function FolderContextMenu({
         onClick={onClose}
       />
       <div
-        className="fixed z-50 w-56 overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:border-[#36373A] dark:bg-[#1E1F20] dark:shadow-[0_12px_36px_rgba(0,0,0,0.6)] animate-m3-popover"
+        ref={menuRef} role="menu" aria-label={folder.name} data-menu-surface
+        className="fixed z-50 w-56 max-w-[calc(100vw-24px)] max-h-[calc(100dvh-24px)] overflow-y-auto rounded-2xl border border-[#E0E3E7] bg-white py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:border-[#36373A] dark:bg-[#1E1F20] dark:shadow-[0_12px_36px_rgba(0,0,0,0.6)] animate-m3-popover"
         style={
           window.innerWidth >= 640
             ? { left: safeX, top: safeY }

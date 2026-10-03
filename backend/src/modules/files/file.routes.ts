@@ -13,6 +13,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { Readable } from 'node:stream'
 import { ZipArchive } from 'archiver'
 import { createAuditLog } from '../../utils/audit.js'
+import { mimeFilter } from './file-types.js'
 
 
 
@@ -49,14 +50,6 @@ fileRouter.get('/suggestions', async (req: AuthRequest, res, next) => {
       return res.json({ files: [], folders: [] })
     }
 
-    const typeFilters: Record<string, string[]> = {
-      image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
-      video: ['video/mp4', 'video/mpeg', 'video/ogg', 'video/quicktime', 'video/webm'],
-      pdf: ['application/pdf'],
-      doc: ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
-      archive: ['application/zip', 'application/x-rar-compressed', 'application/x-tar', 'application/x-7z-compressed']
-    }
-
     let modifiedDateFilter: Date | undefined
     if (query.modified) {
       const now = new Date()
@@ -76,7 +69,7 @@ fileRouter.get('/suggestions', async (req: AuthRequest, res, next) => {
       status: 'active',
       ...(q ? { name: { contains: q } } : {}),
       ...(query.accountId && query.accountId !== 'all' ? { connectedAccountId: query.accountId } : {}),
-      ...(query.kind ? { mimeType: { in: typeFilters[query.kind] || [] } } : {}),
+      ...(query.kind ? { mimeType: mimeFilter(query.kind) } : {}),
       ...(modifiedDateFilter ? { updatedAt: { gte: modifiedDateFilter } } : {})
     }
 
@@ -156,16 +149,10 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
       startDate: z.string().datetime().optional(),
       endDate: z.string().datetime().optional(),
       modified: z.enum(['today', '7d', '30d', 'year']).optional(),
-      limit: z.coerce.number().min(1).max(500).optional(),
+      limit: z.coerce.number().int().min(1).max(500).default(250),
+      page: z.coerce.number().int().min(1).max(100000).default(1),
+      sort: z.enum(['date_desc', 'date_asc', 'name_asc', 'name_desc', 'size_asc', 'size_desc']).default('date_desc'),
     }).parse(req.query)
-
-    const typeFilters: Record<string, string[]> = {
-      image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
-      video: ['video/mp4', 'video/mpeg', 'video/ogg', 'video/quicktime', 'video/webm'],
-      pdf: ['application/pdf'],
-      doc: ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
-      archive: ['application/zip', 'application/x-rar-compressed', 'application/x-tar', 'application/x-7z-compressed']
-    }
 
     let modifiedDateFilter: Date | undefined
     if (query.modified) {
@@ -187,7 +174,7 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
       ...(query.folderId ? { folderId: query.folderId } : {}),
       ...(query.q ? { name: { contains: query.q } } : {}),
       ...(query.accountId && query.accountId !== 'all' ? { connectedAccountId: query.accountId } : {}),
-      ...(query.kind ? { mimeType: { in: typeFilters[query.kind] || [] } } : {}),
+      ...(query.kind ? { mimeType: mimeFilter(query.kind) } : {}),
       ...(modifiedDateFilter ? { updatedAt: { gte: modifiedDateFilter } } : {}),
       ...(query.minSize !== undefined || query.maxSize !== undefined ? {
         sizeBytes: {
@@ -196,23 +183,29 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
         }
       } : {}),
       ...(query.startDate || query.endDate ? {
-        createdAt: {
+        updatedAt: {
           ...(query.startDate ? { gte: new Date(query.startDate) } : {}),
           ...(query.endDate ? { lte: new Date(query.endDate) } : {})
         }
       } : {})
     }
 
+    const direction = query.sort.endsWith('_asc') ? 'asc' as const : 'desc' as const
+    const field = query.sort.startsWith('name_') ? 'name' : query.sort.startsWith('size_') ? 'sizeBytes' : 'updatedAt'
+    const total = await prisma.file.count({ where })
+    const page = Math.min(query.page, Math.max(1, Math.ceil(total / query.limit)))
     const files = await prisma.file.findMany({
       where,
-      take: query.limit ?? 250,
+      take: query.limit,
+      skip: (page - 1) * query.limit,
       include: {
         connectedAccount: { select: { id: true, email: true, provider: true } },
         folder: { select: { id: true, name: true } }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: [{ [field]: direction }, { id: direction }]
     })
     return res.json({
+      total, page, pageSize: query.limit, hasMore: page * query.limit < total,
       files: files.map((file) => ({
         ...file,
         sizeBytes: file.sizeBytes.toString(),

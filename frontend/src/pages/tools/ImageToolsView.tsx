@@ -374,7 +374,7 @@ export function ImageToolsView() {
             accept="image/*,.png,.jpg,.jpeg,.webp"
             icon={activeSubtoolObj?.icon}
             iconColor="#7248B9"
-            maxSizeText="Auto-proses instan • 100% Privat"
+            maxSizeText="Pemrosesan gambar di browser"
             multiple={currentTool !== 'crop'}
             onFilesSelected={addFilesToQueue}
             onOpenDrivePicker={() => setDrivePickerOpen(true)}

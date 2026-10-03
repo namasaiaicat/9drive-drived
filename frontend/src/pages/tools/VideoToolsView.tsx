@@ -202,7 +202,7 @@ export function VideoToolsView() {
             accept="video/*,.mp4,.webm,.mkv,.mov"
             icon={VideoToAudioIcon}
             iconColor="#FA7B17"
-            maxSizeText="Tanpa batas kuota • 100% Privat"
+            maxSizeText="Pemrosesan audio di browser"
             multiple={true}
             onFilesSelected={handleFileSelect}
             onOpenDrivePicker={() => setDrivePickerOpen(true)}

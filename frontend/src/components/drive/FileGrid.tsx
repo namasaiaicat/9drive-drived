@@ -1,8 +1,10 @@
 import { MoreVertical, UserPlus } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import { FileIcon } from '@/components/drive/FileIcon'
+import { FileThumbnail } from '@/components/drive/FileThumbnail'
 import type { FileItem } from '@/data/drive-data'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/api'
 
 export type FileSizeScale = 'xs' | 'sm' | 'md' | 'lg'
 
@@ -50,9 +52,9 @@ export function FileGrid({
             onDoubleClick={() => onFileDoubleClick?.(file)}
             onContextMenu={(event) => onFileContextMenu?.(event, file)}
             className={cn(
-              'group relative flex flex-col rounded-2xl border transition-all duration-200 ease-[cubic-bezier(0.05,0.7,0.1,1.0)] cursor-pointer select-none overflow-hidden hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99]',
+              'group relative flex flex-col rounded-2xl border transition-colors cursor-pointer select-none overflow-hidden',
               selected
-                ? 'border-[#0B57D0] bg-[#C2E7FF]/30 shadow-sm dark:border-[#A8C7FA] dark:bg-[#004A77]/30'
+                ? 'border-[#0B57D0] bg-[#C2E7FF] text-[#001D35] dark:border-[#A8C7FA] dark:bg-[#004A77] dark:text-[#C2E7FF]'
                 : 'border-[#E0E3E7] bg-white hover:border-[#747775]/40 hover:bg-[#F0F4F9] dark:border-[#36373A] dark:bg-[#1E1F20] dark:hover:border-[#747775]/60 dark:hover:bg-[#28292A]'
             )}
           >
@@ -67,17 +69,17 @@ export function FileGrid({
                 aria-label={`Select ${file.name}`}
               />
               <FileIcon kind={file.kind} className="h-5 w-5 shrink-0" />
-              <h3
-                className="flex-1 truncate text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]"
+              <button type="button" onClick={(event) => { event.stopPropagation(); onFileDoubleClick?.(file) }}
+                className="min-h-11 min-w-0 flex-1 truncate text-left text-sm font-normal text-[#1F1F1F] dark:text-[#E3E3E3]"
                 title={file.name}
               >
                 {file.name}
-              </h3>
+              </button>
               {onShare && (
                 <button
                   type="button"
                   title="Share"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#444746] opacity-0 transition-opacity hover:bg-black/5 group-hover:opacity-100 dark:text-[#C4C7C5] dark:hover:bg-white/10"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
                   onClick={(event) => {
                     event.stopPropagation()
                     onShare(file)
@@ -89,7 +91,7 @@ export function FileGrid({
               )}
               <button
                 type="button"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#444746] opacity-0 transition-opacity hover:bg-black/5 group-hover:opacity-100 dark:text-[#C4C7C5] dark:hover:bg-white/10"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
                 onClick={(event) => {
                   event.stopPropagation()
                   onFileContextMenu?.(event, file)
@@ -101,14 +103,13 @@ export function FileGrid({
             </div>
 
             {/* Preview Box */}
-            <div className="mx-3 mb-2.5 flex h-28 items-center justify-center rounded-xl bg-[#F0F4F9] dark:bg-[#28292A] overflow-hidden">
-              <FileIcon kind={file.kind} className="h-12 w-12 opacity-80" />
-            </div>
+            <FileThumbnail file={file} />
+            <p className="truncate px-3.5 pb-2 text-xs text-[#444746] dark:text-[#C4C7C5]" title={[file.accountEmail, file.folderName].filter(Boolean).join(' / ')}>{[file.accountEmail, file.folderName].filter(Boolean).join(' / ')}</p>
 
             {/* Card Footer: Metadata */}
             <div className="flex items-center justify-between px-3.5 pb-3 text-xs text-[#444746] dark:text-[#C4C7C5]">
               <span>{file.size}</span>
-              <span>{file.date}</span>
+              <span>{file.updatedAt ? formatDate(file.updatedAt) : file.date}</span>
             </div>
           </div>
         )

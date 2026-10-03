@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
 import {
   ExternalLink,
   LayoutGrid,
@@ -24,6 +24,7 @@ import { getPreviewKind, officeViewerUrl } from '@/lib/preview'
 import type { FileItem, FolderItem } from '@/data/drive-data'
 import { useDriveFilter } from '@/context/DriveFilterContext'
 import { useLanguage } from '@/context/LanguageContext'
+import { mimeToKind } from '@/lib/file-kind'
 
 type BackendFile = {
   id: string
@@ -31,18 +32,12 @@ type BackendFile = {
   mimeType: string
   sizeBytes: string
   createdAt: string
+  updatedAt?: string
   folderId?: string | null
   providerFileId?: string
   driveUrl?: string | null
   connectedAccount?: { email: string; provider: string }
   folder?: { id: string; name: string } | null
-}
-
-function mimeToKind(mimeType: string): FileItem['kind'] {
-  if (mimeType.startsWith('image/')) return 'image'
-  if (mimeType.startsWith('video/')) return 'video'
-  if (mimeType.includes('pdf')) return 'pdf'
-  return 'doc'
 }
 
 function mapFile(file: BackendFile): FileItem {
@@ -59,11 +54,12 @@ function mapFile(file: BackendFile): FileItem {
     createdAt: file.createdAt,
     accountEmail: file.connectedAccount?.email,
     accountProvider: file.connectedAccount?.provider === 's3' ? 'S3 Storage' : 'Google Drive',
-    date: formatDate(file.createdAt),
-    size: formatBytes(file.sizeBytes),
+    date: file.updatedAt ? formatDate(file.updatedAt) : '--',
+    updatedAt: file.updatedAt,
+    size: file.mimeType.startsWith('application/vnd.google-apps.') ? '--' : formatBytes(file.sizeBytes),
     access: file.connectedAccount?.email ?? 'Google Drive',
     kind: mimeToKind(file.mimeType),
-    shared: 1,
+    shared: 0,
     folderId: file.folderId,
     folderName: file.folder?.name,
     starredDate: formatDate(file.createdAt),
@@ -79,6 +75,8 @@ export function StarredPage() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const loadGeneration = useRef(0)
 
   // Selection & Interactions
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set())
@@ -105,21 +103,25 @@ export function StarredPage() {
   const { t } = useLanguage()
 
   async function loadStarred() {
+    const generation = ++loadGeneration.current
     setLoading(true)
+    setLoadError('')
     try {
       const path = selectedAccountId && selectedAccountId !== 'all'
         ? `/files/starred?accountId=${selectedAccountId}`
         : '/files/starred'
       const data = await apiFetch<{ files: BackendFile[] }>(path)
+      if (generation !== loadGeneration.current) return
       if (data.files && data.files.length > 0) {
         setFileList(data.files.map(mapFile))
       } else {
         setFileList([])
       }
-    } catch {
-      setFileList([])
+    } catch (error) {
+      if (generation !== loadGeneration.current) return
+      setLoadError(error instanceof Error ? error.message : 'Failed to load starred files')
     } finally {
-      setLoading(false)
+      if (generation === loadGeneration.current) setLoading(false)
     }
   }
 
@@ -144,6 +146,7 @@ export function StarredPage() {
     window.addEventListener('9drive:starred-changed', handleStarredChanged)
     window.addEventListener('9drive:storage-changed', handleStorageChanged)
     return () => {
+      loadGeneration.current++
       window.removeEventListener('9drive:starred-changed', handleStarredChanged)
       window.removeEventListener('9drive:storage-changed', handleStorageChanged)
     }
@@ -160,18 +163,19 @@ export function StarredPage() {
   }
 
   const filteredFiles = fileList.filter((file) => {
-    if (typeFilter === 'docs' && file.kind !== 'doc') return false
+    if (typeFilter === 'docs' && !['doc', 'sheet', 'slides'].includes(file.kind)) return false
     if (typeFilter === 'images' && file.kind !== 'image') return false
     if (typeFilter === 'videos' && file.kind !== 'video') return false
     if (typeFilter === 'pdfs' && file.kind !== 'pdf') return false
     return true
   })
 
-  const visibleIds = filteredFiles.map((file) => file.id).filter(Boolean) as string[]
+  const visibleIds = filteredFiles.map((file) => file.id).filter(Boolean).slice(0, 100) as string[]
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedFileIds.has(id))
 
   function toggleFileSelection(file: FileItem) {
     if (!file.id) return
+    if (!selectedFileIds.has(file.id) && selectedFileIds.size >= 100) { toast.info(t('selection.limit', 'Select up to 100 files per action.')); return }
     setSelectedFileIds((current) => {
       const next = new Set(current)
       if (next.has(file.id!)) next.delete(file.id!)
@@ -187,6 +191,7 @@ export function StarredPage() {
   function clearSelection() {
     setSelectedFileIds(new Set())
   }
+  useEffect(() => { setSelectedFileIds(new Set()) }, [selectedAccountId, typeFilter])
 
   function openContext(event: MouseEvent<HTMLElement>, file: FileItem) {
     event.preventDefault()
@@ -315,14 +320,10 @@ export function StarredPage() {
     const target = fileToCopy ?? activeFile
     if (!target) return
     try {
-      let url = target.driveUrl
-      if (!url && target.id) {
-        const data = await apiFetch<{ url: string }>(`/files/${target.id}/share`, { method: 'POST' })
-        url = data.url
-      }
+      const url = target.driveUrl || (target.id ? `${window.location.origin}/all-files?previewFileId=${encodeURIComponent(target.id)}` : '')
       if (url) {
         await navigator.clipboard.writeText(url)
-        showNotification('Google Drive link copied to clipboard!')
+        toast.success(t('action.link_copied_access', 'Link copied. Existing access permissions apply.'))
       }
     } catch (err: any) {
       showNotification('Failed to copy link: ' + (err.message || err))
@@ -457,7 +458,7 @@ export function StarredPage() {
         <div className="flex h-64 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#0B57D0] border-t-transparent" />
         </div>
-      ) : filteredFiles.length === 0 ? (
+      ) : loadError ? <div role="alert" className="my-4 rounded-xl border border-[#B3261E] p-4 text-sm dark:border-[#F2B8B5]"><p>{loadError}</p><Button variant="outline" className="mt-3" onClick={() => void loadStarred()}>{t('action.retry', 'Retry')}</Button></div> : filteredFiles.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#EDF2FC] dark:bg-[#1E1F20] text-[#FBBC04]">
             <Star className="h-10 w-10 stroke-[1.5] fill-[#FBBC04]" />
@@ -543,7 +544,6 @@ export function StarredPage() {
             value={renameValue}
             onChange={(event) => setRenameValue(event.target.value)}
             required
-            autoFocus
           />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setRenameOpen(false)}>

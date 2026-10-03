@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react'
 import { Bell, Check, Cloud, Database, Globe, HardDrive, Layers, Link2, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { DummyModal } from '@/components/drive/DummyModal'
@@ -427,7 +428,7 @@ export function SettingsPage() {
                   {user?.email ?? '-'}
                 </p>
                 <span className="inline-block mt-1 text-[11px] font-medium text-[#0B57D0] dark:text-[#A8C7FA]">
-                  Google Workspace Account
+                  {t('settings.account', '9Drive account')}
                 </span>
               </div>
             </div>
@@ -535,24 +536,25 @@ export function SettingsPage() {
                 <div className="flex items-center gap-2.5">
                   <Layers className="h-5 w-5 text-[#0B57D0]" />
                   <h2 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-                    Akun Default Platform
+                    {t('settings.default_account', 'Default storage account')}
                   </h2>
                 </div>
                 <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F]">
-                  Pilih akun Google Drive atau opsi default yang otomatis aktif setiap kali membuka 9Drive.
+                  {t('settings.default_account_desc', 'Choose the account or all accounts to display when opening 9Drive.')}
                 </p>
               </div>
               <div className="w-full sm:w-64 shrink-0">
                 <Select
                   variant="sm"
+                  aria-label={t('settings.default_account', 'Default storage account')}
                   value={defaultAccountId}
                   onChange={(value) => {
                     setDefaultAccountId(value)
-                    const label = value === 'all' ? 'Semua Akun' : (accounts.find((a) => a.id === value)?.email || value)
-                    toast.success(`Akun default berhasil diatur ke: ${label}`)
+                    const label = value === 'all' ? t('settings.all_accounts', 'All accounts') : (accounts.find((a) => a.id === value)?.email || value)
+                    toast.success(`${t('settings.default_account', 'Default storage account')}: ${label}`)
                   }}
                   options={[
-                    { value: 'all', label: 'Semua Akun (Tampilkan Seluruh File)' },
+                    { value: 'all', label: t('settings.all_accounts', 'All accounts (show all files)') },
                     ...accounts.map((acc) => ({
                       value: acc.id,
                       label: acc.displayName ? `${acc.email} (${acc.displayName})` : acc.email,
@@ -566,7 +568,7 @@ export function SettingsPage() {
           {/* Connected Storage Accounts */}
           <Card className="rounded-2xl border border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#1E1F20] p-5">
             <h2 className="text-base font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-              Connected Storage Accounts
+              {t('settings.connected_accounts', 'Connected Storage Accounts')}
             </h2>
             <div className="mt-3.5 grid gap-3">
               {accounts.length === 0 ? (
@@ -599,7 +601,7 @@ export function SettingsPage() {
                             {selectedAccount.id === defaultAccountId && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-[#E6F4EA] px-2 py-0.5 text-[10px] font-medium text-[#137333] dark:bg-[#0E3D1E] dark:text-[#A8DAB5]">
                                 <Check className="h-3 w-3" />
-                                Akun Default
+                                {t('settings.default_account', 'Default storage account')}
                               </span>
                             )}
                           </div>
@@ -615,10 +617,10 @@ export function SettingsPage() {
                               className="rounded-full h-8 text-xs font-medium"
                               onClick={() => {
                                 setDefaultAccountId(selectedAccount.id)
-                                toast.success(`Akun ${selectedAccount.email} berhasil dijadikan sebagai akun default.`)
+                                toast.success(`${t('settings.default_account', 'Default storage account')}: ${selectedAccount.email}`)
                               }}
                             >
-                              Jadikan Default
+                              {t('settings.set_default', 'Set as default')}
                             </Button>
                           )}
                           <Button
@@ -873,13 +875,11 @@ export function SettingsPage() {
 
       <DummyModal open={s3Open} title="Connect S3 Storage" description="Use any S3-compatible provider with custom endpoint support." onClose={() => setS3Open(false)}>
         <form className="grid gap-4" onSubmit={connectS3}>
-          <input className="h-10 rounded-xl border border-[#747775]/40 bg-white dark:bg-[#1E1F20] px-3 text-xs text-[#1F1F1F] dark:text-[#E3E3E3]" placeholder="Display name" value={s3Form.name} onChange={(event) => setS3Form({ ...s3Form, name: event.target.value })} required />
-          <input className="h-10 rounded-xl border border-[#747775]/40 bg-white dark:bg-[#1E1F20] px-3 text-xs text-[#1F1F1F] dark:text-[#E3E3E3]" placeholder="Bucket" value={s3Form.bucket} onChange={(event) => setS3Form({ ...s3Form, bucket: event.target.value })} required />
-          <input className="h-10 rounded-xl border border-[#747775]/40 bg-white dark:bg-[#1E1F20] px-3 text-xs text-[#1F1F1F] dark:text-[#E3E3E3]" placeholder="Region" value={s3Form.region} onChange={(event) => setS3Form({ ...s3Form, region: event.target.value })} required />
-          <input className="h-10 rounded-xl border border-[#747775]/40 bg-white dark:bg-[#1E1F20] px-3 text-xs text-[#1F1F1F] dark:text-[#E3E3E3]" placeholder="Endpoint URL (optional)" value={s3Form.endpoint} onChange={(event) => setS3Form({ ...s3Form, endpoint: event.target.value })} />
-          <input className="h-10 rounded-xl border border-[#747775]/40 bg-white dark:bg-[#1E1F20] px-3 text-xs text-[#1F1F1F] dark:text-[#E3E3E3]" placeholder="Access key ID" value={s3Form.accessKeyId} onChange={(event) => setS3Form({ ...s3Form, accessKeyId: event.target.value })} required />
-          <input className="h-10 rounded-xl border border-[#747775]/40 bg-white dark:bg-[#1E1F20] px-3 text-xs text-[#1F1F1F] dark:text-[#E3E3E3]" placeholder="Secret access key" type="password" value={s3Form.secretAccessKey} onChange={(event) => setS3Form({ ...s3Form, secretAccessKey: event.target.value })} required />
-          <input className="h-10 rounded-xl border border-[#747775]/40 bg-white dark:bg-[#1E1F20] px-3 text-xs text-[#1F1F1F] dark:text-[#E3E3E3]" placeholder="Quota bytes (optional)" inputMode="numeric" value={s3Form.quotaBytes} onChange={(event) => setS3Form({ ...s3Form, quotaBytes: event.target.value })} />
+          {([
+            ['name', 'Display name'], ['bucket', 'Bucket'], ['region', 'Region'],
+            ['endpoint', 'Endpoint URL (optional)'], ['accessKeyId', 'Access key ID'],
+            ['secretAccessKey', 'Secret access key'], ['quotaBytes', 'Quota in bytes (optional)'],
+          ] as const).map(([field, label]) => <label key={field} className="grid gap-2 text-sm text-[#444746] dark:text-[#C4C7C5]">{label}<Input name={field} type={field === 'secretAccessKey' ? 'password' : field === 'endpoint' ? 'url' : 'text'} autoComplete="off" inputMode={field === 'quotaBytes' ? 'numeric' : undefined} value={s3Form[field]} onChange={(event) => setS3Form({ ...s3Form, [field]: event.target.value })} required={!['endpoint', 'quotaBytes'].includes(field)} /></label>)}
           <label className="flex items-center gap-2 text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3]"><input type="checkbox" checked={s3Form.forcePathStyle} onChange={(event) => setS3Form({ ...s3Form, forcePathStyle: event.target.checked })} />Force path style</label>
           <div className="grid gap-3 sm:flex sm:justify-end"><Button variant="outline" type="button" className="rounded-full" onClick={() => setS3Open(false)} disabled={connectingS3}>Cancel</Button><Button type="submit" className="rounded-full" disabled={connectingS3}>{connectingS3 ? 'Connecting...' : 'Connect S3'}</Button></div>
         </form>

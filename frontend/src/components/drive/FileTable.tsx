@@ -1,9 +1,8 @@
 import { FolderOpen, MoreVertical, Star, Link2, FolderInput, Check, UserPlus } from 'lucide-react'
 import { type MouseEvent, useState } from 'react'
-import { AvatarStack } from '@/components/drive/AvatarStack'
 import { FileIcon } from '@/components/drive/FileIcon'
 import type { FileItem } from '@/data/drive-data'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, formatDate } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/context/ToastContext'
 import { useLanguage } from '@/context/LanguageContext'
@@ -39,7 +38,7 @@ export function FileTable({
       <div className="grid gap-2 sm:hidden">
         {onToggleAll ? (
           <label className="flex items-center justify-between rounded-xl border border-[#E0E3E7] bg-white px-3.5 py-2.5 text-xs font-medium text-[#444746] dark:border-[#36373A] dark:bg-[#1E1F20] dark:text-[#C4C7C5]">
-            <span>{t('table.select_all_files', 'Select all files')}</span>
+            <span>{files.length > 100 ? t('table.select_first_100', 'Select first 100 files') : t('table.select_displayed', 'Select displayed files')}</span>
             <input
               type="checkbox"
               className="h-4 w-4 rounded accent-[#0B57D0]"
@@ -57,7 +56,7 @@ export function FileTable({
               ? file.openedDate
               : mode === 'starred'
               ? file.starredDate
-              : file.date
+              : file.updatedAt ? formatDate(file.updatedAt) : file.date
           return (
             <article
               key={file.id ?? file.name}
@@ -80,6 +79,7 @@ export function FileTable({
                 {onToggleFile ? (
                   <input
                     type="checkbox"
+                    aria-label={`Select ${file.name}`}
                     className="h-4 w-4 shrink-0 rounded accent-[#0B57D0]"
                     checked={selected}
                     onChange={() => onToggleFile?.(file)}
@@ -94,15 +94,15 @@ export function FileTable({
                   )}
                 </div>
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <h3
+                  <button type="button" onClick={(event) => { event.stopPropagation(); onFileDoubleClick?.(file) }}
                     className={cn(
-                      'truncate text-sm font-medium leading-snug',
+                      'min-h-11 w-full truncate text-left text-sm font-normal leading-snug',
                       selected ? 'text-[#001D35] dark:text-[#C2E7FF]' : 'text-[#1F1F1F] dark:text-[#E3E3E3]'
                     )}
                     title={file.name}
                   >
                     {file.name}
-                  </h3>
+                  </button>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-[#444746] dark:text-[#C4C7C5]">
                     <span>{meta}</span>
                     <span>·</span>
@@ -117,6 +117,7 @@ export function FileTable({
                       </>
                     )}
                   </div>
+                  {file.accountEmail && <p className="mt-1 truncate text-xs text-[#444746] dark:text-[#C4C7C5]" title={file.accountEmail}>{file.accountEmail}</p>}
                 </div>
                 <button
                   type="button"
@@ -143,10 +144,10 @@ export function FileTable({
               <th className="w-10 py-2.5 pl-3">
                 <input
                   type="checkbox"
+                  aria-label={files.length > 100 ? t('table.select_first_100', 'Select first 100 files') : t('table.select_displayed', 'Select displayed files')}
                   className="h-4 w-4 rounded accent-[#0B57D0] cursor-pointer"
                   checked={allSelected}
                   onChange={onToggleAll}
-                  aria-label="Select all"
                 />
               </th>
               <th className="py-2.5 font-medium">{t('table.name', 'Name')}</th>
@@ -161,7 +162,7 @@ export function FileTable({
                 <th className="py-2.5 font-medium">{t('table.last_modified', 'Last modified')}</th>
               )}
               <th className="py-2.5 font-medium">{t('table.file_size', 'File size')}</th>
-              <th className="py-2.5 font-medium">{t('table.sharing', 'Sharing')}</th>
+              <th className="py-2.5 font-medium">{t('table.storage_account', 'Storage account')}</th>
               <th className="w-32 py-2.5 pr-3 text-right" />
             </tr>
           </thead>
@@ -203,15 +204,15 @@ export function FileTable({
                       ) : (
                         <FileIcon kind={file.kind} className="h-5 w-5 shrink-0" />
                       )}
-                      <span
+                      <button type="button" onClick={(event) => { event.stopPropagation(); onFileDoubleClick?.(file) }}
                         className={cn(
-                          'truncate max-w-[220px] lg:max-w-[340px] text-sm font-normal',
+                          'min-h-11 truncate max-w-[220px] lg:max-w-[340px] text-left text-sm font-normal',
                           selected ? 'text-[#001D35] dark:text-[#C2E7FF]' : 'text-[#1F1F1F] dark:text-[#E3E3E3]'
                         )}
                         title={file.name}
                       >
                         {file.name}
-                      </span>
+                      </button>
                     </span>
                   </td>
                   {mode === 'default' ? (
@@ -230,12 +231,11 @@ export function FileTable({
                   {mode === 'recent' ? <td className="py-2 text-[#444746] dark:text-[#C4C7C5]">{file.openedDate}</td> : null}
                   {mode === 'starred' ? <td className="py-2 text-[#444746] dark:text-[#C4C7C5]">{file.starredDate}</td> : null}
                   {mode === 'archived' ? <td className="py-2 text-[#444746] dark:text-[#C4C7C5]">{file.archivedDate}</td> : null}
-                  <td className="py-2 text-[#444746] dark:text-[#C4C7C5]">{mode === 'archived' ? file.location : file.date}</td>
+                  <td className="py-2 text-[#444746] dark:text-[#C4C7C5]">{mode === 'archived' ? file.location : file.updatedAt ? formatDate(file.updatedAt) : file.date}</td>
                   <td className="py-2 text-[#444746] dark:text-[#C4C7C5]">{file.size}</td>
                   <td className="py-2 text-[#444746] dark:text-[#C4C7C5]">
                     <span className="flex items-center gap-2">
-                      <AvatarStack count={file.shared} />
-                      <span className="truncate max-w-[100px] text-xs">{file.access}</span>
+                      <span className="text-xs">{file.accountEmail || file.accountProvider || '--'}</span>
                     </span>
                   </td>
                   <td className="py-2 pr-3 text-right">
@@ -261,11 +261,7 @@ export function FileTable({
                           onClick={async (event) => {
                             event.stopPropagation()
                             try {
-                              let url = file.driveUrl
-                              if (!url) {
-                                const data = await apiFetch<{ url: string | null }>(`/files/${file.id}/view-url`)
-                                url = data.url ?? (await apiFetch<{ url: string }>(`/files/${file.id}/share`, { method: 'POST' })).url
-                              }
+                              const url = file.driveUrl || `${window.location.origin}/all-files?previewFileId=${encodeURIComponent(file.id || '')}`
                               await navigator.clipboard.writeText(url)
                               setCopiedFileId(file.id ?? null)
                               toast.success('Link copied to clipboard!')

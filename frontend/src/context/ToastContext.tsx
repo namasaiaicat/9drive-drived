@@ -51,7 +51,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       }
 
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-      const duration = options?.duration ?? 3500
+      const duration = options?.duration ?? (type === 'error' || options?.action ? 0 : 8000)
 
       const newToast: ToastItem = {
         id,
@@ -97,7 +97,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {/* Floating Toast Container at Bottom Right */}
       <aside
         aria-live="polite"
-        className="fixed bottom-6 right-6 z-[80] flex flex-col items-end gap-2.5 pointer-events-none max-w-sm sm:max-w-md w-full"
+        className="fixed inset-x-3 bottom-3 z-[90] flex max-h-[50dvh] flex-col items-end gap-2.5 overflow-y-auto pointer-events-none sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[420px]"
       >
         {toasts.map((item) => {
           return (
@@ -119,7 +119,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 {item.type === 'info' && (
                   <Info className="h-4 w-4 shrink-0 text-[#8AB4F8] dark:text-[#1A73E8]" />
                 )}
-                <span className="truncate max-w-[260px] sm:max-w-[340px] leading-snug">
+                <span className="break-words leading-snug">
                   {item.message}
                 </span>
               </div>
@@ -141,7 +141,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   type="button"
                   onClick={() => dismissToast(item.id)}
                   aria-label="Close notification"
-                  className="rounded-full p-1 opacity-70 hover:opacity-100 hover:bg-white/10 dark:hover:bg-black/10 transition-colors"
+                  className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 dark:hover:bg-black/10 transition-colors"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>

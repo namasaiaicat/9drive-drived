@@ -1,10 +1,41 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { toolTranslations } from '@/context/tool-translations'
 
 export type Language = 'en' | 'id'
 
 type Translations = Record<string, Record<Language, string>>
 
 const translations: Translations = {
+  ...toolTranslations,
+  'auth.sign_in': { en: 'Sign in', id: 'Masuk' },
+  'auth.signing_in': { en: 'Signing in…', id: 'Sedang masuk…' },
+  'auth.create_account': { en: 'Create account', id: 'Buat akun' },
+  'auth.creating': { en: 'Creating account…', id: 'Membuat akun…' },
+  'auth.continue': { en: 'to continue to 9Drive', id: 'untuk melanjutkan ke 9Drive' },
+  'auth.start': { en: 'to start using 9Drive', id: 'untuk mulai menggunakan 9Drive' },
+  'auth.password': { en: 'Password', id: 'Kata sandi' },
+  'auth.enter_password': { en: 'Enter your password', id: 'Masukkan kata sandi' },
+  'auth.choose_password': { en: 'Choose a strong password', id: 'Buat kata sandi yang kuat' },
+  'auth.name': { en: 'Your name', id: 'Nama Anda' },
+  'auth.full_name': { en: 'First and last name', id: 'Nama lengkap' },
+  'auth.sign_in_instead': { en: 'Sign in instead', id: 'Sudah punya akun? Masuk' },
+  'auth.redirecting': { en: 'Redirecting…', id: 'Mengalihkan…' },
+  'auth.google_sign_in': { en: 'Sign in with Google', id: 'Masuk dengan Google' },
+  'auth.google_sign_up': { en: 'Sign up with Google', id: 'Daftar dengan Google' },
+  'settings.default_account': { en: 'Default storage account', id: 'Akun penyimpanan utama' },
+  'settings.all_accounts': { en: 'All accounts (show all files)', id: 'Semua akun (tampilkan semua file)' },
+  'settings.set_default': { en: 'Set as default', id: 'Jadikan akun utama' },
+  'selection.limit': { en: 'Select up to 100 files per action.', id: 'Pilih maksimal 100 file untuk setiap tindakan.' },
+  'table.select_first_100': { en: 'Select first 100 files', id: 'Pilih 100 file pertama' },
+  'table.select_displayed': { en: 'Select displayed files', id: 'Pilih file yang ditampilkan' },
+  'table.storage_account': { en: 'Storage account', id: 'Akun penyimpanan' },
+  'drawer.storage_account': { en: 'Storage account', id: 'Akun penyimpanan' },
+  'drawer.file_id': { en: 'File ID', id: 'ID file' },
+  'settings.account': { en: '9Drive account', id: 'Akun 9Drive' },
+  'action.loading': { en: 'Loading…', id: 'Memuat…' },
+  'action.retry': { en: 'Retry', id: 'Coba lagi' },
+  'quota.last_synced': { en: 'Last synced', id: 'Terakhir diperbarui' },
+  'quota.not_synced': { en: 'Not synced yet', id: 'Belum diperbarui' },
   // Navigation
   'nav.my_drive': { en: 'My Drive', id: 'Drive Saya' },
   'nav.tools': { en: 'Tools Studio', id: 'Studio Alat' },
@@ -28,6 +59,8 @@ const translations: Translations = {
   'action.delete': { en: 'Delete', id: 'Hapus' },
   'action.share': { en: 'Share', id: 'Bagikan' },
   'action.copy_link': { en: 'Copy link', id: 'Salin link' },
+  'action.link_copied_access': { en: 'Link copied. Existing access permissions apply.', id: 'Tautan disalin. Izin akses tetap berlaku.' },
+  'action.download_zip': { en: 'Download ZIP', id: 'Unduh ZIP' },
   'action.cancel': { en: 'Cancel', id: 'Batal' },
   'action.save': { en: 'Save', id: 'Simpan' },
   'action.close': { en: 'Close', id: 'Tutup' },
@@ -319,6 +352,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     } catch {}
     return 'en'
   })
+
+  useEffect(() => { document.documentElement.lang = language }, [language])
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang)

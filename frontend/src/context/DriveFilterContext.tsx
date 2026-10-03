@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { apiFetch } from '@/lib/api'
 
 export type ConnectedAccount = {
@@ -24,6 +24,7 @@ export type DriveFilterContextType = {
   defaultAccountId: string
   setDefaultAccountId: (id: string) => void
   isLoadingAccounts: boolean
+  accountsError: string
   refreshAccounts: () => Promise<void>
   getDriveLetter: (accountId: string) => string
 }
@@ -42,10 +43,16 @@ export function DriveFilterProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem(DEFAULT_STORAGE_KEY) || ''
   })
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(true)
+  const [accountsError, setAccountsError] = useState('')
+  const generation = useRef(0)
 
   async function loadAccounts() {
+    const request = ++generation.current
+    setIsLoadingAccounts(true)
+    setAccountsError('')
     try {
       const data = await apiFetch<{ accounts: ConnectedAccount[] }>('/connected-accounts')
+      if (request !== generation.current) return
       const connected = (data.accounts || []).filter((acc) => acc.status === 'connected')
       setAccounts(connected)
 
@@ -75,9 +82,9 @@ export function DriveFilterProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(STORAGE_KEY, resolvedDefault)
       }
     } catch (err) {
-      console.error('Failed to load connected accounts for filter context:', err)
+      if (request === generation.current) setAccountsError(err instanceof Error ? err.message : 'Failed to load accounts')
     } finally {
-      setIsLoadingAccounts(false)
+      if (request === generation.current) setIsLoadingAccounts(false)
     }
   }
 
@@ -87,7 +94,7 @@ export function DriveFilterProvider({ children }: { children: ReactNode }) {
       loadAccounts()
     }
     window.addEventListener('9drive:accounts-changed', onStorageChanged)
-    return () => window.removeEventListener('9drive:accounts-changed', onStorageChanged)
+    return () => { generation.current++; window.removeEventListener('9drive:accounts-changed', onStorageChanged) }
   }, [])
 
   function setSelectedAccountId(id: string) {
@@ -124,6 +131,7 @@ export function DriveFilterProvider({ children }: { children: ReactNode }) {
         defaultAccountId,
         setDefaultAccountId,
         isLoadingAccounts,
+        accountsError,
         refreshAccounts: loadAccounts,
         getDriveLetter,
       }}

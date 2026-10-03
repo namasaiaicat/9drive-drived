@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { PageHeader } from '@/components/drive/PageHeader'
+import { useLanguage } from '@/context/LanguageContext'
 import {
   MergePdfIcon,
   SplitPdfIcon,
@@ -51,31 +52,32 @@ type CategoryGroup = {
 
 export function ToolsHubPage() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [selectedCategory, setSelectedCategory] = useState<ToolCategory>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
   const categoryGroups: CategoryGroup[] = [
     {
       id: 'pdf',
-      label: 'Dokumen PDF',
+      label: t('tools.pdf', 'PDF documents'),
       description: 'Alat pengolahan dokumen PDF',
       iconColor: '#EA4335',   // DESIGN.md: PDF/Document red
     },
     {
       id: 'image',
-      label: 'AI & Gambar',
+      label: t('tools.image', 'Images'),
       description: 'Alat olah gambar dan AI',
       iconColor: '#7248B9',   // DESIGN.md: Images/Video purple
     },
     {
       id: 'video',
-      label: 'Video & Audio',
+      label: t('tools.video', 'Video and audio'),
       description: 'Alat multimedia, ekstraksi suara & audio berkas',
       iconColor: '#FA7B17',   // DESIGN.md: Media orange
     },
     {
       id: 'data',
-      label: 'Utilitas Data',
+      label: t('tools.data', 'Data utilities'),
       description: 'Alat konversi dan utilitas data',
       iconColor: '#1A73E8',   // DESIGN.md: Primary Google Blue
     },
@@ -168,7 +170,7 @@ export function ToolsHubPage() {
     {
       id: 'compress-img',
       title: 'Kompres Gambar',
-      description: 'Kecilkan ukuran foto JPG, PNG, dan WebP hingga 80% tanpa penurunan kualitas visual yang terlihat.',
+      description: 'Atur kualitas JPG, PNG, atau WebP untuk mengurangi ukuran file. Hasil bergantung pada gambar dan pengaturan.',
       category: 'image',
       iconComponent: CompressImageIcon,
       badgeLabel: 'Populer',
@@ -258,7 +260,8 @@ export function ToolsHubPage() {
     },
   ]
 
-  const filteredTools = tools.filter((tool) => {
+  const localizedTools = tools.map(tool => ({ ...tool, title: t(`tools.${tool.id}.title`, tool.title), description: t(`tools.${tool.id}.description`, tool.description) }))
+  const filteredTools = localizedTools.filter((tool) => {
     const matchCategory = selectedCategory === 'all' || tool.category === selectedCategory
     const matchSearch =
       tool.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -274,10 +277,10 @@ export function ToolsHubPage() {
     const IconComponent = tool.iconComponent
 
     return (
-      <div
+      <button type="button"
         key={tool.id}
         onClick={() => navigate(tool.path)}
-        className="group relative flex flex-col justify-between rounded-2xl border border-[#E0E3E7] bg-white p-5 hover:bg-[#F0F4F9] dark:border-[#36373A] dark:bg-[#1E1F20] dark:hover:bg-[#333537] transition-colors duration-200 cursor-pointer select-none"
+        className="group relative flex flex-col justify-between rounded-2xl border border-[#E0E3E7] bg-white p-5 text-left hover:bg-[#F0F4F9] dark:border-[#36373A] dark:bg-[#1E1F20] dark:hover:bg-[#333537] transition-colors cursor-pointer select-none"
       >
         <div>
           {/* Top Row: Tool Icon & Optional Badge */}
@@ -286,7 +289,7 @@ export function ToolsHubPage() {
               <IconComponent size={50} />
             </div>
 
-            {tool.badgeLabel && (
+            {tool.badgeLabel && !['Populer', 'Baru', 'AI Powered'].includes(tool.badgeLabel) && (
               <span
                 className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase ${tool.badgeClass}`}
               >
@@ -310,15 +313,15 @@ export function ToolsHubPage() {
         <div className="mt-4 pt-3 border-t border-[#E0E3E7]/60 dark:border-[#36373A]/60 flex items-center justify-between">
           <span className="text-[11px] font-medium text-[#747775] dark:text-[#8E918F] flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#0B57D0]/60 dark:bg-[#A8C7FA]/60" />
-            {tool.featureTag}
+            {t(`tools.${tool.category}`, tool.category)}
           </span>
 
           <span className="text-xs font-medium text-[#747775] group-hover:text-[#0B57D0] dark:text-[#8E918F] dark:group-hover:text-[#A8C7FA] flex items-center gap-1 transition-colors">
-            <span>Buka</span>
+            <span>{t('tools.open', 'Open tool')}</span>
             <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
           </span>
         </div>
-      </div>
+      </button>
     )
   }
 
@@ -333,7 +336,7 @@ export function ToolsHubPage() {
             {group.label}
           </span>
           <span className="text-[11px] text-[#747775] dark:text-[#8E918F]">
-            {groupTools.length} alat
+            {groupTools.length} {t('tools.count', 'tools')}
           </span>
         </div>
       </div>
@@ -352,7 +355,7 @@ export function ToolsHubPage() {
       {/* 1. Page Header (Material 3 / Google Drive Style) */}
       <PageHeader
         title="Tools Studio"
-        description="Semua alat PDF, gambar, dan utilitas data — diproses langsung di browser."
+        description={t('tools.description', 'PDF, image, and data tools that process files in your browser.')}
       />
 
       {/* 2. Filter Tabs & Search Bar */}
@@ -360,11 +363,11 @@ export function ToolsHubPage() {
         {/* Category Filter Pills (Material 3 Chip Style) */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {[
-            { id: 'all' as const, label: 'Semua Alat' },
-            { id: 'pdf' as const, label: 'Dokumen PDF' },
-            { id: 'image' as const, label: 'AI & Gambar' },
-            { id: 'video' as const, label: 'Video & Audio' },
-            { id: 'data' as const, label: 'Utilitas Data' },
+            { id: 'all' as const, label: t('tools.all', 'All tools') },
+            { id: 'pdf' as const, label: t('tools.pdf', 'PDF documents') },
+            { id: 'image' as const, label: t('tools.image', 'Images') },
+            { id: 'video' as const, label: t('tools.video', 'Video and audio') },
+            { id: 'data' as const, label: t('tools.data', 'Data utilities') },
           ].map((cat) => {
             const isActive = selectedCategory === cat.id
             const count =
@@ -401,7 +404,8 @@ export function ToolsHubPage() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#747775]" />
             <Input
               type="text"
-              placeholder="Cari alat (cth: merge, kompres, bg)..."
+              aria-label={t('tools.search', 'Search tools')}
+              placeholder={t('tools.search', 'Search tools')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9.5 h-9 text-xs rounded-full bg-[#EDF2FC] dark:bg-[#28292A] border-0 text-[#1F1F1F] dark:text-[#E3E3E3] focus-visible:ring-2 focus-visible:ring-[#0B57D0]"
@@ -414,7 +418,8 @@ export function ToolsHubPage() {
                 setSelectedCategory('all')
                 setSearchQuery('')
               }}
-              title="Reset Filter"
+              title={t('tools.reset', 'Clear filters')}
+              aria-label={t('tools.reset', 'Clear filters')}
               className="flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium border border-[#E0E3E7] bg-white hover:bg-[#F0F4F9] text-[#444746] dark:border-[#36373A] dark:bg-[#1E1F20] dark:text-[#C4C7C5] dark:hover:bg-[#28292A] transition-colors shrink-0"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -430,17 +435,17 @@ export function ToolsHubPage() {
         <div className="space-y-4 pb-12">
           <div className="flex items-center justify-between">
             <h2 className="text-[16px] leading-6 font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-              Hasil Pencarian
+              {t('tools.results', 'Search results')}
             </h2>
             <span className="text-xs text-[#747775] dark:text-[#8E918F]">
-              Menampilkan {filteredTools.length} dari {tools.length} alat
+              {filteredTools.length} / {tools.length} {t('tools.count', 'tools')}
             </span>
           </div>
 
           {filteredTools.length === 0 ? (
             <div className="text-center py-12 rounded-2xl border border-dashed border-[#E0E3E7] dark:border-[#36373A] bg-[#F8FAFD] dark:bg-[#1E1F20]/50">
               <p className="text-sm font-medium text-[#444746] dark:text-[#C4C7C5]">
-                Tidak ada alat yang cocok dengan pencarian "{searchQuery}"
+                {t('tools.none', 'No matching tools.')} "{searchQuery}"
               </p>
               <button
                 type="button"
@@ -450,7 +455,7 @@ export function ToolsHubPage() {
                 }}
                 className="mt-3 text-xs text-[#0B57D0] hover:underline font-medium dark:text-[#A8C7FA]"
               >
-                Reset semua filter
+                {t('tools.reset', 'Clear filters')}
               </button>
             </div>
           ) : (
@@ -465,7 +470,7 @@ export function ToolsHubPage() {
           {categoryGroups
             .filter((g) => selectedCategory === 'all' || selectedCategory === g.id)
             .map((group) => {
-              const groupTools = tools.filter((t) => t.category === group.id)
+              const groupTools = localizedTools.filter((tool) => tool.category === group.id)
               if (groupTools.length === 0) return null
               return renderFolderGroup(group, groupTools)
             })}

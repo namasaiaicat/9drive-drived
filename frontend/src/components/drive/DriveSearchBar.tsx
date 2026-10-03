@@ -2,6 +2,7 @@ import {
   useState,
   useEffect,
   useRef,
+  useId,
   useTransition,
   type FormEvent,
   type KeyboardEvent,
@@ -63,7 +64,7 @@ function formatSuggestionDate(dateStr: string): string {
   if (isNaN(date.getTime())) return "";
   const now = new Date();
   const isSameYear = date.getFullYear() === now.getFullYear();
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString(localStorage.getItem('9drive:language') === 'id' ? 'id-ID' : 'en-US', {
     month: "short",
     day: "numeric",
     ...(isSameYear ? {} : { year: "numeric" }),
@@ -128,6 +129,8 @@ export function DriveSearchBar() {
     folders: [],
   });
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const suggestionsId = useId();
+  const [suggestionError, setSuggestionError] = useState('');
 
   // Filter chips state
   const [filterKind, setFilterKind] = useState<
@@ -193,6 +196,8 @@ export function DriveSearchBar() {
   // Fetch suggestions with debounce
   useEffect(() => {
     if (!isOpen) return;
+    let cancelled = false;
+    setSuggestionError('');
 
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -225,19 +230,22 @@ export function DriveSearchBar() {
         const data = await apiFetch<SuggestionResponse>(
           `/files/suggestions?${params.toString()}`,
         );
+        if (cancelled) return;
         startTransition(() => {
           setSuggestions(data);
           setFocusedIndex(-1);
         });
       } catch (err) {
-        console.error("Failed to fetch search suggestions:", err);
+        if (cancelled) return;
+        setSuggestionError(isId ? 'Saran pencarian gagal dimuat. Tekan Enter untuk mencoba pencarian lengkap.' : 'Suggestions unavailable. Press Enter to try the full search.');
         setSuggestions({ files: [], folders: [] });
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }, 200);
 
     return () => {
+      cancelled = true;
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
   }, [query, filterKind, filterAccountId, filterModified, isOpen]);
@@ -375,7 +383,7 @@ export function DriveSearchBar() {
     <div
       ref={containerRef}
       className={cn(
-        "relative flex-1 max-w-2xl px-2",
+        "relative order-4 w-full min-w-0 shrink-0 basis-full xl:order-2 xl:w-auto xl:basis-auto xl:flex-1 xl:max-w-2xl xl:mx-2",
         isOpen ? "z-50" : "z-10",
       )}
     >
@@ -384,7 +392,7 @@ export function DriveSearchBar() {
         className={cn(
           "relative flex items-center h-12 w-full transition-all duration-200 ease-out",
           isOpen
-            ? "rounded-t-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.14)] dark:bg-[#1E1F20] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] border-b border-[#E0E3E7] dark:border-[#36373A]"
+            ? "rounded-t-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.14)] dark:bg-[#1E1F20] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] border border-b-0 border-[#E0E3E7] dark:border-[#36373A]"
             : "rounded-full bg-[#EDF2FC] hover:bg-[#E9EEF6] dark:bg-[#28292A] dark:hover:bg-[#333537]",
         )}
       >
@@ -399,6 +407,13 @@ export function DriveSearchBar() {
         <input
           ref={inputRef}
           type="text"
+          aria-label={t("search.placeholder", "Search in Drive")}
+          autoComplete="off"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={isOpen}
+          aria-controls={isOpen ? suggestionsId : undefined}
+          aria-activedescendant={isOpen && focusedIndex >= 0 ? `${suggestionsId}-${focusedIndex}` : undefined}
           value={query}
           onFocus={() => setIsOpen(true)}
           onChange={(e) => {
@@ -407,14 +422,16 @@ export function DriveSearchBar() {
           }}
           onKeyDown={handleKeyDown}
           placeholder={t("search.placeholder", "Search in Drive")}
-          className="h-full flex-1 bg-transparent text-sm text-[#1F1F1F] placeholder:text-[#444746] outline-none dark:text-[#E3E3E3] dark:placeholder:text-[#8E918F]"
+          className="h-full min-w-0 flex-1 bg-transparent text-sm text-[#1F1F1F] placeholder:text-[#444746] !outline-none !border-none !ring-0 focus:!outline-none focus:!border-none focus:!ring-0 focus-visible:!outline-none focus-visible:!ring-0 dark:text-[#E3E3E3] dark:placeholder:text-[#C4C7C5]"
+          style={{ outline: "none", border: "none", boxShadow: "none" }}
         />
 
         {query ? (
           <button
             type="button"
             onClick={clearQuery}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10 mr-1"
+            aria-label={isId ? "Hapus pencarian" : "Clear search"}
+            className="flex h-8 w-8 min-h-0 min-w-0 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10 mr-1 !outline-none focus:!outline-none"
             title={isId ? "Hapus pencarian" : "Clear search"}
           >
             <X className="h-4 w-4" />
@@ -428,7 +445,7 @@ export function DriveSearchBar() {
             setIsOpen(true);
           }}
           className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-full mr-1 text-[#444746] hover:bg-black/5 transition-colors dark:text-[#C4C7C5] dark:hover:bg-white/10",
+            "flex h-9 w-9 min-h-0 min-w-0 items-center justify-center rounded-full mr-1.5 text-[#444746] hover:bg-black/5 transition-colors dark:text-[#C4C7C5] dark:hover:bg-white/10 !outline-none focus:!outline-none",
             advancedModalOpen &&
               "text-[#0B57D0] bg-[#C2E7FF]/40 dark:text-[#A8C7FA]",
           )}
@@ -443,26 +460,26 @@ export function DriveSearchBar() {
       {isOpen && (
         <div
           className={cn(
-            "absolute left-2 right-2 top-12 z-50 bg-white shadow-[0_12px_36px_rgba(0,0,0,0.18)] dark:bg-[#1E1F20] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] border",
-            "rounded-b-2xl border-x border-b border-[#E0E3E7] dark:border-[#36373A]",
+            "absolute inset-x-0 top-12 z-50 bg-white shadow-[0_12px_36px_rgba(0,0,0,0.18)] dark:bg-[#1E1F20] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)]",
+            "rounded-b-2xl border border-t-0 border-[#E0E3E7] dark:border-[#36373A]",
           )}
         >
           {/* 1. Filter Chips Row (Type, People/Account, Modified) */}
-          <div className="relative z-30 flex items-center gap-2 px-4 py-2.5 border-b border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#1E1F20] flex-wrap">
+          <div className="relative z-30 flex items-center gap-1.5 px-3.5 py-1.5 border-b border-[#E0E3E7] dark:border-[#36373A] bg-white dark:bg-[#1E1F20] flex-wrap">
             {/* Type Chip */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setOpenChip(openChip === "type" ? null : "type")}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border transition-colors",
+                  "inline-flex items-center gap-1.5 h-7 min-h-0 min-w-0 px-2.5 rounded-full text-xs font-normal border transition-colors cursor-pointer select-none outline-none focus:outline-none",
                   filterKind !== "all"
                     ? "border-[#0B57D0] bg-[#C2E7FF]/30 text-[#0B57D0] dark:border-[#A8C7FA] dark:text-[#A8C7FA] dark:bg-[#004A77]/30"
                     : "border-[#747775]/40 text-[#444746] hover:bg-black/5 dark:border-[#8E918F]/40 dark:text-[#C4C7C5] dark:hover:bg-white/5",
                 )}
               >
                 <span>{kindLabelMap[filterKind]}</span>
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-3 w-3 shrink-0 text-[#444746] dark:text-[#C4C7C5]" />
               </button>
 
               {openChip === "type" && (
@@ -487,7 +504,7 @@ export function DriveSearchBar() {
                           setFilterKind(option.value as any);
                           setOpenChip(null);
                         }}
-                        className="flex w-full items-center justify-between px-3 py-1.5 text-xs text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 text-left"
+                        className="flex w-full min-h-0 min-w-0 items-center justify-between px-3 py-1.5 text-xs text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 text-left outline-none cursor-pointer"
                       >
                         <span>{option.label}</span>
                         {filterKind === option.value && (
@@ -508,15 +525,15 @@ export function DriveSearchBar() {
                   setOpenChip(openChip === "account" ? null : "account")
                 }
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap",
+                  "inline-flex items-center gap-1.5 h-7 min-h-0 min-w-0 px-2.5 rounded-full text-xs font-normal border transition-colors whitespace-nowrap cursor-pointer select-none outline-none focus:outline-none",
                   filterAccountId !== "all"
                     ? "border-[#0B57D0] bg-[#C2E7FF]/30 text-[#0B57D0] dark:border-[#A8C7FA] dark:text-[#A8C7FA] dark:bg-[#004A77]/30"
                     : "border-[#747775]/40 text-[#444746] hover:bg-black/5 dark:border-[#8E918F]/40 dark:text-[#C4C7C5] dark:hover:bg-white/5",
                 )}
               >
-                <HardDrive className="h-3 w-3" />
+                <HardDrive className="h-3 w-3 shrink-0" />
                 <span>{accountLabel}</span>
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-3 w-3 shrink-0 text-[#444746] dark:text-[#C4C7C5]" />
               </button>
 
               {openChip === "account" && (
@@ -532,7 +549,7 @@ export function DriveSearchBar() {
                         setFilterAccountId("all");
                         setOpenChip(null);
                       }}
-                      className="flex w-full items-center justify-between px-3 py-1.5 text-xs text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 text-left"
+                      className="flex w-full min-h-0 min-w-0 items-center justify-between px-3 py-1.5 text-xs text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 text-left outline-none cursor-pointer"
                     >
                       <span className="font-medium">{isId ? "Semua akun" : "All accounts"}</span>
                       {filterAccountId === "all" && (
@@ -551,7 +568,7 @@ export function DriveSearchBar() {
                             setFilterAccountId(acc.id);
                             setOpenChip(null);
                           }}
-                          className="flex w-full items-center justify-between px-3 py-1.5 text-xs text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 text-left"
+                          className="flex w-full min-h-0 min-w-0 items-center justify-between px-3 py-1.5 text-xs text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 text-left outline-none cursor-pointer"
                         >
                           <div className="truncate pr-2">
                             <span className="font-semibold text-[#0B57D0] dark:text-[#A8C7FA] mr-1.5">
@@ -580,14 +597,14 @@ export function DriveSearchBar() {
                   setOpenChip(openChip === "modified" ? null : "modified")
                 }
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border transition-colors",
+                  "inline-flex items-center gap-1.5 h-7 min-h-0 min-w-0 px-2.5 rounded-full text-xs font-normal border transition-colors cursor-pointer select-none outline-none focus:outline-none",
                   filterModified !== "all"
                     ? "border-[#0B57D0] bg-[#C2E7FF]/30 text-[#0B57D0] dark:border-[#A8C7FA] dark:text-[#A8C7FA] dark:bg-[#004A77]/30"
                     : "border-[#747775]/40 text-[#444746] hover:bg-black/5 dark:border-[#8E918F]/40 dark:text-[#C4C7C5] dark:hover:bg-white/5",
                 )}
               >
                 <span>{modifiedLabelMap[filterModified]}</span>
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-3 w-3 shrink-0 text-[#444746] dark:text-[#C4C7C5]" />
               </button>
 
               {openChip === "modified" && (
@@ -611,7 +628,7 @@ export function DriveSearchBar() {
                           setFilterModified(option.value as any);
                           setOpenChip(null);
                         }}
-                        className="flex w-full items-center justify-between px-3 py-1.5 text-xs text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 text-left"
+                        className="flex w-full min-h-0 min-w-0 items-center justify-between px-3 py-1.5 text-xs text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 text-left outline-none cursor-pointer"
                       >
                         <span>{option.label}</span>
                         {filterModified === option.value && (
@@ -631,7 +648,7 @@ export function DriveSearchBar() {
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="text-xs text-[#0B57D0] hover:underline dark:text-[#A8C7FA] ml-auto shrink-0"
+                className="text-xs font-medium text-[#0B57D0] hover:underline dark:text-[#A8C7FA] ml-auto shrink-0 min-h-0 min-w-0 py-0.5 px-1 outline-none focus:outline-none"
               >
                 Reset
               </button>
@@ -686,8 +703,8 @@ export function DriveSearchBar() {
           )}
 
           {/* 3. Suggestions List */}
-          <div className="relative z-10 max-h-[360px] overflow-y-auto py-1 scrollbar-thin">
-            {loading && combinedItems.length === 0 ? (
+          <div id={suggestionsId} role="listbox" aria-label={isId ? 'Hasil pencarian' : 'Search results'} className="relative z-10 max-h-[min(360px,50dvh)] overflow-y-auto py-1 scrollbar-thin">
+            {suggestionError ? <p role="alert" className="p-4 text-sm text-[#B3261E] dark:text-[#F2B8B5]">{suggestionError}</p> : loading && combinedItems.length === 0 ? (
               <div className="flex items-center justify-center gap-2 py-8 text-xs text-[#444746] dark:text-[#8E918F]">
                 <Loader2 className="h-4 w-4 animate-spin text-[#0B57D0] dark:text-[#A8C7FA]" />
                 <span>{isId ? "Mencari di Drive..." : "Searching in Drive..."}</span>
@@ -715,6 +732,7 @@ export function DriveSearchBar() {
                   return (
                     <div
                       key={`folder-${folder.id}`}
+                      id={`${suggestionsId}-${idx}`} role="option" aria-selected={isFocused}
                       onClick={() => handleSelectFolder(folder)}
                       className={cn(
                         "flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors select-none",
@@ -764,6 +782,7 @@ export function DriveSearchBar() {
                   return (
                     <div
                       key={`file-${file.id}`}
+                      id={`${suggestionsId}-${itemIndex}`} role="option" aria-selected={isFocused}
                       onClick={() => handleSelectFile(file)}
                       className={cn(
                         "flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors select-none",
@@ -807,11 +826,11 @@ export function DriveSearchBar() {
           </div>
 
           {/* 4. Dropdown Footer: Advanced Search & All Results */}
-          <div className="relative z-10 flex items-center justify-between px-4 py-3 border-t border-[#E0E3E7] dark:border-[#36373A] bg-[#F8FAFD] dark:bg-[#1E1F20] rounded-b-2xl">
+          <div className="relative z-10 flex items-center justify-between px-4 py-2.5 border-t border-[#E0E3E7] dark:border-[#36373A] bg-[#F8FAFD] dark:bg-[#1E1F20] rounded-b-2xl">
             <button
               type="button"
               onClick={() => setAdvancedModalOpen((v) => !v)}
-              className="text-xs font-medium text-[#0B57D0] hover:underline dark:text-[#A8C7FA]"
+              className="text-xs font-medium text-[#0B57D0] hover:underline dark:text-[#A8C7FA] min-h-0 min-w-0 outline-none focus:outline-none"
             >
               {advancedModalOpen
                 ? isId
@@ -825,7 +844,7 @@ export function DriveSearchBar() {
             <button
               type="button"
               onClick={() => submitSearch()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 transition-colors"
+              className="flex items-center gap-1.5 h-8 min-h-0 min-w-0 px-3 rounded-lg text-xs font-medium text-[#1F1F1F] hover:bg-black/5 dark:text-[#E3E3E3] dark:hover:bg-white/5 transition-colors outline-none focus:outline-none"
             >
               <span>{isId ? "Semua hasil" : "All results"}</span>
               <CornerDownLeft className="h-3 w-3 text-[#444746] dark:text-[#C4C7C5]" />

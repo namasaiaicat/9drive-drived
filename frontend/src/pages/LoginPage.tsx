@@ -6,11 +6,13 @@ import { GoogleLogo } from '@/components/auth/GoogleLogo'
 import { Input } from '@/components/ui/input'
 import { apiFetch } from '@/lib/api'
 import { setAuthSession, type AuthUser } from '@/lib/auth'
+import { useLanguage } from '@/context/LanguageContext'
 
 type AuthResponse = { accessToken: string; refreshToken: string; user: AuthUser }
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -53,40 +55,41 @@ export function LoginPage() {
       <div className="w-full max-w-[420px] rounded-[28px] border border-[#E0E3E7] bg-white p-8 shadow-sm dark:border-[#36373A] dark:bg-[#1E1F20]">
         <div className="flex flex-col items-center text-center">
           <BrandLogo className="h-12 w-12" />
-          <h1 className="mt-4 text-2xl font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">Sign in</h1>
-          <p className="mt-1 text-sm text-[#747775] dark:text-[#8E918F]">to continue to 9Drive</p>
+          <h1 className="mt-4 text-2xl font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">{t('auth.sign_in', 'Sign in')}</h1>
+          <p className="mt-1 text-sm text-[#747775] dark:text-[#8E918F]">{t('auth.continue', 'to continue to 9Drive')}</p>
         </div>
 
         <form onSubmit={submit} className="mt-8 grid gap-4">
           <div>
-            <label className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5] block mb-1">
+            <label htmlFor="login-email" className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5] block mb-1">
               Email
             </label>
             <Input
               type="email"
+              id="login-email" name="email" autoComplete="username" aria-invalid={Boolean(error)} aria-describedby={error ? 'login-error' : undefined}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
               required
-              autoFocus
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5] block mb-1">
-              Password
+            <label htmlFor="login-password" className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5] block mb-1">
+              {t('auth.password', 'Password')}
             </label>
             <Input
               type="password"
+              id="login-password" name="password" autoComplete="current-password" aria-invalid={Boolean(error)} aria-describedby={error ? 'login-error' : undefined}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder={t('auth.enter_password', 'Enter your password')}
               required
             />
           </div>
 
           {error ? (
-            <p className="rounded-lg bg-[#F9DEDC]/50 border border-[#F9DEDC] p-2.5 text-xs text-[#B3261E]">
+            <p id="login-error" role="alert" className="rounded-lg bg-[#F9DEDC]/50 border border-[#F9DEDC] p-2.5 text-xs text-[#B3261E] dark:bg-[#8C1D18]/30 dark:border-[#F2B8B5] dark:text-[#F2B8B5]">
               {error}
             </p>
           ) : null}
@@ -96,10 +99,10 @@ export function LoginPage() {
               to="/register"
               className="text-xs font-medium text-[#0B57D0] hover:underline dark:text-[#A8C7FA]"
             >
-              Create account
+              {t('auth.create_account', 'Create account')}
             </Link>
             <Button disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? t('auth.signing_in', 'Signing in…') : t('auth.sign_in', 'Sign in')}
             </Button>
           </div>
         </form>
@@ -112,7 +115,7 @@ export function LoginPage() {
             onClick={continueWithGoogle}
           >
             <GoogleLogo />
-            <span>{googleLoading ? 'Redirecting...' : 'Sign in with Google'}</span>
+            <span>{googleLoading ? t('auth.redirecting', 'Redirecting…') : t('auth.google_sign_in', 'Sign in with Google')}</span>
           </Button>
         </div>
       </div>

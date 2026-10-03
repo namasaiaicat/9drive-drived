@@ -207,7 +207,7 @@ export function BackgroundRemoverTool() {
             accept="image/*,.png,.jpg,.jpeg,.webp"
             icon={RemoveBgIcon}
             iconColor="#7248B9"
-            maxSizeText="Proses instan • 100% Privat"
+            maxSizeText="Pemrosesan gambar di browser"
             multiple={true}
             onFilesSelected={addFilesToQueue}
             onOpenDrivePicker={() => setDrivePickerOpen(true)}

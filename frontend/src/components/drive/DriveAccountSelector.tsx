@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Check,
@@ -11,6 +11,7 @@ import {
 import { useDriveFilter } from '@/context/DriveFilterContext'
 import { formatBytes } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/context/LanguageContext'
 
 function GoogleDriveIcon({ className }: { className?: string }) {
   return (
@@ -31,6 +32,8 @@ export function DriveAccountSelector({
   className?: string
 }) {
   const navigate = useNavigate()
+  const { language } = useLanguage()
+  const isId = language === 'id'
   const {
     accounts,
     selectedAccountId,
@@ -38,9 +41,13 @@ export function DriveAccountSelector({
     defaultAccountId,
     activeAccount,
     isAll,
+    isLoadingAccounts,
+    accountsError,
+    refreshAccounts,
   } = useDriveFilter()
 
   const [open, setOpen] = useState(false)
+  const listId = useId()
   const [searchTerm, setSearchTerm] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -86,10 +93,21 @@ export function DriveAccountSelector({
     setOpen(false)
   }
 
-  const displayText = isAll ? 'Semua Akun' : (activeAccount?.email ?? 'Pilih Akun')
+  const displayText = isAll ? (isId ? 'Semua Akun' : 'All accounts') : (activeAccount?.email ?? (isId ? 'Pilih akun' : 'Choose account'))
 
   return (
-    <div className={cn('relative inline-block text-left', className)} ref={containerRef}>
+    <div className={cn('relative inline-block text-left', className)} ref={containerRef} onKeyDown={(event) => {
+      if (event.key === 'Escape') { setOpen(false); containerRef.current?.querySelector('button')?.focus(); return }
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+      if (!open) { event.preventDefault(); setOpen(true); return }
+      if (event.target instanceof HTMLInputElement && !event.key.startsWith('Arrow')) return
+      const options = [...(containerRef.current?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? [])]
+      const current = options.indexOf(document.activeElement as HTMLButtonElement)
+      if (!options.length) return
+      event.preventDefault()
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length
+      options[next]?.focus()
+    }}>
       {/* Trigger Button - Clean Google Drive Style */}
       <button
         type="button"
@@ -99,8 +117,9 @@ export function DriveAccountSelector({
           open && 'border-[#0B57D0] ring-2 ring-[#0B57D0]/15 dark:border-[#A8C7FA]'
         )}
         title={displayText}
-        aria-haspopup="listbox"
+        aria-haspopup="dialog"
         aria-expanded={open}
+        aria-controls={open ? listId : undefined}
       >
         {isAll ? (
           <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E8F0FE] text-[#0B57D0] dark:bg-[#004A77] dark:text-[#C2E7FF]">
@@ -110,8 +129,8 @@ export function DriveAccountSelector({
           <GoogleDriveIcon className="h-4 w-4 shrink-0" />
         )}
 
-        <span className="truncate max-w-[150px] sm:max-w-[190px] text-[#1F1F1F] dark:text-[#E3E3E3]">
-          {displayText}
+        <span className="truncate max-w-[110px] sm:max-w-[190px] text-[#1F1F1F] dark:text-[#E3E3E3]">
+          {isLoadingAccounts ? (isId ? 'Memuat akun…' : 'Loading accounts…') : accountsError ? (isId ? 'Coba muat akun' : 'Retry accounts') : displayText}
         </span>
 
         <ChevronDown
@@ -125,17 +144,20 @@ export function DriveAccountSelector({
       {/* Popover Dropdown */}
       {open && (
         <div
-          className="absolute right-0 top-12 z-50 w-72 sm:w-80 origin-top-right rounded-2xl border border-[#E0E3E7] bg-white shadow-xl dark:border-[#36373A] dark:bg-[#1E1F20] animate-m3-popover overflow-hidden"
-          role="listbox"
+          className="absolute left-0 top-12 z-50 w-72 max-w-[calc(100vw-24px)] sm:w-80 xl:left-auto xl:right-0 rounded-2xl border border-[#E0E3E7] bg-white shadow-xl dark:border-[#36373A] dark:bg-[#1E1F20] animate-m3-popover overflow-hidden"
+          role="dialog"
+          id={listId}
+          aria-label={isId ? 'Akun penyimpanan' : 'Storage accounts'}
         >
           {/* Header */}
+          {accountsError && <div role="alert" className="p-3 text-sm text-[#B3261E] dark:text-[#F2B8B5]"><p>{accountsError}</p><button className="min-h-11 underline" onClick={() => void refreshAccounts()}>{isId ? 'Coba lagi' : 'Retry'}</button></div>}
           <div className="border-b border-[#E0E3E7] bg-[#F8FAFD] px-3.5 py-3 dark:border-[#36373A] dark:bg-[#28292A]">
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-                Pilih Akun Penyimpanan
+                {isId ? 'Pilih akun penyimpanan' : 'Choose storage account'}
               </p>
               <span className="rounded-full bg-[#E0E3E7] px-2 py-0.5 text-[10px] font-medium text-[#444746] dark:bg-[#36373A] dark:text-[#C4C7C5]">
-                {accounts.length} Akun
+                {isLoadingAccounts ? (isId ? 'Memuat…' : 'Loading…') : `${accounts.length} ${isId ? 'Akun' : 'Accounts'}`}
               </span>
             </div>
 
@@ -145,9 +167,10 @@ export function DriveAccountSelector({
               <input
                 ref={searchInputRef}
                 type="text"
+                aria-label={isId ? 'Cari akun penyimpanan' : 'Search storage accounts'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari email akun..."
+                placeholder={isId ? 'Cari email akun…' : 'Search account email…'}
                 className="h-8 w-full rounded-lg border border-[#E0E3E7] bg-white pl-8 pr-7 text-xs text-[#1F1F1F] placeholder:text-[#747775] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] dark:border-[#444746] dark:bg-[#1E1F20] dark:text-[#E3E3E3] dark:placeholder:text-[#8E918F] dark:focus:border-[#A8C7FA]"
               />
               {searchTerm && (
@@ -164,7 +187,7 @@ export function DriveAccountSelector({
           </div>
 
           {/* Accounts List */}
-          <div className="max-h-64 overflow-y-auto p-1.5 space-y-0.5">
+          <div role="listbox" aria-label={isId ? 'Pilihan akun' : 'Account choices'} className="max-h-64 overflow-y-auto p-1.5 space-y-0.5">
             {/* 1. Opsi Tampilkan Semua Akun */}
             {(!searchTerm || 'semua akun all'.includes(searchTerm.toLowerCase())) && (
               <button
@@ -192,7 +215,7 @@ export function DriveAccountSelector({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <p className="font-normal truncate">Semua Akun</p>
+                      <p className="font-normal truncate">{isId ? 'Semua akun' : 'All accounts'}</p>
                       {defaultAccountId === 'all' && (
                         <span className="shrink-0 rounded px-1.5 py-0.2 text-[9px] font-medium bg-[#E6F4EA] text-[#137333] dark:bg-[#0E3D1E] dark:text-[#A8DAB5]">
                           Default
@@ -200,7 +223,7 @@ export function DriveAccountSelector({
                       )}
                     </div>
                     <p className="text-[10px] text-[#747775] dark:text-[#8E918F] truncate">
-                      Tampilkan seluruh file & folder
+                      {isId ? 'Tampilkan seluruh file dan folder' : 'Show all files and folders'}
                     </p>
                   </div>
                 </div>
@@ -213,7 +236,7 @@ export function DriveAccountSelector({
             {/* 2. Daftar Akun */}
             {filteredAccounts.length === 0 ? (
               <div className="px-3 py-4 text-center text-xs text-[#747775] dark:text-[#8E918F]">
-                Tidak ada akun yang cocok
+                {isId ? 'Tidak ada akun yang cocok' : 'No matching accounts'}
               </div>
             ) : (
               filteredAccounts.map((account) => {
@@ -248,13 +271,13 @@ export function DriveAccountSelector({
                           </p>
                           {isDefault && (
                             <span className="shrink-0 rounded px-1.5 py-0.2 text-[9px] font-medium bg-[#E6F4EA] text-[#137333] dark:bg-[#0E3D1E] dark:text-[#A8DAB5]">
-                              Default
+                              {isId ? 'Utama' : 'Default'}
                             </span>
                           )}
                         </div>
                         {total && (
                           <p className="text-[10px] text-[#747775] dark:text-[#8E918F] truncate">
-                            {formatBytes(used)} dari {formatBytes(total)}
+                            {formatBytes(used)} {isId ? 'dari' : 'of'} {formatBytes(total)}
                           </p>
                         )}
                       </div>
@@ -280,7 +303,7 @@ export function DriveAccountSelector({
               className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs text-[#444746] hover:bg-[#E9EEF6] dark:text-[#C4C7C5] dark:hover:bg-[#36373A]"
             >
               <Settings2 className="h-3.5 w-3.5" />
-              <span>Kelola Akun di Pengaturan</span>
+              <span>{isId ? 'Kelola akun di Pengaturan' : 'Manage accounts in Settings'}</span>
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ExternalLink,
@@ -30,6 +30,7 @@ import type { FileItem, FolderItem } from '@/data/drive-data'
 import { useDriveFilter } from '@/context/DriveFilterContext'
 import { useLanguage } from '@/context/LanguageContext'
 import { cn } from '@/lib/utils'
+import { mimeToKind } from '@/lib/file-kind'
 
 type BackendFile = {
   id: string
@@ -80,13 +81,6 @@ type Invite = {
   user: { id: string; name: string; email: string } | null
 }
 
-function mimeToKind(mimeType: string): FileItem['kind'] {
-  if (mimeType.startsWith('image/')) return 'image'
-  if (mimeType.startsWith('video/')) return 'video'
-  if (mimeType.includes('pdf')) return 'pdf'
-  return 'doc'
-}
-
 function mapFile(file: BackendFile): FileItem {
   const driveUrl =
     file.driveUrl ??
@@ -101,11 +95,12 @@ function mapFile(file: BackendFile): FileItem {
     createdAt: file.createdAt,
     accountEmail: file.connectedAccount?.email,
     accountProvider: file.connectedAccount?.provider === 's3' ? 'S3 Storage' : 'Google Drive',
-    date: file.sharedWithMeTime ? formatDate(file.sharedWithMeTime) : formatDate(file.createdAt),
-    size: formatBytes(file.sizeBytes),
+    date: file.updatedAt ? formatDate(file.updatedAt) : '--',
+    updatedAt: file.updatedAt,
+    size: file.mimeType.startsWith('application/vnd.google-apps.') ? '--' : formatBytes(file.sizeBytes),
     access: file.connectedAccount?.email ?? 'Google Drive',
     kind: mimeToKind(file.mimeType),
-    shared: 1,
+    shared: 0,
     owner: file.owner || 'Shared',
     folderId: file.folderId,
     folderName: file.folder?.name,
@@ -124,6 +119,8 @@ export function SharedPage() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const loadGeneration = useRef(0)
 
   // Selection & Interactions
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set())
@@ -150,15 +147,20 @@ export function SharedPage() {
   const [activeTab, setActiveTab] = useState<'shared' | 'invites'>('shared')
   const [sentInvites, setSentInvites] = useState<Invite[]>([])
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([])
+  const [invitesLoading, setInvitesLoading] = useState(true)
+  const [invitesError, setInvitesError] = useState('')
 
   async function loadShared() {
+    const generation = ++loadGeneration.current
     setLoading(true)
+    setLoadError('')
     try {
       const path =
         selectedAccountId && selectedAccountId !== 'all'
           ? `/files/shared?accountId=${selectedAccountId}`
           : '/files/shared'
       const data = await apiFetch<{ files: BackendFile[]; folders: BackendFolder[] }>(path)
+      if (generation !== loadGeneration.current) return
       if (data.files && data.files.length > 0) {
         setFileList(data.files.map(mapFile))
       } else {
@@ -179,23 +181,24 @@ export function SharedPage() {
       } else {
         setFolderList([])
       }
-    } catch {
-      setFileList([])
-      setFolderList([])
+    } catch (error) {
+      if (generation !== loadGeneration.current) return
+      setLoadError(error instanceof Error ? error.message : 'Failed to load shared files')
     } finally {
-      setLoading(false)
+      if (generation === loadGeneration.current) setLoading(false)
     }
   }
 
   async function loadInvites() {
+    setInvitesLoading(true)
+    setInvitesError('')
     try {
       const data = await apiFetch<{ sent: Invite[]; received: Invite[] }>('/invites')
       setSentInvites(data.sent ?? [])
       setReceivedInvites(data.received ?? [])
-    } catch {
-      setSentInvites([])
-      setReceivedInvites([])
-    }
+    } catch (error) {
+      setInvitesError(error instanceof Error ? error.message : 'Failed to load invitations')
+    } finally { setInvitesLoading(false) }
   }
 
   useEffect(() => {
@@ -210,6 +213,7 @@ export function SharedPage() {
     window.addEventListener('9drive:storage-changed', handleStorageChanged)
     window.addEventListener('9drive:invites-changed', handleInvitesChanged)
     return () => {
+      loadGeneration.current++
       window.removeEventListener('9drive:storage-changed', handleStorageChanged)
       window.removeEventListener('9drive:invites-changed', handleInvitesChanged)
     }
@@ -226,18 +230,19 @@ export function SharedPage() {
   }
 
   const filteredFiles = fileList.filter((file) => {
-    if (typeFilter === 'docs' && file.kind !== 'doc') return false
+    if (typeFilter === 'docs' && !['doc', 'sheet', 'slides'].includes(file.kind)) return false
     if (typeFilter === 'images' && file.kind !== 'image') return false
     if (typeFilter === 'videos' && file.kind !== 'video') return false
     if (typeFilter === 'pdfs' && file.kind !== 'pdf') return false
     return true
   })
 
-  const visibleIds = filteredFiles.map((file) => file.id).filter(Boolean) as string[]
+  const visibleIds = filteredFiles.map((file) => file.id).filter(Boolean).slice(0, 100) as string[]
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedFileIds.has(id))
 
   function toggleFileSelection(file: FileItem) {
     if (!file.id) return
+    if (!selectedFileIds.has(file.id) && selectedFileIds.size >= 100) { toast.info(t('selection.limit', 'Select up to 100 files per action.')); return }
     setSelectedFileIds((current) => {
       const next = new Set(current)
       if (next.has(file.id!)) next.delete(file.id!)
@@ -253,6 +258,7 @@ export function SharedPage() {
   function clearSelection() {
     setSelectedFileIds(new Set())
   }
+  useEffect(() => { setSelectedFileIds(new Set()) }, [selectedAccountId, typeFilter])
 
   function openContext(event: MouseEvent<HTMLElement>, file: FileItem) {
     event.preventDefault()
@@ -335,14 +341,10 @@ export function SharedPage() {
     const target = fileToCopy ?? activeFile
     if (!target) return
     try {
-      let url = target.driveUrl
-      if (!url && target.id) {
-        const data = await apiFetch<{ url: string }>(`/files/${target.id}/share`, { method: 'POST' })
-        url = data.url
-      }
+      const url = target.driveUrl || (target.id ? `${window.location.origin}/all-files?previewFileId=${encodeURIComponent(target.id)}` : '')
       if (url) {
         await navigator.clipboard.writeText(url)
-        showNotification('Link copied to clipboard!')
+        toast.success(t('action.link_copied_access', 'Link copied. Existing access permissions apply.'))
       }
     } catch (err: any) {
       showNotification('Failed to copy link: ' + (err.message || err))
@@ -537,7 +539,7 @@ export function SharedPage() {
             <div className="flex h-64 items-center justify-center">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#0B57D0] border-t-transparent" />
             </div>
-          ) : folderList.length === 0 && filteredFiles.length === 0 ? (
+          ) : loadError ? <div role="alert" className="my-4 rounded-xl border border-[#B3261E] p-4 text-sm dark:border-[#F2B8B5]"><p>{loadError}</p><Button variant="outline" className="mt-3" onClick={() => void loadShared()}>{t('action.retry', 'Retry')}</Button></div> : folderList.length === 0 && filteredFiles.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#EDF2FC] dark:bg-[#1E1F20] text-[#0B57D0] dark:text-[#A8C7FA]">
                 <Share2 className="h-12 w-12 stroke-[1.5]" />
@@ -607,12 +609,13 @@ export function SharedPage() {
       ) : (
         /* Workspace Invites Tab */
         <div className="space-y-8 mt-2">
+          {invitesLoading ? <p role="status" className="text-sm">{t('action.loading', 'Loading…')}</p> : invitesError ? <div role="alert" className="rounded-xl border border-[#B3261E] p-4 text-sm dark:border-[#F2B8B5]"><p>{invitesError}</p><Button variant="outline" className="mt-3" onClick={() => void loadInvites()}>{t('action.retry', 'Retry')}</Button></div> : null}
           {/* Shared With You */}
           <div>
             <h2 className="text-xs font-medium uppercase tracking-wider text-[#747775] dark:text-[#8E918F] mb-3">
               Invites Received
             </h2>
-            {receivedInvites.length === 0 ? (
+            {invitesLoading || invitesError ? null : receivedInvites.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl border border-[#E0E3E7] bg-[#F8FAFD] dark:border-[#36373A] dark:bg-[#28292A]">
                 <Mail className="h-8 w-8 text-[#747775] mb-2" />
                 <p className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">No workspace invites received</p>
@@ -658,7 +661,7 @@ export function SharedPage() {
             <h2 className="text-xs font-medium uppercase tracking-wider text-[#747775] dark:text-[#8E918F] mb-3">
               Invites Sent by You
             </h2>
-            {sentInvites.length === 0 ? (
+            {invitesLoading || invitesError ? null : sentInvites.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl border border-[#E0E3E7] bg-[#F8FAFD] dark:border-[#36373A] dark:bg-[#28292A]">
                 <Users className="h-8 w-8 text-[#747775] mb-2" />
                 <p className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">No invites sent</p>
@@ -755,7 +758,6 @@ export function SharedPage() {
             value={renameValue}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRenameValue(e.target.value)}
             placeholder="File name"
-            autoFocus
           />
           <div className="flex justify-end gap-2">
             <Button

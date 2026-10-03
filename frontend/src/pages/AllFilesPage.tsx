@@ -27,9 +27,10 @@ import { useLanguage } from '@/context/LanguageContext'
 import { useDriveLayoutActions } from '@/layouts/DriveLayout'
 import { OfflineScreen } from '@/components/common/OfflineScreen'
 import { cn } from '@/lib/utils'
+import { mimeToKind } from '@/lib/file-kind'
 
-type BackendFile = { id: string; name: string; mimeType: string; sizeBytes: string; createdAt: string; folderId?: string | null; providerFileId?: string; driveUrl?: string | null; connectedAccount?: { email: string; provider: string }; folder?: { id: string; name: string } | null }
-type BackendFolder = { id: string; name: string; color: string; iconUrl?: string | null; parentId?: string | null; providerFolderId?: string | null; driveUrl?: string | null; updatedAt: string }
+type BackendFile = { id: string; name: string; mimeType: string; sizeBytes: string; createdAt: string; updatedAt: string; folderId?: string | null; providerFileId?: string; driveUrl?: string | null; connectedAccount?: { email: string; provider: string }; folder?: { id: string; name: string } | null }
+type BackendFolder = { id: string; name: string; color: string; iconUrl?: string | null; parentId?: string | null; connectedAccountId?: string | null; providerFolderId?: string | null; driveUrl?: string | null; updatedAt: string }
 type ConnectedAccount = { id: string; provider: string; email: string; displayName?: string | null; status: string }
 
 type FileViewMode = 'list' | 'grid'
@@ -39,13 +40,6 @@ const fileViewStorageKey = '9drive:all-files-view-mode'
 function getStoredFileViewMode(): FileViewMode {
   const stored = localStorage.getItem(fileViewStorageKey)
   return stored === 'grid' || stored === 'list' ? stored : 'list'
-}
-
-function mimeToKind(mimeType: string): FileItem['kind'] {
-  if (mimeType.startsWith('image/')) return 'image'
-  if (mimeType.startsWith('video/')) return 'video'
-  if (mimeType.includes('pdf')) return 'pdf'
-  return 'doc'
 }
 
 function providerLabel(provider: string | undefined) {
@@ -63,11 +57,12 @@ function mapFile(file: BackendFile): FileItem {
     createdAt: file.createdAt,
     accountEmail: file.connectedAccount?.email,
     accountProvider: providerLabel(file.connectedAccount?.provider),
-    date: formatDate(file.createdAt),
-    size: formatBytes(file.sizeBytes),
+    date: formatDate(file.updatedAt),
+    updatedAt: file.updatedAt,
+    size: file.mimeType.startsWith('application/vnd.google-apps.') ? '--' : formatBytes(file.sizeBytes),
     access: file.connectedAccount?.email ?? providerLabel(file.connectedAccount?.provider),
     kind: mimeToKind(file.mimeType),
-    shared: 1,
+    shared: 0,
     folderId: file.folderId,
     folderName: file.folder?.name,
     providerFileId: file.providerFileId,
@@ -85,7 +80,9 @@ function mapFolder(folder: BackendFolder): FolderItem {
     parentId: folder.parentId,
     providerFolderId: folder.providerFolderId,
     driveUrl,
-    updated: `Updated ${formatDate(folder.updatedAt)}`,
+    updatedAt: folder.updatedAt,
+    connectedAccountId: folder.connectedAccountId,
+    updated: formatDate(folder.updatedAt),
   }
 }
 
@@ -106,6 +103,11 @@ export function AllFilesPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeFolderId = searchParams.get('folderId')
   const searchQuery = searchParams.get('q')?.trim() ?? ''
+  const page = Math.max(1, Number(searchParams.get('page')) || 1)
+  const [pagination, setPagination] = useState({ total: 0, page: 1, pageSize: 50, hasMore: false })
+  const [listLoading, setListLoading] = useState(true)
+  const [listError, setListError] = useState('')
+  const [foldersExpanded, setFoldersExpanded] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const fileUploadInputRef = useRef<HTMLInputElement>(null)
   const [isPageDragging, setIsPageDragging] = useState(false)
@@ -148,7 +150,19 @@ export function AllFilesPage() {
   const [syncingDrive, setSyncingDrive] = useState(false)
   const [fileViewMode, setFileViewMode] = useState<FileViewMode>(getStoredFileViewMode)
   const { uploadFiles } = useUpload()
-  const { selectedAccountId, getDriveLetter } = useDriveFilter()
+  const { selectedAccountId, getDriveLetter, isLoadingAccounts, accountsError } = useDriveFilter()
+  const scopeParams = new URLSearchParams(searchParams)
+  scopeParams.delete('previewFileId')
+  const requestKey = `${scopeParams.toString()}|${selectedAccountId}`
+  scopeParams.delete('page')
+  const scopeKey = `${scopeParams.toString()}|${selectedAccountId}`
+  const previousScope = useRef(scopeKey)
+  const currentRequestKey = useRef(requestKey)
+  currentRequestKey.current = requestKey
+  useEffect(() => {
+    if (previousScope.current !== scopeKey && searchParams.has('page')) setSearchParams((params) => { params.delete('page'); return params }, { replace: true })
+    previousScope.current = scopeKey
+  }, [scopeKey])
   const previewVideoRef = useRef<HTMLVideoElement | null>(null)
   const { setHeaderActions } = useDriveLayoutActions()
   const { language, t } = useLanguage()
@@ -160,7 +174,11 @@ export function AllFilesPage() {
   const [dismissUpdateBanner, setDismissUpdateBanner] = useState(false)
 
   async function loadFiles() {
+    const key = requestKey
     const params = new URLSearchParams()
+    params.set('limit', '50')
+    params.set('page', String(page))
+    params.set('sort', searchParams.get('sort') || 'date_desc')
     if (activeFolderId) params.set('folderId', activeFolderId)
     if (searchQuery) params.set('q', searchQuery)
 
@@ -188,11 +206,14 @@ export function AllFilesPage() {
 
     const query = params.toString()
     const path = query ? `/files?${query}` : '/files'
-    const data = await apiFetch<{ files: BackendFile[] }>(path)
+    const data = await apiFetch<{ files: BackendFile[]; total: number; page: number; pageSize: number; hasMore: boolean }>(path)
+    if (currentRequestKey.current !== key) return
     setFiles(data.files.map(mapFile))
+    setPagination({ total: data.total, page: data.page, pageSize: data.pageSize, hasMore: data.hasMore })
   }
 
   async function loadFolders() {
+    const key = requestKey
     const folderParams = new URLSearchParams()
     if (activeFolderId) folderParams.set('parentId', activeFolderId)
     const effectiveAccountId = searchParams.get('accountId') || (selectedAccountId !== 'all' ? selectedAccountId : '')
@@ -211,12 +232,22 @@ export function AllFilesPage() {
       apiFetch<{ folders: BackendFolder[] }>(visiblePath),
       apiFetch<{ folders: BackendFolder[] }>(`/folders?${allParams.toString()}`),
     ])
-    setFolders(visibleData.folders.map(mapFolder))
+    if (currentRequestKey.current !== key) return
+    setFolders((searchQuery && !activeFolderId ? allData : visibleData).folders.map(mapFolder))
     setAllFolders(allData.folders.map(mapFolder))
   }
 
   async function loadAll() {
-    await Promise.all([loadFiles(), loadFolders()])
+    const key = requestKey
+    setListLoading(true)
+    setListError('')
+    try {
+      await Promise.all([loadFiles(), loadFolders()])
+    } catch (error) {
+      if (currentRequestKey.current === key) setListError(error instanceof Error ? error.message : 'Failed to load files')
+    } finally {
+      if (currentRequestKey.current === key) setListLoading(false)
+    }
   }
 
   async function handleDropItem(fileId: string, targetFolderId: string) {
@@ -239,25 +270,20 @@ export function AllFilesPage() {
   }
 
   useEffect(() => {
-    loadAll().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to load files'))
+    void loadAll()
     setSelectedFileIds(new Set())
-  }, [
-    activeFolderId,
-    searchQuery,
-    selectedAccountId,
-    searchParams.get('accountId'),
-    searchParams.get('kind'),
-    searchParams.get('modified'),
-  ])
+    setFoldersExpanded(false)
+  }, [requestKey])
 
   const previewFileId = searchParams.get('previewFileId')
   useEffect(() => {
     if (!previewFileId) return
     const found = files.find((f) => f.id === previewFileId)
-    if (found) {
-      openFilePreview(found)
-    }
-  }, [previewFileId, files])
+    let cancelled = false
+    if (found) void openFilePreview(found)
+    else apiFetch<{ file: BackendFile }>(`/files/${encodeURIComponent(previewFileId)}`).then(({ file }) => { if (!cancelled) void openFilePreview(mapFile(file)) }).catch((error) => { if (!cancelled) toast.error(error instanceof Error ? error.message : 'File unavailable') })
+    return () => { cancelled = true }
+  }, [previewFileId])
 
   useEffect(() => {
     async function loadConnectedAccounts() {
@@ -493,32 +519,16 @@ export function AllFilesPage() {
   const sortBy = searchParams.get('sort') || 'date_desc'
 
   const sortedFolders = useMemo(() => {
-    const list = [...(!activeFolderId ? folders : folders)]
+    const list = ['kind', 'modified', 'minSize', 'maxSize', 'startDate', 'endDate'].some(key => searchParams.has(key)) ? [] : folders.filter((folder) => !searchQuery || folder.name.toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()))
     return list.sort((a, b) => {
       if (sortBy === 'name_asc') return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
       if (sortBy === 'name_desc') return b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' })
-      if (sortBy === 'date_asc') return new Date(a.updated || 0).getTime() - new Date(b.updated || 0).getTime()
-      return new Date(b.updated || 0).getTime() - new Date(a.updated || 0).getTime()
+      if (sortBy === 'date_asc') return new Date(a.updatedAt || 0).getTime() - new Date(b.updatedAt || 0).getTime()
+      return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
     })
-  }, [folders, activeFolderId, sortBy])
+  }, [folders, searchQuery, searchParams.toString(), sortBy])
 
-  const sortedFiles = useMemo(() => {
-    const list = [...files]
-    return list.sort((a, b) => {
-      if (sortBy === 'name_asc') return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-      if (sortBy === 'name_desc') return b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' })
-      if (sortBy === 'size_desc') return Number(b.sizeBytes || 0) - Number(a.sizeBytes || 0)
-      if (sortBy === 'size_asc') return Number(a.sizeBytes || 0) - Number(b.sizeBytes || 0)
-      if (sortBy === 'date_asc') {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-        return timeA - timeB
-      }
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-      return timeB - timeA
-    })
-  }, [files, sortBy])
+  const sortedFiles = files
 
   function toggleAllVisibleFiles() {
     const visibleIds = sortedFiles.map((file) => file.id).filter(Boolean) as string[]
@@ -698,13 +708,9 @@ export function AllFilesPage() {
       : (activeFile ?? contextMenu.file)
     if (!target?.id) return
     try {
-      let url = target.driveUrl
-      if (!url) {
-        const data = await apiFetch<{ url: string }>(`/files/${target.id}/share`, { method: 'POST' })
-        url = data.url
-      }
+      const url = target.driveUrl || `${window.location.origin}/all-files?previewFileId=${encodeURIComponent(target.id)}`
       await navigator.clipboard.writeText(url)
-      toast.success('Google Drive link copied to clipboard!')
+      toast.success(language === 'id' ? 'Tautan disalin. Izin akses tetap berlaku.' : 'Link copied. Existing access permissions apply.')
     } catch (err: any) {
       toast.error('Failed to copy link: ' + (err.message || err))
     }
@@ -719,7 +725,7 @@ export function AllFilesPage() {
     try {
       const url = target.driveUrl || (target.providerFolderId ? `https://drive.google.com/drive/folders/${target.providerFolderId}` : `${window.location.origin}/all-files?folderId=${target.id}`)
       await navigator.clipboard.writeText(url)
-      toast.success('Google Drive folder link copied to clipboard!')
+      toast.success(t('action.link_copied_access', 'Link copied. Existing access permissions apply.'))
     } catch (err: any) {
       toast.error('Failed to copy folder link: ' + (err.message || err))
     }
@@ -807,11 +813,12 @@ export function AllFilesPage() {
           title="Sync with Google Drive"
         >
           <RefreshCw className={syncingDrive ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
-          {syncingDrive ? 'Syncing...' : 'Sync'}
+          {syncingDrive ? t('action.syncing', 'Syncing…') : t('action.sync', 'Sync')}
         </Button>
       </div>
     )
-  }, [syncingDrive])
+    return () => setHeaderActions(null)
+  }, [syncingDrive, language])
 
   const activeFolder = allFolders.find((folder) => folder.id === activeFolderId)
   const folderBreadcrumbs = (() => {
@@ -913,20 +920,20 @@ export function AllFilesPage() {
           <div className="flex items-center gap-2 lg:hidden">
             <Button size="sm" onClick={() => fileUploadInputRef.current?.click()}>
               <Upload className="h-3.5 w-3.5" />
-              Upload
+              {t('action.file_upload', 'Upload files')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setFolderOpen(true)}>
               <FolderPlus className="h-3.5 w-3.5" />
-              New Folder
+              {t('action.new_folder', 'New folder')}
             </Button>
-            <Button size="sm" variant="outline" disabled={syncingDrive} onClick={syncGoogleDrive}>
+            <Button size="sm" variant="outline" disabled={syncingDrive} onClick={syncGoogleDrive} aria-label={language === 'id' ? 'Sinkronkan Google Drive' : 'Sync Google Drive'}>
               <RefreshCw className={syncingDrive ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
             </Button>
           </div>
         </div>
 
         {/* Minimalist Alert: Drive Not Connected */}
-        {connectedAccounts.length === 0 && !loading && !dismissStorageBanner && (
+        {connectedAccounts.length === 0 && !isLoadingAccounts && !accountsError && !listLoading && !listError && !loading && !dismissStorageBanner && (
           <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-[#D3E3FD] bg-[#EDF2FC]/70 px-4 py-2.5 text-xs text-[#1F1F1F] dark:border-[#2C384A] dark:bg-[#1E232B]/70 dark:text-[#E3E3E3] transition-all">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#D3E3FD] text-[#0B57D0] dark:bg-[#004A77] dark:text-[#A8C7FA]">
@@ -935,7 +942,7 @@ export function AllFilesPage() {
               <p className="truncate text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
                 {language === 'id' ? 'Drive belum terhubung' : 'Drive not connected'}
                 <span className="hidden sm:inline font-normal text-[#444746] dark:text-[#C4C7C5] ml-2">
-                  {language === 'id' ? '— Hubungkan akun penyimpanan untuk mulai mengelola berkas' : '— Connect a storage account to manage your files'}
+                  {language === 'id' ? 'Hubungkan akun penyimpanan untuk mulai mengelola berkas' : 'Connect a storage account to manage your files'}
                 </span>
               </p>
             </div>
@@ -971,7 +978,7 @@ export function AllFilesPage() {
               <p className="truncate text-xs font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
                 {language === 'id' ? `Versi baru v${updateInfo.latestVersion} tersedia` : `New version v${updateInfo.latestVersion} available`}
                 <span className="hidden sm:inline font-normal text-[#444746] dark:text-[#C4C7C5] ml-2">
-                  {language === 'id' ? '— Jalankan npm install -g 9drive di terminal untuk memperbarui' : '— Run npm install -g 9drive in terminal to update'}
+                  {language === 'id' ? 'Jalankan npm install -g 9drive di terminal untuk memperbarui' : 'Run npm install -g 9drive in terminal to update'}
                 </span>
               </p>
             </div>
@@ -1057,11 +1064,11 @@ export function AllFilesPage() {
         )}
 
         {/* Filter Chips Toolbar + Batch Actions */}
-        <div className="flex items-center justify-between gap-3 pt-3 pb-2 select-none">
+        <div className="sticky top-0 z-30 flex items-center justify-between gap-3 bg-white pt-3 pb-2 select-none dark:bg-[#1E1F20]">
           {selectedFileIds.size > 0 ? (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium text-[#001D35] bg-[#C2E7FF] px-3 py-1.5 rounded-full dark:bg-[#004A77] dark:text-[#C2E7FF]">
-                {selectedFileIds.size} selected
+                {selectedFileIds.size} {language === 'id' ? 'dipilih' : 'selected'}
               </span>
               {selectedFileIds.size === 1 && (
                 <>
@@ -1075,7 +1082,7 @@ export function AllFilesPage() {
                     }}
                     className="gap-1.5 rounded-full border-[#747775]/40 text-[#0B57D0] hover:bg-[#0B57D0]/10 hover:border-[#0B57D0] dark:border-[#747775]/60 dark:text-[#A8C7FA]"
                   >
-                    <UserPlus className="h-3.5 w-3.5" /> Share
+                    <UserPlus className="h-3.5 w-3.5" /> {t('action.share', 'Share')}
                   </Button>
                   <Button
                     size="sm"
@@ -1087,21 +1094,21 @@ export function AllFilesPage() {
                     }}
                     className="gap-1.5 rounded-full border-[#747775]/40 text-[#444746] hover:bg-black/5 dark:border-[#747775]/60 dark:text-[#C4C7C5]"
                   >
-                    <Link2 className="h-3.5 w-3.5" /> Copy link
+                    <Link2 className="h-3.5 w-3.5" /> {t('action.copy_link', 'Copy link')}
                   </Button>
                 </>
               )}
               <Button size="sm" variant="outline" onClick={downloadBatchAsZip}>
-                <Download className="h-3.5 w-3.5" /> Download ZIP
+                <Download className="h-3.5 w-3.5" /> {t('action.download_zip', 'Download ZIP')}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setMoveOpen(true)}>
-                <FolderInput className="h-3.5 w-3.5" /> Move
+                <FolderInput className="h-3.5 w-3.5" /> {t('modal.move_title', 'Move')}
               </Button>
               <Button size="sm" variant="danger" onClick={() => setDeleteOpen(true)}>
-                <Trash2 className="h-3.5 w-3.5" /> Delete
+                <Trash2 className="h-3.5 w-3.5" /> {t('menu.move_to_trash', 'Move to trash')}
               </Button>
               <Button size="sm" variant="ghost" onClick={clearSelection}>
-                Clear
+                {t('action.clear_selection', 'Clear selection')}
               </Button>
             </div>
           ) : (
@@ -1110,6 +1117,7 @@ export function AllFilesPage() {
               <Select
                 variant="chip"
                 className="w-auto min-w-[110px]"
+                aria-label={language === 'id' ? 'Jenis file' : 'File type'}
                 value={searchParams.get('kind') || 'all'}
                 onChange={(val) => {
                   const next = new URLSearchParams(searchParams)
@@ -1134,6 +1142,7 @@ export function AllFilesPage() {
               <Select
                 variant="chip"
                 className="w-auto min-w-[130px]"
+                aria-label={language === 'id' ? 'Waktu diubah' : 'Modified date'}
                 value={searchParams.get('modified') || 'all'}
                 onChange={(val) => {
                   const next = new URLSearchParams(searchParams)
@@ -1157,6 +1166,7 @@ export function AllFilesPage() {
               <Select
                 variant="chip"
                 className="w-auto min-w-[140px]"
+                aria-label={language === 'id' ? 'Urutkan file' : 'Sort files'}
                 value={searchParams.get('sort') || 'date_desc'}
                 onChange={(val) => {
                   const next = new URLSearchParams(searchParams)
@@ -1253,26 +1263,27 @@ export function AllFilesPage() {
         ) : null}
 
         {/* Folders Section */}
-        {sortedFolders.length > 0 && (
+        {listLoading ? <p role="status" className="py-8 text-sm text-[#444746] dark:text-[#C4C7C5]">{language === 'id' ? 'Memuat file dan folder…' : 'Loading files and folders…'}</p> : listError ? <div role="alert" className="my-4 rounded-xl border border-[#B3261E] p-4 text-sm text-[#B3261E] dark:border-[#F2B8B5] dark:text-[#F2B8B5]"><p>{listError}</p><Button variant="outline" className="mt-3" onClick={() => void loadAll()}>{language === 'id' ? 'Coba lagi' : 'Retry'}</Button></div> : null}
+        {!listLoading && !listError && sortedFolders.length > 0 && (
           <div className="mt-4">
-            <h2 className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5]">
-              {t('section.folders', 'Folders')}
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-base font-medium text-[#444746] dark:text-[#C4C7C5]">{t('section.folders', 'Folders')} ({sortedFolders.length})</h2>{sortedFolders.length > 12 && <button className="min-h-11 rounded-full px-3 text-sm text-[#0B57D0] dark:text-[#A8C7FA]" aria-expanded={foldersExpanded} onClick={() => setFoldersExpanded(!foldersExpanded)}>{foldersExpanded ? (language === 'id' ? 'Tampilkan lebih sedikit' : 'Show less') : (language === 'id' ? 'Lihat semua folder' : 'View all folders')}</button>}</div>
+            <div role="region" aria-label={t('section.folders', 'Folders')} tabIndex={0} className={`${foldersExpanded ? 'max-h-80' : 'max-h-48'} overflow-y-auto overscroll-contain`}>
             <FolderGrid
-              items={sortedFolders}
+              items={foldersExpanded ? sortedFolders : sortedFolders.slice(0, 12)}
               mobileTwoColumns
               onFolderMenu={openFolderMenu}
               onFolderOpen={openFolder}
               onDropItem={handleDropItem}
             />
+            </div>
           </div>
         )}
 
         {/* Files Section */}
-        {sortedFiles.length > 0 ? (
+        {!listLoading && !listError && (sortedFiles.length > 0 ? (
           <div className="mt-6 flex-1">
-            <h2 className="text-xs font-medium text-[#444746] dark:text-[#C4C7C5]">
-              {t('section.files', 'Files')}
+            <h2 className="text-base font-medium text-[#444746] dark:text-[#C4C7C5]">
+              {t('section.files', 'Files')} ({pagination.total})
             </h2>
             {fileViewMode === 'grid' ? (
               <FileGrid
@@ -1281,6 +1292,7 @@ export function AllFilesPage() {
                 onToggleFile={toggleFileSelection}
                 onFileContextMenu={openContext}
                 onShare={shareFile}
+                onFileDoubleClick={(file) => void openFilePreview(file)}
               />
             ) : (
               <FileTable
@@ -1291,10 +1303,12 @@ export function AllFilesPage() {
                 onToggleAll={toggleAllVisibleFiles}
                 onFileContextMenu={openContext}
                 onShare={shareFile}
+                onFileDoubleClick={(file) => void openFilePreview(file)}
               />
             )}
+            <nav aria-label={language === 'id' ? 'Halaman file' : 'File pages'} className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[#444746] dark:text-[#C4C7C5]"><span>{(pagination.page - 1) * pagination.pageSize + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} / {pagination.total}</span><div className="flex gap-2"><Button variant="outline" disabled={pagination.page <= 1} onClick={() => setSearchParams((params) => { params.set('page', String(pagination.page - 1)); return params })}>{language === 'id' ? 'Sebelumnya' : 'Previous'}</Button><Button variant="outline" disabled={!pagination.hasMore} onClick={() => setSearchParams((params) => { params.set('page', String(pagination.page + 1)); return params })}>{language === 'id' ? 'Berikutnya' : 'Next'}</Button></div></nav>
           </div>
-        ) : sortedFolders.length === 0 ? (
+        ) : sortedFolders.length === 0 || searchQuery || searchParams.get('kind') ? (
           /* Offline or Empty State */
           typeof navigator !== 'undefined' && !navigator.onLine ? (
             <OfflineScreen onRetry={loadAll} />
@@ -1304,7 +1318,7 @@ export function AllFilesPage() {
                 <HardDrive className="h-12 w-12 stroke-[1.2]" />
               </div>
               <h3 className="text-lg font-normal text-[#1F1F1F] dark:text-[#E3E3E3]">
-                {t('empty.all_files_title', 'A place for all of your files')}
+                {searchQuery || searchParams.get('kind') ? (language === 'id' ? 'Tidak ada hasil' : 'No results') : t('empty.all_files_title', 'A place for all of your files')}
               </h3>
               <p className="mt-1 text-xs text-[#747775] dark:text-[#8E918F] max-w-sm">
                 {searchQuery
@@ -1313,9 +1327,10 @@ export function AllFilesPage() {
                   ? t('empty.folder_empty', 'This folder is empty. Drag files here or use the "+ New" button to upload.')
                   : t('empty.all_files_desc', 'Drag your files here or use the "+ New" button on the left to upload.')}
               </p>
+              {searchQuery || searchParams.get('kind') ? <Button variant="outline" className="mt-4" onClick={() => setSearchParams(activeFolderId ? { folderId: activeFolderId } : {})}>{language === 'id' ? 'Hapus filter' : 'Clear filters'}</Button> : connectedAccounts.some(account => account.status === 'connected') ? <Button className="mt-4" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4" />{t('action.file_upload', 'Upload files')}</Button> : <Link to="/settings" className="mt-4 inline-flex min-h-11 items-center rounded-full bg-[#0B57D0] px-5 text-sm text-white dark:bg-[#A8C7FA] dark:text-[#001D35]">{language === 'id' ? 'Hubungkan penyimpanan' : 'Connect storage'}</Link>}
             </div>
           )
-        ) : null}
+        ) : null)}
       </div>
       <EmptyAreaContextMenu x={emptyContextMenu.x} y={emptyContextMenu.y} open={emptyContextMenu.open} canPasteFolder={Boolean(cutFolder)} onClose={() => setEmptyContextMenu({ x: 0, y: 0, open: false })} onUpload={() => { fileUploadInputRef.current?.click(); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onCreateFolder={() => { setFolderOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onPasteFolder={() => { pasteFolder().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to paste folder')); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} />
       <FileContextMenu x={contextMenu.x} y={contextMenu.y} file={contextMenu.file} onClose={() => setContextMenu({ x: 0, y: 0, file: null })} onView={viewFile} onDownload={downloadFile} onRename={() => { setRenameValue(activeFile?.name ?? ''); setRenameOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onMove={() => { setMoveOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onDetails={() => { setDetailOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onShare={() => shareFile(contextMenu.file ?? activeFile)} onCopyLink={() => copyShareLinkDirect(contextMenu.file ?? activeFile)} onDelete={() => { setDeleteOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} />
@@ -1424,9 +1439,9 @@ export function AllFilesPage() {
         <form onSubmit={createFolder} className="grid gap-4">
           <label className="grid gap-1.5 text-xs font-medium text-[#444746] dark:text-[#C4C7C5]">
             {t('modal.folder_name', 'Folder Name')}
-            <Input value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder={t('modal.untitled_folder', 'Untitled folder')} required autoFocus />
+            <Input value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder={t('modal.untitled_folder', 'Untitled folder')} required />
           </label>
-          <FolderAppearanceFields color={folderColor} iconUrl={folderIconUrl} onColorChange={setFolderColor} onIconChange={setFolderIconUrl} />
+          <details><summary className="min-h-11 cursor-pointer py-3 text-sm text-[#444746] dark:text-[#C4C7C5]">{language === 'id' ? 'Warna dan ikon folder' : 'Folder color and icon'}</summary><FolderAppearanceFields color={folderColor} iconUrl={folderIconUrl} onColorChange={setFolderColor} onIconChange={setFolderIconUrl} /></details>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setFolderOpen(false)}>{t('action.cancel', 'Cancel')}</Button>
             <Button>{t('action.create', 'Create')}</Button>
@@ -1436,7 +1451,7 @@ export function AllFilesPage() {
 
       <DummyModal open={renameOpen} title={t('modal.rename_title', 'Rename')} description={activeFile?.name ?? ''} onClose={() => setRenameOpen(false)}>
         <form onSubmit={renameFile} className="grid gap-4">
-          <Input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} required autoFocus />
+          <Input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} required />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setRenameOpen(false)}>{t('action.cancel', 'Cancel')}</Button>
             <Button>{t('action.ok', 'OK')}</Button>
@@ -1465,7 +1480,7 @@ export function AllFilesPage() {
         </form>
       </DummyModal>
 
-      <DummyModal open={deleteOpen} title={t('modal.delete_file_title', 'Move to trash?')} description={selectedFileIds.size > 0 ? (language === 'id' ? `Pindahkan ${selectedFileIds.size} file ke sampah?` : `Delete ${selectedFileIds.size} files from Google Drive?`) : (language === 'id' ? `Pindahkan "${activeFile?.name ?? 'file'}" ke sampah?` : `Delete "${activeFile?.name ?? 'file'}"?`)} onClose={() => setDeleteOpen(false)}>
+      <DummyModal open={deleteOpen} title={t('modal.delete_file_title', 'Move to trash?')} description={selectedFileIds.size > 0 ? (language === 'id' ? `Pindahkan ${selectedFileIds.size} file ke sampah?` : `Move ${selectedFileIds.size} files to trash?`) : (language === 'id' ? `Pindahkan "${activeFile?.name ?? 'file'}" ke sampah?` : `Move "${activeFile?.name ?? 'file'}" to trash?`)} onClose={() => setDeleteOpen(false)}>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={() => setDeleteOpen(false)}>{t('action.cancel', 'Cancel')}</Button>
           <Button variant="danger" onClick={deleteFile}>{t('menu.move_to_trash', 'Move to trash')}</Button>
@@ -1480,7 +1495,7 @@ export function AllFilesPage() {
 
       <DummyModal open={folderRenameOpen} title={t('modal.rename_title', 'Rename')} description={activeFolderForMenu?.name ?? ''} onClose={() => setFolderRenameOpen(false)}>
         <form onSubmit={renameFolder} className="grid gap-4">
-          <Input value={folderRenameValue} onChange={(event) => setFolderRenameValue(event.target.value)} required autoFocus />
+          <Input value={folderRenameValue} onChange={(event) => setFolderRenameValue(event.target.value)} required />
           <FolderAppearanceFields color={folderRenameColor} iconUrl={folderRenameIconUrl} onColorChange={setFolderRenameColor} onIconChange={setFolderRenameIconUrl} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setFolderRenameOpen(false)}>{t('action.cancel', 'Cancel')}</Button>

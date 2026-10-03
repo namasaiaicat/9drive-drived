@@ -39,6 +39,36 @@ export function Select({
 }: SelectProps) {
   const [isOpen, setIsOpen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const listId = React.useId()
+  const [activeIndex, setActiveIndex] = React.useState(0)
+
+  function openList(direction = 1) {
+    const selected = options.findIndex(option => option.value === value && !option.disabled)
+    setActiveIndex(selected >= 0 ? selected : direction > 0 ? options.findIndex(option => !option.disabled) : options.findLastIndex(option => !option.disabled))
+    setIsOpen(true)
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault()
+      if (!isOpen) { openList(event.key === 'ArrowUp' || event.key === 'End' ? -1 : 1); return }
+      const enabled = options.map((option, index) => option.disabled ? -1 : index).filter(index => index >= 0)
+      const position = enabled.indexOf(activeIndex)
+      const next = event.key === 'Home' ? enabled[0] : event.key === 'End' ? enabled.at(-1) : enabled[(position + (event.key === 'ArrowDown' ? 1 : -1) + enabled.length) % enabled.length]
+      if (next !== undefined) setActiveIndex(next)
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      if (isOpen && options[activeIndex]) handleSelect(options[activeIndex])
+      else openList()
+    } else if (event.key === 'Escape' || event.key === 'Tab') {
+      setIsOpen(false)
+    }
+  }
+
+  React.useEffect(() => {
+    if (isOpen) document.getElementById(`${listId}-${activeIndex}`)?.scrollIntoView({ block: 'nearest' })
+  }, [isOpen, activeIndex, listId])
 
   // Find active option
   const selectedOption = React.useMemo(
@@ -80,6 +110,7 @@ export function Select({
     if (option.disabled) return
     onChange?.(option.value)
     setIsOpen(false)
+    triggerRef.current?.focus()
   }
 
   // Variant classes
@@ -88,7 +119,7 @@ export function Select({
       'h-10 px-3.5 text-sm rounded-xl border border-[#747775]/40 bg-white dark:bg-[#1E1F20] dark:border-[#747775]/50 text-[#1F1F1F] dark:text-[#E3E3E3]',
     sm: 'h-9 px-3 text-xs rounded-lg border border-[#747775]/40 bg-white dark:bg-[#1E1F20] dark:border-[#747775]/50 text-[#1F1F1F] dark:text-[#E3E3E3]',
     chip: cn(
-      'h-8 px-3.5 text-xs font-medium rounded-full border transition-colors whitespace-nowrap',
+      'min-h-10 px-3.5 text-xs font-medium rounded-full border transition-colors whitespace-nowrap',
       value && value !== 'all' && value !== 'date_desc'
         ? 'border-[#0B57D0]/60 bg-[#C2E7FF]/50 text-[#001D35] dark:border-[#A8C7FA]/60 dark:bg-[#004A77]/40 dark:text-[#C2E7FF]'
         : 'border-[#747775]/30 bg-white dark:bg-[#1E1F20] dark:border-[#747775]/50 text-[#1F1F1F] dark:text-[#E3E3E3] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A]'
@@ -108,15 +139,20 @@ export function Select({
       {name && <input type="hidden" name={name} value={value ?? ''} />}
 
       <button
+        ref={triggerRef}
         type="button"
         id={id}
-        aria-label={ariaLabel}
+        aria-label={ariaLabel ?? selectedOption?.label ?? placeholder}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        aria-controls={isOpen ? listId : undefined}
+        role="combobox"
+        aria-activedescendant={isOpen && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
         disabled={disabled}
-        onClick={() => !disabled && setIsOpen((prev) => !prev)}
+        onClick={() => isOpen ? setIsOpen(false) : openList()}
+        onKeyDown={handleKeyDown}
         className={cn(
-          'flex w-full items-center justify-between gap-2 text-left transition-all duration-200 ease-[cubic-bezier(0.05,0.7,0.1,1.0)] active:scale-[0.98] cursor-pointer select-none outline-none',
+          'flex w-full items-center justify-between gap-2 text-left transition-colors duration-150 cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B57D0] dark:focus-visible:outline-[#A8C7FA]',
           variantStyles[variant],
           activeFocusStyle,
           disabled && 'opacity-50 cursor-not-allowed pointer-events-none'
@@ -138,7 +174,9 @@ export function Select({
 
       {isOpen && (
         <div
+          id={listId}
           role="listbox"
+          aria-label={ariaLabel ?? selectedOption?.label ?? placeholder}
           tabIndex={-1}
           className={cn(
             'absolute left-0 top-full z-[100] mt-1.5 w-max min-w-full max-w-[calc(100vw-2rem)] max-h-64 overflow-y-auto rounded-2xl border border-[#E0E3E7] bg-white p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm dark:border-[#36373A] dark:bg-[#1E1F20] dark:shadow-[0_12px_36px_rgba(0,0,0,0.7)] animate-m3-popover origin-top',
@@ -150,16 +188,20 @@ export function Select({
               No options available
             </div>
           ) : (
-            options.map((option) => {
+            options.map((option, index) => {
               const isSelected = option.value === value
               return (
                 <div
                   key={option.value}
+                  id={`${listId}-${index}`}
                   role="option"
                   aria-selected={isSelected}
+                  aria-disabled={option.disabled || undefined}
+                  onMouseEnter={() => !option.disabled && setActiveIndex(index)}
                   onClick={() => handleSelect(option)}
                   className={cn(
-                    'group flex items-center justify-between gap-2 rounded-lg px-3 py-2 transition-all duration-150 active:scale-[0.99] cursor-pointer select-none',
+                    'group flex min-h-11 items-center justify-between gap-2 rounded-lg px-3 py-2 transition-colors duration-150 cursor-pointer select-none',
+                    index === activeIndex && 'outline outline-2 -outline-offset-2 outline-[#0B57D0] dark:outline-[#A8C7FA]',
                     variant === 'default' ? 'text-sm' : 'text-xs',
                     isSelected
                       ? 'bg-[#C2E7FF]/40 text-[#001D35] font-medium dark:bg-[#004A77]/40 dark:text-[#C2E7FF]'

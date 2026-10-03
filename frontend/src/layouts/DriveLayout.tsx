@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import { Outlet, useOutletContext, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useOutletContext, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   CheckCircle,
   ChevronDown,
@@ -33,6 +33,8 @@ import { clearAuthSession, getStoredUser, updateStoredUser, type AuthUser } from
 import { getGravatarUrl } from '@/lib/gravatar'
 import { cn } from '@/lib/utils'
 import { DriveAccountSelector } from '@/components/drive/DriveAccountSelector'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
+import { useMenuFocus } from '@/hooks/useMenuFocus'
 
 const navItemDefs = [
   { key: 'nav.my_drive', defaultLabel: 'My Drive', icon: HardDrive, href: '/all-files' },
@@ -63,12 +65,13 @@ export function useDriveLayoutActions() {
 }
 
 function SystemInfoDropdown({ storage, onClose }: { storage: any; onClose: () => void }) {
+  useEffect(() => { const close = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }; document.addEventListener('keydown', close); return () => document.removeEventListener('keydown', close) }, [onClose])
   const activeGoogle = storage?.accounts?.filter((a: any) => a.provider === 'google_drive' && a.status === 'connected') ?? []
 
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white shadow-xl dark:border-[#36373A] dark:bg-[#1E1F20]">
+      <div className="absolute right-0 top-12 z-50 w-80 max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white shadow-xl dark:border-[#36373A] dark:bg-[#1E1F20]">
         <div className="border-b border-[#E0E3E7] px-4 py-3 bg-[#F8FAFD] dark:border-[#36373A] dark:bg-[#28292A]">
           <p className="text-sm font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">System Status & Info</p>
           <p className="text-xs text-[#747775] dark:text-[#8E918F]">Storage gateway overview</p>
@@ -91,7 +94,7 @@ function SystemInfoDropdown({ storage, onClose }: { storage: any; onClose: () =>
             </h4>
             <div className="rounded-lg bg-[#F8FAFD] p-2.5 border border-[#E0E3E7] dark:bg-[#28292A] dark:border-[#36373A] space-y-1 text-[11px]">
               <p>• <b>Storage Folder:</b> <code>9drive</code> on Google Drive</p>
-              <p>• <b>Max Upload:</b> 5 GB per file stream</p>
+              <p>• Upload limits are configured by your administrator.</p>
               <p>• <b>Direct Streaming:</b> No local disk caching</p>
             </div>
           </div>
@@ -103,6 +106,7 @@ function SystemInfoDropdown({ storage, onClose }: { storage: any; onClose: () =>
 
 function SidebarNewButton({ onNewFolder, onUploadFile }: { onNewFolder: () => void; onUploadFile: () => void }) {
   const [open, setOpen] = useState(false)
+  const menuRef = useMenuFocus(open, () => setOpen(false))
   const ref = useRef<HTMLDivElement>(null)
   const { t } = useLanguage()
 
@@ -139,7 +143,7 @@ function SidebarNewButton({ onNewFolder, onUploadFile }: { onNewFolder: () => vo
       </button>
 
       {open && (
-        <div className="absolute left-2 top-16 z-50 w-52 overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:border-[#36373A] dark:bg-[#1E1F20] dark:shadow-[0_12px_36px_rgba(0,0,0,0.6)] animate-m3-popover">
+        <div ref={menuRef} data-menu-surface className="absolute left-2 top-16 z-50 w-52 overflow-hidden rounded-2xl border border-[#E0E3E7] bg-white py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:border-[#36373A] dark:bg-[#1E1F20] dark:shadow-[0_12px_36px_rgba(0,0,0,0.6)] animate-m3-popover">
           <button
             type="button"
             className="flex h-10 w-full items-center gap-3 px-4 text-xs font-normal text-[#1F1F1F] transition-all duration-150 active:scale-[0.98] hover:bg-[#F0F4F9] dark:text-[#E3E3E3] dark:hover:bg-[#28292A]"
@@ -267,6 +271,7 @@ export function DriveLayout() {
   const [user, setUser] = useState<AuthUser | null>(getStoredUser())
   const [storage, setStorage] = useState<StorageSummary | null>(null)
   const [infoOpen, setInfoOpen] = useState(false)
+  const drawerRef = useDialogFocus(sidebarOpen, () => setSidebarOpen(false))
   const [headerActions, setHeaderActions] = useState<ReactNode>(null)
   const { uploadProgress, setUploadProgress, retryFailedUpload } = useUpload()
   const [uploadProgressCollapsed, setUploadProgressCollapsed] = useState(false)
@@ -290,24 +295,6 @@ export function DriveLayout() {
     }
   }, [])
 
-  // Auto-dismiss floating progress card 2 seconds after upload / processing finishes
-  useEffect(() => {
-    if (!uploadProgress.open) return
-
-    const isAllDone =
-      uploadProgress.status === 'done' ||
-      (uploadProgress.percent >= 100 &&
-        uploadProgress.files.length > 0 &&
-        uploadProgress.files.every((f) => f.status === 'done' || f.percent >= 100))
-
-    if (isAllDone) {
-      const timer = setTimeout(() => {
-        setUploadProgress((prev) => ({ ...prev, open: false }))
-      }, 2000)
-      return () => clearTimeout(timer)
-    }
-  }, [uploadProgress.open, uploadProgress.status, uploadProgress.percent, uploadProgress.files, setUploadProgress])
-
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('9drive:theme')
     if (saved === 'light' || saved === 'dark') return saved
@@ -324,6 +311,7 @@ export function DriveLayout() {
       root.classList.remove('dark')
     }
     localStorage.setItem('9drive:theme', theme)
+    root.style.colorScheme = theme
   }, [theme])
 
   function toggleTheme() {
@@ -388,9 +376,10 @@ export function DriveLayout() {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-[#F8FAFD] dark:bg-[#131314]">
       {/* 1. Google Drive Top Header (64px) */}
-      <header className="relative flex h-16 w-full shrink-0 items-center justify-between px-4 bg-[#F8FAFD] dark:bg-[#131314] z-40">
+      <a href="#drive-main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-2 focus:z-[100] focus:rounded-lg focus:bg-white focus:p-3 focus:text-[#0B57D0]">{language === 'id' ? 'Lewati ke konten' : 'Skip to content'}</a>
+      <header className="relative z-40 flex min-h-16 w-full shrink-0 flex-wrap items-center gap-y-2 bg-[#F8FAFD] px-3 py-2 xl:h-16 xl:flex-nowrap xl:px-4 xl:py-0 dark:bg-[#131314]">
         {/* Left: Hamburger + Google Drive Logo & Title */}
-        <div className="flex items-center gap-3 w-60 shrink-0">
+        <div className="order-1 flex shrink-0 items-center gap-2 xl:w-60">
           <button
             type="button"
             className="flex h-10 w-10 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10 lg:hidden"
@@ -399,29 +388,29 @@ export function DriveLayout() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div
-            onClick={() => navigate('/all-files')}
-            className="flex items-center gap-2.5 cursor-pointer select-none"
+          <Link
+            to="/all-files"
+            aria-label={language === 'id' ? '9Drive, Drive Saya' : '9Drive, My Drive'}
+            className="flex items-center gap-2.5 select-none"
           >
             <BrandLogo className="h-10 w-10 shrink-0" />
-            <span className="text-[22px] font-normal tracking-tight text-[#1F1F1F] dark:text-[#E3E3E3]">
+            <span className="hidden text-[22px] font-normal tracking-tight text-[#1F1F1F] sm:inline dark:text-[#E3E3E3]">
               9Drive
             </span>
-          </div>
+          </Link>
         </div>
 
         {/* Center: Material 3 Search in Drive with Dropdown */}
         <DriveSearchBar />
 
         {/* Right Header Utilities: Account Selector + Actions slot + Help + Settings + Theme + Profile */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <DriveAccountSelector />
+        <div className="order-2 ml-auto flex shrink-0 items-center gap-1 xl:order-4">
 
           {headerActions ? (
-            <div className="hidden lg:flex items-center gap-2 mr-1">{headerActions}</div>
+            <div className="hidden xl:flex items-center gap-2 mr-1">{headerActions}</div>
           ) : null}
 
-          <div className="relative">
+          <div className="relative hidden xl:block">
             <button
               type="button"
               className="flex h-10 w-10 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
@@ -435,16 +424,27 @@ export function DriveLayout() {
 
           <button
             type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
+            className="hidden h-11 w-11 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 xl:flex dark:text-[#C4C7C5] dark:hover:bg-white/10"
             onClick={() => navigate('/settings')}
             aria-label="Settings"
           >
             <Settings className="h-5 w-5" />
           </button>
 
+          <details className="relative xl:hidden" onKeyDown={(event) => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus() } }}>
+            <summary aria-label={language === 'id' ? 'Pengaturan dan bantuan' : 'Settings and help'} className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5]">
+              <Settings className="h-5 w-5" />
+            </summary>
+            <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-[#E0E3E7] bg-white p-2 shadow-lg dark:border-[#36373A] dark:bg-[#1E1F20]">
+              <button className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm hover:bg-[#F0F4F9] dark:text-[#E3E3E3] dark:hover:bg-[#28292A]" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); navigate('/settings') }}><Settings className="h-5 w-5" />{language === 'id' ? 'Pengaturan' : 'Settings'}</button>
+              <button className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm hover:bg-[#F0F4F9] dark:text-[#E3E3E3] dark:hover:bg-[#28292A]" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); setInfoOpen(true) }}><HelpCircle className="h-5 w-5" />{language === 'id' ? 'Bantuan dan info' : 'Help and info'}</button>
+            </div>
+          </details>
+          {infoOpen && <div className="relative xl:hidden"><SystemInfoDropdown storage={storage} onClose={() => setInfoOpen(false)} /></div>}
+
           <button
             type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
             onClick={toggleTheme}
             aria-label="Toggle theme"
           >
@@ -454,7 +454,7 @@ export function DriveLayout() {
           <button
             type="button"
             onClick={() => setLanguage(language === 'en' ? 'id' : 'en')}
-            className="flex h-8 items-center gap-1.5 rounded-full border border-[#E0E3E7] px-2.5 text-[11px] font-semibold text-[#444746] transition-colors hover:bg-black/5 dark:border-[#36373A] dark:text-[#C4C7C5] dark:hover:bg-white/10 select-none"
+            className="flex h-11 items-center gap-1.5 rounded-full border border-[#E0E3E7] px-2.5 text-xs font-medium text-[#444746] transition-colors hover:bg-black/5 dark:border-[#36373A] dark:text-[#C4C7C5] dark:hover:bg-white/10 select-none"
             aria-label="Toggle language"
             title={language === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}
           >
@@ -477,6 +477,10 @@ export function DriveLayout() {
               />
             )}
           </div>
+        </div>
+        <div className="order-3 flex min-w-0 shrink-0 items-center gap-2 pr-2 xl:pr-0">
+          <DriveAccountSelector />
+          <div className="flex gap-2 xl:hidden">{headerActions}</div>
         </div>
       </header>
 
@@ -515,18 +519,17 @@ export function DriveLayout() {
         </div>
 
         {/* Mobile Drawer */}
-        <div
-          className={cn(
-            'fixed inset-0 z-50 bg-black/32 transition-opacity lg:hidden',
-            sidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-          )}
+        {sidebarOpen && <><div
+          className="fixed inset-0 z-50 bg-black/32 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
         <div
-          className={cn(
-            'fixed inset-y-0 left-0 z-[60] w-64 transform bg-[#F8FAFD] shadow-2xl transition-transform duration-200 ease-out lg:hidden dark:bg-[#131314]',
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          )}
+          ref={drawerRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={language === 'id' ? 'Navigasi' : 'Navigation'}
+          tabIndex={-1}
+          className="fixed inset-y-0 left-0 z-[60] flex w-64 max-w-[90vw] flex-col bg-[#F8FAFD] shadow-2xl lg:hidden dark:bg-[#131314]"
         >
           <div className="flex h-16 items-center justify-between px-4">
             <div className="flex items-center gap-2">
@@ -535,13 +538,14 @@ export function DriveLayout() {
             </div>
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5]"
+              aria-label={language === 'id' ? 'Tutup navigasi' : 'Close navigation'}
+              className="flex h-11 w-11 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5]"
               onClick={() => setSidebarOpen(false)}
             >
               <X className="h-5 w-5" />
             </button>
           </div>
-          <SidebarContent
+          <div className="min-h-0 flex-1"><SidebarContent
             user={user}
             storage={storage}
             onLogout={logout}
@@ -554,12 +558,12 @@ export function DriveLayout() {
               setSidebarOpen(false)
               handleTriggerUpload()
             }}
-          />
-        </div>
+          /></div>
+        </div></>}
 
         {/* 3. Floating Content Surface (Google Drive Web Shell Card) */}
         <div className="flex-1 min-w-0 p-0 sm:pr-4 sm:pb-4 overflow-hidden">
-          <main className="flex h-full w-full flex-col overflow-y-auto rounded-none sm:rounded-[24px] bg-white border-0 sm:border sm:border-[#E0E3E7] p-4 sm:p-6 shadow-sm dark:bg-[#1E1F20] dark:border-[#36373A]">
+          <main id="drive-main" tabIndex={-1} className="flex h-full w-full flex-col overflow-y-auto rounded-none sm:rounded-[24px] bg-white p-4 sm:p-6 dark:bg-[#1E1F20]">
             <Outlet context={{ setHeaderActions } satisfies DriveLayoutContext} />
           </main>
         </div>
@@ -577,22 +581,24 @@ export function DriveLayout() {
               ) : (
                 <Upload className="h-4 w-4 text-[#0B57D0]" />
               )}
-              <span>
+              <span role="status" aria-live="polite">
                 {uploadProgress.status === 'done'
-                  ? 'Upload complete'
+                  ? (language === 'id' ? 'Upload selesai' : 'Upload complete')
                   : uploadProgress.status === 'partial'
-                  ? 'Completed with errors'
+                  ? (language === 'id' ? 'Selesai dengan kesalahan' : 'Completed with errors')
                   : uploadProgress.status === 'error'
-                  ? 'Upload failed'
+                  ? (language === 'id' ? 'Upload gagal' : 'Upload failed')
                   : uploadProgress.percent >= 99
-                  ? 'Processing on Drive'
-                  : 'Uploading...'}
+                  ? (language === 'id' ? 'Diproses di Drive' : 'Processing on Drive')
+                  : (language === 'id' ? 'Mengunggah…' : 'Uploading…')}
               </span>
             </div>
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
+                aria-label={language === 'id' ? 'Buka atau ciutkan progres upload' : 'Expand or collapse upload progress'}
+                aria-expanded={!uploadProgressCollapsed}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
                 onClick={() => setUploadProgressCollapsed(!uploadProgressCollapsed)}
               >
                 <ChevronDown
@@ -601,7 +607,8 @@ export function DriveLayout() {
               </button>
               <button
                 type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
+                aria-label={language === 'id' ? 'Tutup progres upload' : 'Close upload progress'}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-[#444746] hover:bg-black/5 dark:text-[#C4C7C5] dark:hover:bg-white/10"
                 onClick={() => setUploadProgress((c) => ({ ...c, open: false }))}
               >
                 <X className="h-4 w-4" />
@@ -614,7 +621,7 @@ export function DriveLayout() {
                 <p className="truncate font-medium flex-1 pr-2">{uploadProgress.fileName}</p>
                 <span>{uploadProgress.percent}%</span>
               </div>
-              <div className="h-1.5 w-full rounded-full bg-[#E0E3E7] dark:bg-[#36373A] overflow-hidden">
+              <div role="progressbar" aria-label={language === 'id' ? 'Progres upload' : 'Upload progress'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadProgress.percent} className="h-1.5 w-full rounded-full bg-[#E0E3E7] dark:bg-[#36373A] overflow-hidden">
                 <div
                   className={cn(
                     'h-full rounded-full transition-all duration-300',
@@ -643,25 +650,25 @@ export function DriveLayout() {
                           <button
                             type="button"
                             onClick={() => retryFailedUpload(file.name)}
-                            className="text-[#0B57D0] hover:underline font-medium text-[11px]"
+                            className="min-h-11 px-2 text-sm text-[#0B57D0] hover:underline dark:text-[#A8C7FA]"
                           >
-                            Retry
+                            {language === 'id' ? 'Coba lagi' : 'Retry'}
                           </button>
                         )}
                         <span
                           className={cn(
                             'text-[11px]',
                             file.status === 'error'
-                              ? 'text-[#D93025]'
+                              ? 'text-[#B3261E] dark:text-[#F2B8B5]'
                               : file.status === 'done'
-                              ? 'text-[#0F9D58]'
-                              : 'text-[#0B57D0]'
+                              ? 'text-[#137333] dark:text-[#81C995]'
+                              : 'text-[#0B57D0] dark:text-[#A8C7FA]'
                           )}
                         >
                           {file.status === 'error'
-                            ? 'Failed'
+                            ? (language === 'id' ? 'Gagal' : 'Failed')
                             : file.status === 'done'
-                            ? 'Done'
+                            ? (language === 'id' ? 'Selesai' : 'Done')
                             : `${file.percent}%`}
                         </span>
                       </div>

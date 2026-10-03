@@ -347,7 +347,7 @@ export function PdfToolsView() {
             accept={currentTool === 'images-to-pdf' ? 'image/*,.png,.jpg,.jpeg,.webp' : '.pdf,application/pdf'}
             icon={activeSubtoolObj?.icon}
             iconColor="#EA4335"
-            maxSizeText="Proses cepat • 100% Privat"
+            maxSizeText="Pemrosesan PDF di browser"
             multiple={currentTool === 'merge' || currentTool === 'images-to-pdf' || currentTool === 'compress'}
             onFilesSelected={addFilesToQueue}
             onOpenDrivePicker={() => setDrivePickerOpen(true)}

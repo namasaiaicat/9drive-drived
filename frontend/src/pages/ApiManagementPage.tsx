@@ -445,7 +445,6 @@ console.log('CDN View URL:', file.url)
               value={keyName}
               onChange={(event) => setKeyName(event.target.value)}
               required
-              autoFocus
             />
 
             <div className="flex justify-end gap-2">

@@ -21,7 +21,7 @@ export function ServerHealthGate({ children }: { children: ReactNode }) {
     }, 1000)
 
     async function poll() {
-      while (!cancelled) {
+      while (!cancelled && Date.now() - startTime < 30_000) {
         try {
           const res = await fetch(`${API_URL}/health`, {
             signal: AbortSignal.timeout(2000),
@@ -52,8 +52,8 @@ export function ServerHealthGate({ children }: { children: ReactNode }) {
       : elapsed < 15
       ? 'Sedang menyiapkan server...'
       : elapsed < 30
-      ? 'Hampir selesai...'
-      : 'Memuat lebih lama dari biasanya.'
+      ? 'Menunggu koneksi server...'
+      : 'Server belum dapat dihubungi. Periksa koneksi, lalu coba lagi.'
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#F8FAFD] dark:bg-[#131314] transition-opacity duration-300">
@@ -68,7 +68,7 @@ export function ServerHealthGate({ children }: { children: ReactNode }) {
       </h1>
 
       {/* Status message */}
-      <p className="text-sm text-[#747775] dark:text-[#8E918F] mb-6">
+      <p role={elapsed >= 30 ? 'alert' : 'status'} className="px-6 text-center text-sm text-[#444746] dark:text-[#C4C7C5] mb-6">
         {statusMessage}
       </p>
 

@@ -4,6 +4,11 @@ import type { FileItem } from '@/data/drive-data'
 export function FileIcon({ kind, className }: { kind: FileItem['kind'] | string; className?: string }) {
   const iconClass = cn('h-5 w-5 shrink-0 select-none', className)
 
+  if (kind === 'sheet' || kind === 'slides' || kind === 'other') {
+    const color = kind === 'sheet' ? '#0F9D58' : kind === 'slides' ? '#F4B400' : '#5F6368'
+    return <svg viewBox="0 0 24 24" className={iconClass} aria-label={`${kind} file`}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill={color} /><path d="M14 2v6h6z" fill="white" opacity="0.5" />{kind === 'sheet' ? <path d="M8 11h8v7H8zM8 14h8m-4-3v7" stroke="white" fill="none" /> : <path d="M8 12h8v5H8z" stroke="white" fill="none" />}</svg>
+  }
+
   if (kind === 'pdf') {
     // Google Drive PDF Icon (Red)
     return (

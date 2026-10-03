@@ -110,5 +110,8 @@ export function formatBytes(input: string | number | bigint | null | undefined) 
 }
 
 export function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '--'
+  const locale = localStorage.getItem('9drive:language') === 'id' ? 'id-ID' : 'en-US'
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }

@@ -48,8 +48,10 @@ function availableLabel(account: ConnectedAccount) {
 function pct(account: ConnectedAccount) {
   const total = Number(account.storageAccount?.totalBytes ?? 0)
   const used = Number(account.storageAccount?.usedBytes ?? 0)
-  return total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
+  return total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0
 }
+
+function percentLabel(value: number) { return value > 0 && value < 1 ? '<1%' : `${Math.round(value)}%` }
 
 export function QuotaTrackerPage() {
   const [summary, setSummary] = useState<StorageSummary | null>(null)
@@ -63,9 +65,13 @@ export function QuotaTrackerPage() {
   const { t } = useLanguage()
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [initialLoading, setInitialLoading] = useState(true)
   const [syncingAccountId, setSyncingAccountId] = useState<string | null>(null)
 
   async function load() {
+    setLoadError('')
+    try {
     const [summaryData, accountData, policyData] = await Promise.all([
       apiFetch<StorageSummary>('/storage/summary'),
       apiFetch<{ accounts: ConnectedAccount[] }>('/connected-accounts'),
@@ -74,6 +80,9 @@ export function QuotaTrackerPage() {
     setSummary(summaryData)
     setAccounts(accountData.accounts)
     setRoutingPolicy(policyData.policy)
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Failed to load storage')
+    } finally { setInitialLoading(false) }
   }
 
   async function refresh() {
@@ -105,7 +114,7 @@ export function QuotaTrackerPage() {
       } else {
         toast.error('Google Drive connection failed.')
       }
-      load().catch(() => undefined)
+      load().then(() => { window.dispatchEvent(new Event('9drive:accounts-changed')); window.dispatchEvent(new Event('9drive:storage-changed')) })
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
@@ -127,7 +136,7 @@ export function QuotaTrackerPage() {
       }
     } catch (e) {
       if (popup) popup.close()
-      console.error('Failed to start Google Drive connection from Quota Tracker', e)
+      toast.error(e instanceof Error ? e.message : 'Failed to connect storage')
     }
   }
 
@@ -136,6 +145,10 @@ export function QuotaTrackerPage() {
     try {
       await apiFetch(`/connected-accounts/${accountId}/sync-quota`, { method: 'POST' })
       await load()
+      window.dispatchEvent(new Event('9drive:accounts-changed'))
+      window.dispatchEvent(new Event('9drive:storage-changed'))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to sync storage')
     } finally {
       setSyncingAccountId(null)
     }
@@ -175,7 +188,7 @@ export function QuotaTrackerPage() {
 
   const totalUsed = Number(summary?.usedBytes ?? 0)
   const totalMax = Number(summary?.totalBytes ?? 0)
-  const totalPercent = totalMax > 0 ? Math.min(100, Math.round((totalUsed / totalMax) * 100)) : 0
+  const totalPercent = totalMax > 0 ? Math.min(100, Math.max(0, (totalUsed / totalMax) * 100)) : 0
 
   return (
     <div className="flex flex-col min-h-full w-full min-w-0">
@@ -183,7 +196,7 @@ export function QuotaTrackerPage() {
         title={t('quota.title', 'Storage')}
         description={t('quota.desc', 'Monitor combined Google Drive storage quota and routing.')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => setAutoRefresh(!autoRefresh)}>
               <CheckCircle className="h-4 w-4" /> {t('quota.auto_refresh', 'Auto-refresh')} {autoRefresh ? 'On' : 'Off'}
             </Button>
@@ -198,6 +211,7 @@ export function QuotaTrackerPage() {
         }
       />
 
+      {initialLoading ? <p role="status" className="py-6 text-sm">{t('action.loading', 'Loading…')}</p> : loadError ? <div role="alert" className="mt-4 rounded-xl border border-[#B3261E] p-4 text-sm text-[#B3261E] dark:border-[#F2B8B5] dark:text-[#F2B8B5]"><p>{loadError}</p><Button variant="outline" onClick={refresh} className="mt-3">{t('action.retry', 'Retry')}</Button></div> : null}
       {/* Main Quota Overview Card */}
       <div className="mt-6 rounded-2xl border border-[#E0E3E7] bg-white p-6 dark:border-[#36373A] dark:bg-[#1E1F20]">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -210,7 +224,7 @@ export function QuotaTrackerPage() {
                 {formatBytes(summary?.usedBytes)}
               </span>
               <span className="text-sm text-[#747775] dark:text-[#8E918F]">
-                {t('quota.of_used', 'of')} {formatBytes(summary?.totalBytes)} {t('quota.used_label', 'used')} ({totalPercent}%)
+                {t('quota.of_used', 'of')} {formatBytes(summary?.totalBytes)} {t('quota.used_label', 'used')} ({summary ? percentLabel(totalPercent) : '--'})
               </span>
             </div>
           </div>
@@ -220,10 +234,10 @@ export function QuotaTrackerPage() {
         </div>
 
         {/* Big Progress Bar */}
-        <div className="mt-4 h-3 w-full rounded-full bg-[#E0E3E7] dark:bg-[#36373A] overflow-hidden">
+        <div role="progressbar" aria-label={t('quota.title', 'Storage')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={summary ? totalPercent : undefined} aria-valuetext={summary ? percentLabel(totalPercent) : t('action.loading', 'Loading…')} className="mt-4 h-3 w-full rounded-full bg-[#E0E3E7] dark:bg-[#36373A] overflow-hidden">
           <div
             className="h-full rounded-full bg-[#0B57D0] transition-all duration-300"
-            style={{ width: `${totalPercent}%` }}
+            style={{ width: `${totalPercent}%`, minWidth: totalPercent > 0 ? '2px' : undefined }}
           />
         </div>
       </div>
@@ -342,21 +356,22 @@ export function QuotaTrackerPage() {
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-xs text-[#444746] dark:text-[#C4C7C5] mb-1.5">
                     <span>{formatBytes(account.storageAccount?.usedBytes)} used</span>
-                    <span>{percent}%</span>
+                    <span>{account.storageAccount?.totalBytes ? percentLabel(percent) : '--'}</span>
                   </div>
-                  <div className="h-2 w-full rounded-full bg-[#E0E3E7] dark:bg-[#36373A] overflow-hidden">
+                  <div role="progressbar" aria-label={`${account.email} storage used`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={account.storageAccount?.totalBytes ? percent : undefined} aria-valuetext={account.storageAccount?.totalBytes ? percentLabel(percent) : 'Quota unavailable'} className="h-2 w-full rounded-full bg-[#E0E3E7] dark:bg-[#36373A] overflow-hidden">
                     <div
                       className={cn(
                         'h-full rounded-full transition-all duration-300',
                         percent >= 90 ? 'bg-[#D93025]' : percent >= 75 ? 'bg-[#FBBC04]' : 'bg-[#0B57D0]'
                       )}
-                      style={{ width: `${percent}%` }}
+                      style={{ width: `${percent}%`, minWidth: percent > 0 ? '2px' : undefined }}
                     />
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-[#747775] dark:text-[#8E918F]">
                     <span>Total: {storageLimitLabel(account)}</span>
                     <span>Free: {availableLabel(account)}</span>
                   </div>
+                  <p className="mt-2 text-xs text-[#444746] dark:text-[#C4C7C5]">{account.storageAccount?.lastSyncedAt ? `${t('quota.last_synced', 'Last synced')}: ${new Date(account.storageAccount.lastSyncedAt).toLocaleString()}` : t('quota.not_synced', 'Not synced yet')}</p>
                 </div>
               </div>
             )
