@@ -9,6 +9,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "lint": "tsc --noEmit",
+    "pretest:unit": "astro build",
     "test:unit": "vitest run"
   },
   "dependencies": {
