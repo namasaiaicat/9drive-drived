@@ -6,11 +6,20 @@ import { dictionary } from '../data/locales/en';
   <script is:inline>
     (function () {
       try {
-        var stored = localStorage.getItem('9drive_locale');
-        var target = (stored === 'id' || stored === 'en') ? stored : (navigator.language && navigator.language.startsWith('id') ? 'id' : 'en');
-        location.replace('/' + target + location.search + location.hash);
+        var stored = null;
+        try {
+          stored = localStorage.getItem('9drive_locale');
+        } catch (e) {
+          // Storage access restricted (e.g. private browsing or SecurityError)
+        }
+        var target = (stored === 'id' || stored === 'en')
+          ? stored
+          : ((navigator.language && navigator.language.toLowerCase().indexOf('id') === 0) ? 'id' : 'en');
+        var search = window.location.search || '';
+        var hash = window.location.hash || '';
+        window.location.replace('/' + target + search + hash);
       } catch (e) {
-        location.replace('/en' + location.search + location.hash);
+        window.location.replace('/en' + (window.location.search || '') + (window.location.hash || ''));
       }
     })();
   </script>
