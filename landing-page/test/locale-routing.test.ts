@@ -227,8 +227,8 @@ describe('Locale Fallback Negotiation & Redirection Logic (TASK-009, TASK-010)',
 });
 
 describe('Static HTML Entrypoints & Inline Redirect Validation (TASK-009, TASK-010)', () => {
-  it('public/index.html exists and contains synchronous redirect and noscript fallback', () => {
-    const htmlPath = path.resolve(__dirname, '../public/index.html');
+  it('dist/index.html exists and contains synchronous redirect and noscript fallback', () => {
+    const htmlPath = path.resolve(__dirname, '../dist/index.html');
     expect(fs.existsSync(htmlPath)).toBe(true);
 
     const content = fs.readFileSync(htmlPath, 'utf-8');
