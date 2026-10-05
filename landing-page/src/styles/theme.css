@@ -1,0 +1,131 @@
+/* ==========================================================================
+   Google Material Design 3 Theme Tokens (Dark-First & Dynamic Scheme Support)
+   9Drive Landing Page - Adhering to DESIGN.md
+   ========================================================================== */
+
+/* Dark-first base tokens */
+:root {
+  /* Surfaces & Canvas */
+  --color-canvas: #131314;
+  --color-surface: #1e1f20;
+  --color-surface-container: #282a2c;
+  --color-surface-variant: #333537;
+  --color-hover: #2d2f31;
+  --color-selected: #004a77;
+  --color-selected-text: #c2e7ff;
+
+  /* Brand & Interactive */
+  --color-primary: #a8c7fa;
+  --color-primary-hover: #9ec2f8;
+  --color-primary-active: #82b1ff;
+  --color-primary-container: #004a77;
+  --color-on-primary-container: #c2e7ff;
+
+  /* Text & Typography */
+  --color-text-primary: #e3e3e3;
+  --color-text-secondary: #c4c7c5;
+  --color-text-tertiary: #8e918f;
+
+  /* Borders & Dividers */
+  --color-border: #444746;
+  --color-border-subtle: #36383a;
+
+  /* Focus & Accent */
+  --color-focus: #a8c7fa;
+
+  /* Shadow & Elevation Tokens */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
+
+  /* Typography */
+  --font-family-sans: 'Google Sans', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-family-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  color-scheme: dark;
+}
+
+/* Explicit Dark Mode Overrides (Matching :root dark-first) */
+:root.dark,
+html.dark,
+[data-theme='dark'] {
+  --color-canvas: #131314;
+  --color-surface: #1e1f20;
+  --color-surface-container: #282a2c;
+  --color-surface-variant: #333537;
+  --color-hover: #2d2f31;
+  --color-selected: #004a77;
+  --color-selected-text: #c2e7ff;
+
+  --color-primary: #a8c7fa;
+  --color-primary-hover: #9ec2f8;
+  --color-primary-active: #82b1ff;
+  --color-primary-container: #004a77;
+  --color-on-primary-container: #c2e7ff;
+
+  --color-text-primary: #e3e3e3;
+  --color-text-secondary: #c4c7c5;
+  --color-text-tertiary: #8e918f;
+
+  --color-border: #444746;
+  --color-border-subtle: #36383a;
+
+  --color-focus: #a8c7fa;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
+
+  color-scheme: dark;
+}
+
+/* Explicit Light Mode Overrides */
+:root.light,
+html.light,
+[data-theme='light'] {
+  --color-canvas: #f8fafd;
+  --color-surface: #ffffff;
+  --color-surface-container: #edf2fc;
+  --color-surface-variant: #f0f4f9;
+  --color-hover: #e9eef6;
+  --color-selected: #c2e7ff;
+  --color-selected-text: #001d35;
+
+  --color-primary: #0b57d0;
+  --color-primary-hover: #0842a0;
+  --color-primary-active: #063175;
+  --color-primary-container: #c2e7ff;
+  --color-on-primary-container: #001d35;
+
+  --color-text-primary: #1f1f1f;
+  --color-text-secondary: #444746;
+  --color-text-tertiary: #5f6368;
+
+  --color-border: #e0e3e7;
+  --color-border-subtle: #e1e3e1;
+
+  --color-focus: #0b57d0;
+
+  --shadow-sm: 0 1px 3px 0 rgba(60, 64, 67, 0.15), 0 1px 2px 0 rgba(60, 64, 67, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(60, 64, 67, 0.15), 0 2px 4px -1px rgba(60, 64, 67, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(60, 64, 67, 0.15), 0 4px 6px -2px rgba(60, 64, 67, 0.2);
+
+  color-scheme: light;
+}
+
+/* Base Body Styles */
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-sans);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Accessibility Focus Ring */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

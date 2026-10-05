@@ -1,6 +1,8 @@
 ---
 import HeadMeta from '../components/HeadMeta.astro';
 import type { PageMetadata, Locale } from '../types';
+import themeInitScript from '../scripts/theme-init.inline.js?raw';
+import '../styles/theme.css';
 
 interface Props {
   meta: PageMetadata;
@@ -12,6 +14,7 @@ const { meta, locale } = Astro.props;
 <!doctype html>
 <html lang={locale}>
   <head>
+    <script is:inline set:html={themeInitScript} />
     <HeadMeta meta={meta} locale={locale} />
     <slot name="head" />
   </head>
