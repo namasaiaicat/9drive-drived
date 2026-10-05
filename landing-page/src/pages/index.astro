@@ -1,0 +1,20 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { dictionary } from '../data/locales/en';
+---
+<BaseLayout meta={dictionary.meta} locale="en">
+  <script is:inline>
+    (function () {
+      try {
+        var stored = localStorage.getItem('9drive_locale');
+        var target = (stored === 'id' || stored === 'en') ? stored : (navigator.language && navigator.language.startsWith('id') ? 'id' : 'en');
+        location.replace('/' + target + location.search + location.hash);
+      } catch (e) {
+        location.replace('/en' + location.search + location.hash);
+      }
+    })();
+  </script>
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=/en" />
+  </noscript>
+</BaseLayout>

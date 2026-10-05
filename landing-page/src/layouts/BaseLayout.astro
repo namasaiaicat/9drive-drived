@@ -1,0 +1,21 @@
+---
+import HeadMeta from '../components/HeadMeta.astro';
+import type { PageMetadata, Locale } from '../types';
+
+interface Props {
+  meta: PageMetadata;
+  locale: Locale;
+}
+
+const { meta, locale } = Astro.props;
+---
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <HeadMeta meta={meta} locale={locale} />
+    <slot name="head" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

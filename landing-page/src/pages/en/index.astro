@@ -1,0 +1,10 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { dictionary } from '../../data/locales/en';
+---
+<BaseLayout meta={dictionary.meta} locale="en">
+  <main>
+    <h1>{dictionary.hero.title} {dictionary.hero.highlight}</h1>
+    <p>{dictionary.hero.subtitle}</p>
+  </main>
+</BaseLayout>

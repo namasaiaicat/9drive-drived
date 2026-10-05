@@ -1,0 +1,43 @@
+---
+import type { PageMetadata, Locale } from '../types';
+
+interface Props {
+  meta: PageMetadata;
+  locale: Locale;
+}
+
+const { meta, locale } = Astro.props;
+---
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{meta.title}</title>
+<meta name="description" content={meta.description} />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href={meta.canonicalUrl} />
+
+<!-- Alternate hreflang links -->
+<link rel="alternate" hreflang="en" href="https://9drive.dev/en" />
+<link rel="alternate" hreflang="id" href="https://9drive.dev/id" />
+<link rel="alternate" hreflang="x-default" href="https://9drive.dev/en" />
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="9Drive" />
+<meta property="og:title" content={meta.title} />
+<meta property="og:description" content={meta.description} />
+<meta property="og:url" content={meta.canonicalUrl} />
+<meta property="og:image" content={meta.ogImage} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content={meta.ogLocale} />
+<meta property="og:locale:alternate" content={meta.ogAlternateLocale} />
+
+<!-- Twitter Cards -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={meta.title} />
+<meta name="twitter:description" content={meta.description} />
+<meta name="twitter:image" content={meta.twitterImage} />
+
+<!-- Favicon and Manifest -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="manifest" href="/manifest.webmanifest" />
