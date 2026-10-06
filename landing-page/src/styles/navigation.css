@@ -343,8 +343,10 @@ h3[id] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 9999px;
   border: none;
   background: transparent;
@@ -410,6 +412,17 @@ h3[id] {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.drawer-controls .lang-selector-group {
+  padding: 0.25rem 0.5rem;
+}
+
+.drawer-controls .lang-selector-btn {
+  height: 2.75rem;
+  min-height: 44px;
+  min-width: 44px;
+  font-size: 0.875rem;
 }
 
 /* --------------------------------------------------------------------------
