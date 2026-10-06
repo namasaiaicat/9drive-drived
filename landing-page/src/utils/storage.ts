@@ -10,9 +10,11 @@ const memoryFallback = new Map<string, string>();
 export const STORAGE_KEYS = {
   LOCALE: '9drive_locale',
   THEME: '9drive_theme',
+  PLATFORM_PREF: '9drive_platform_pref',
 } as const;
 
 export const LOCALE_STORAGE_KEY = STORAGE_KEYS.LOCALE;
+export const PLATFORM_STORAGE_KEY = STORAGE_KEYS.PLATFORM_PREF;
 
 /**
  * Safely access window.localStorage without throwing SecurityError.
@@ -98,8 +100,78 @@ export function safeStorageRemove(key: string): boolean {
 }
 
 /**
+ * Safely access window.sessionStorage without throwing SecurityError.
+ */
+function getSessionStorage(): Storage | null {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      return window.sessionStorage;
+    }
+  } catch {
+    // Accessing window.sessionStorage threw SecurityError or is restricted
+  }
+  return null;
+}
+
+/**
+ * Resilient getter for sessionStorage values.
+ * Catches SecurityError, QuotaExceededError, or private browsing exceptions with in-memory fallback.
+ */
+export function safeSessionStorageGet(key: string, fallback: string | null = null): string | null {
+  const storage = getSessionStorage();
+  if (storage) {
+    try {
+      const value = storage.getItem(key);
+      if (value !== null) {
+        return value;
+      }
+    } catch {
+      // Storage access threw
+    }
+  }
+
+  return memoryFallback.has(key) ? (memoryFallback.get(key) ?? null) : fallback;
+}
+
+/**
+ * Resilient setter for sessionStorage values.
+ * Writes to in-memory store and attempts to synchronize to sessionStorage.
+ */
+export function safeSessionStorageSet(key: string, value: string): boolean {
+  memoryFallback.set(key, value);
+  const storage = getSessionStorage();
+  if (storage) {
+    try {
+      storage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+/**
+ * Resilient removal of a storage key from sessionStorage and in-memory store.
+ */
+export function safeSessionStorageRemove(key: string): boolean {
+  memoryFallback.delete(key);
+  const storage = getSessionStorage();
+  if (storage) {
+    try {
+      storage.removeItem(key);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+/**
  * Clears the in-memory fallback store (primarily for unit tests).
  */
 export function clearMemoryFallback(): void {
   memoryFallback.clear();
 }
+

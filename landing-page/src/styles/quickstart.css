@@ -1,0 +1,289 @@
+/* ==========================================================================
+   Google Material Design 3 CLI Quickstart Styles
+   9Drive Landing Page - Adhering to DESIGN.md
+   ========================================================================== */
+
+.quickstart-section {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 64px 24px;
+  box-sizing: border-box;
+  scroll-margin-top: 5rem;
+}
+
+.quickstart-header {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto 40px auto;
+}
+
+.quickstart-title {
+  font-family: var(--font-family-sans, system-ui);
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #e3e3e3);
+  margin: 0 0 12px 0;
+  letter-spacing: -0.02em;
+}
+
+.quickstart-subtitle {
+  font-family: var(--font-family-sans, system-ui);
+  font-size: 1.125rem;
+  color: var(--color-text-secondary, #c4c7c5);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.quickstart-container {
+  background-color: var(--color-surface, #1e1f20);
+  border: 1px solid var(--color-border-subtle, #36383a);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Steps list */
+.quickstart-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 24px 28px;
+  background-color: var(--color-surface-container, #282a2c);
+  border-bottom: 1px solid var(--color-border-subtle, #36383a);
+  list-style: none;
+  counter-reset: step-counter;
+}
+
+@media (min-width: 640px) {
+  .quickstart-steps {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 20px;
+  }
+}
+
+.quickstart-step-item {
+  counter-increment: step-counter;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+}
+
+.quickstart-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--color-primary-container, #004a77);
+  color: var(--color-on-primary-container, #c2e7ff);
+  font-family: var(--font-family-mono, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.quickstart-step-text {
+  font-family: var(--font-family-sans, system-ui);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #c4c7c5);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Tabs list */
+.quickstart-tabs-wrapper {
+  padding: 20px 24px 0 24px;
+  border-bottom: 1px solid var(--color-border-subtle, #36383a);
+  background-color: var(--color-surface, #1e1f20);
+}
+
+.quickstart-tablist {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.quickstart-tablist::-webkit-scrollbar {
+  display: none;
+}
+
+.quickstart-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary, #c4c7c5);
+  font-family: var(--font-family-sans, system-ui);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+  border-radius: 8px 8px 0 0;
+}
+
+.quickstart-tab:hover {
+  color: var(--color-text-primary, #e3e3e3);
+  background-color: var(--color-hover, #2d2f31);
+}
+
+.quickstart-tab[aria-selected='true'] {
+  color: var(--color-primary, #a8c7fa);
+  border-bottom-color: var(--color-primary, #a8c7fa);
+  font-weight: 600;
+}
+
+.quickstart-tab:focus-visible {
+  outline: 2px solid var(--color-focus, #a8c7fa);
+  outline-offset: -2px;
+}
+
+/* OS Icon */
+.quickstart-tab-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Tab Panels */
+.quickstart-panel {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.quickstart-panel[hidden] {
+  display: none;
+}
+
+/* Snippet Box */
+.quickstart-snippet-card {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-canvas, #131314);
+  border: 1px solid var(--color-border-subtle, #36383a);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.quickstart-snippet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--color-surface-container, #282a2c);
+  border-bottom: 1px solid var(--color-border-subtle, #36383a);
+}
+
+.quickstart-snippet-label {
+  font-family: var(--font-family-mono, monospace);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #c4c7c5);
+}
+
+.quickstart-snippet-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  gap: 16px;
+  overflow-x: auto;
+}
+
+.quickstart-code-block {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family-mono, monospace);
+  font-size: 0.875rem;
+  color: var(--color-text-primary, #e3e3e3);
+  background: transparent;
+  user-select: text;
+  -webkit-user-select: text;
+  white-space: nowrap;
+  overflow-x: auto;
+  flex: 1;
+}
+
+.quickstart-code-block code {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Copy Button */
+.quickstart-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #444746);
+  background-color: var(--color-surface, #1e1f20);
+  color: var(--color-text-primary, #e3e3e3);
+  font-family: var(--font-family-sans, system-ui);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+  min-height: 32px;
+}
+
+.quickstart-copy-btn:hover {
+  background-color: var(--color-hover, #2d2f31);
+  border-color: var(--color-primary, #a8c7fa);
+}
+
+.quickstart-copy-btn:focus-visible {
+  outline: 2px solid var(--color-focus, #a8c7fa);
+  outline-offset: 2px;
+}
+
+.quickstart-copy-btn--copied {
+  background-color: var(--color-primary-container, #004a77);
+  border-color: var(--color-primary, #a8c7fa);
+  color: var(--color-on-primary-container, #c2e7ff);
+}
+
+.quickstart-copy-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* Live region for accessibility */
+.quickstart-sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .quickstart-tab,
+  .quickstart-copy-btn {
+    transition: none;
+  }
+}

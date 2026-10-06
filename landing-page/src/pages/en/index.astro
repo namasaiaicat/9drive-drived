@@ -3,6 +3,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { dictionary } from '../../data/locales/en';
 import { Navbar } from '../../components/Navbar';
 import { Hero } from '../../components/Hero';
+import { Features } from '../../components/Features';
+import { QuickstartSnippets } from '../../islands/QuickstartSnippets';
 import { Footer } from '../../components/Footer';
 import { FaqAccordion } from '../../islands/FaqAccordion';
 ---
@@ -19,6 +21,8 @@ import { FaqAccordion } from '../../islands/FaqAccordion';
   <Navbar client:load nav={dictionary.nav} currentLocale="en" />
   <main>
     <Hero hero={dictionary.hero} />
+    <Features features={dictionary.features} />
+    <QuickstartSnippets client:visible quickstart={dictionary.quickstart} />
     <section id="faq" class="faq-section">
       <h2 class="faq-section-title">{dictionary.faq.sectionTitle}</h2>
       <p class="faq-section-subtitle">{dictionary.faq.sectionSubtitle}</p>
