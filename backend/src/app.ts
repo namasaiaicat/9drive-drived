@@ -18,6 +18,7 @@ import { publicApiRouter } from './modules/public-api/public-api.routes.js'
 import { cdnRouter } from './modules/cdn/cdn.routes.js'
 import { auditLogRouter } from './modules/audit-logs/audit-log.routes.js'
 import { systemRouter } from './modules/system/system.routes.js'
+import { aiRouter } from './modules/ai/ai.routes.js'
 
 const baseDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd()
 
@@ -97,6 +98,9 @@ app.use('/api/audit-logs', auditLogRouter)
 app.use('/system', systemRouter)
 app.use('/api/system', systemRouter)
 
+app.use('/ai', aiRouter)
+app.use('/api/ai', aiRouter)
+
 // Serve frontend SPA if bundle is found
 if (publicDir) {
   app.use(express.static(publicDir))
@@ -106,6 +110,7 @@ if (publicDir) {
       req.path.startsWith('/cdn') ||
       req.path.startsWith('/public') ||
       req.path.startsWith('/auth') ||
+      req.path.startsWith('/ai') ||
       req.path.startsWith('/api-keys') ||
       req.path.startsWith('/provider-configs') ||
       req.path.startsWith('/connected-accounts') ||

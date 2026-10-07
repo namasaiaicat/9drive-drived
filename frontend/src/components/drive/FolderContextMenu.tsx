@@ -1,4 +1,4 @@
-import { Edit3, ExternalLink, Folder, Link2, Scissors, Trash2, UserPlus } from 'lucide-react'
+import { Edit3, ExternalLink, Folder, Link2, Scissors, Sparkles, Trash2, UserPlus } from 'lucide-react'
 import type { FolderItem } from '@/data/drive-data'
 import { useLanguage } from '@/context/LanguageContext'
 import { useMenuFocus } from '@/hooks/useMenuFocus'
@@ -13,6 +13,7 @@ type Props = {
   onShare: () => void
   onCopyLink: () => void
   onDelete: () => void
+  onAskAi?: (folder: FolderItem) => void
 }
 
 function MenuItem({
@@ -21,12 +22,14 @@ function MenuItem({
   onClick,
   danger = false,
   kbd,
+  highlight = false,
 }: {
   icon: React.ElementType
   label: string
   onClick: () => void
   danger?: boolean
   kbd?: string
+  highlight?: boolean
 }) {
   return (
     <button
@@ -37,10 +40,12 @@ function MenuItem({
         'flex h-9 w-full items-center gap-3 px-3.5 text-[13px] font-normal transition-all duration-150 active:scale-[0.98] text-left select-none',
         danger
           ? 'text-[#B3261E] hover:bg-[#F9DEDC]/50 dark:text-[#F2B8B5] dark:hover:bg-[#8C1D18]/30'
+          : highlight
+          ? 'text-[#0B57D0] hover:bg-[#E8F0FE] dark:text-[#8AB4F8] dark:hover:bg-[#0B57D0]/20 font-medium'
           : 'text-[#1F1F1F] hover:bg-[#F0F4F9] dark:text-[#E3E3E3] dark:hover:bg-[#28292A]',
       ].join(' ')}
     >
-      <Icon className="h-4 w-4 shrink-0 text-[#444746] dark:text-[#C4C7C5]" />
+      <Icon className={['h-4 w-4 shrink-0', highlight ? 'text-[#0B57D0] dark:text-[#8AB4F8]' : 'text-[#444746] dark:text-[#C4C7C5]'].join(' ')} />
       <span className="flex-1 truncate">{label}</span>
       {kbd && (
         <span className="text-[11px] text-[#747775] dark:text-[#8E918F]">
@@ -61,13 +66,14 @@ export function FolderContextMenu({
   onShare,
   onCopyLink,
   onDelete,
+  onAskAi,
 }: Props) {
   const { t } = useLanguage()
   const menuRef = useMenuFocus(Boolean(folder), onClose)
   if (!folder) return null
 
   const safeX = Math.max(12, Math.min(x, window.innerWidth - 240))
-  const safeY = Math.max(12, Math.min(y, window.innerHeight - 300))
+  const safeY = Math.max(12, Math.min(y, window.innerHeight - 340))
 
   return (
     <>
@@ -96,6 +102,17 @@ export function FolderContextMenu({
 
         {/* Actions */}
         <div className="py-1">
+          {onAskAi && (
+            <MenuItem
+              icon={Sparkles}
+              label={t('menu.ask_ai', 'Tanya AI')}
+              onClick={() => {
+                onAskAi(folder)
+                onClose()
+              }}
+              highlight
+            />
+          )}
           {folder?.driveUrl ? (
             <MenuItem
               icon={ExternalLink}

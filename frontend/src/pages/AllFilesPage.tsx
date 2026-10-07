@@ -12,6 +12,7 @@ import { FileDetailsDrawer } from '@/components/drive/FileDetailsDrawer'
 import { FileGrid } from '@/components/drive/FileGrid'
 import { FileTable } from '@/components/drive/FileTable'
 import { FolderContextMenu } from '@/components/drive/FolderContextMenu'
+import { TanyaAiDrawer } from '@/components/drive/TanyaAiDrawer'
 import { FolderGrid } from '@/components/drive/FolderGrid'
 import { defaultFolderColor, defaultFolderIconUrl, folderColorOptions, folderIconOptions, normalizeFolderColor } from '@/components/drive/FolderVisual'
 import { Input } from '@/components/ui/input'
@@ -145,6 +146,8 @@ export function AllFilesPage() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileItem | null }>({ x: 0, y: 0, file: null })
   const [folderContextMenu, setFolderContextMenu] = useState<{ x: number; y: number; folder: FolderItem | null }>({ x: 0, y: 0, folder: null })
   const [emptyContextMenu, setEmptyContextMenu] = useState<{ x: number; y: number; open: boolean }>({ x: 0, y: 0, open: false })
+  const [tanyaAiOpen, setTanyaAiOpen] = useState(false)
+  const [tanyaAiTargetFolder, setTanyaAiTargetFolder] = useState<{ id: string | null; name: string }>({ id: null, name: 'My Drive' })
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [syncingDrive, setSyncingDrive] = useState(false)
@@ -1252,6 +1255,28 @@ export function AllFilesPage() {
                 <Info className="h-4 w-4" />
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                const currentFolder = allFolders.find((f) => f.id === activeFolderId)
+                setTanyaAiTargetFolder({
+                  id: activeFolderId,
+                  name: currentFolder?.name || (activeFolderId ? 'Folder Aktif' : 'My Drive'),
+                })
+                setTanyaAiOpen(true)
+              }}
+              className={cn(
+                'flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ml-1 select-none',
+                tanyaAiOpen
+                  ? 'bg-[#C2E7FF] text-[#001D35] dark:bg-[#004A77] dark:text-[#C2E7FF]'
+                  : 'text-[#0B57D0] bg-[#E8F0FE] hover:bg-[#D3E3FD] dark:bg-[#0B57D0]/20 dark:text-[#8AB4F8] dark:hover:bg-[#0B57D0]/30'
+              )}
+              title="Tanya AI tentang folder ini"
+              aria-label="Tanya AI tentang folder ini"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">Tanya AI</span>
+            </button>
           </div>
         </div>
 
@@ -1334,7 +1359,8 @@ export function AllFilesPage() {
       </div>
       <EmptyAreaContextMenu x={emptyContextMenu.x} y={emptyContextMenu.y} open={emptyContextMenu.open} canPasteFolder={Boolean(cutFolder)} onClose={() => setEmptyContextMenu({ x: 0, y: 0, open: false })} onUpload={() => { fileUploadInputRef.current?.click(); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onCreateFolder={() => { setFolderOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onPasteFolder={() => { pasteFolder().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to paste folder')); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} />
       <FileContextMenu x={contextMenu.x} y={contextMenu.y} file={contextMenu.file} onClose={() => setContextMenu({ x: 0, y: 0, file: null })} onView={viewFile} onDownload={downloadFile} onRename={() => { setRenameValue(activeFile?.name ?? ''); setRenameOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onMove={() => { setMoveOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onDetails={() => { setDetailOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onShare={() => shareFile(contextMenu.file ?? activeFile)} onCopyLink={() => copyShareLinkDirect(contextMenu.file ?? activeFile)} onDelete={() => { setDeleteOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} />
-      <FolderContextMenu x={folderContextMenu.x} y={folderContextMenu.y} folder={folderContextMenu.folder} onClose={() => setFolderContextMenu({ x: 0, y: 0, folder: null })} onCut={() => cutSelectedFolder(activeFolderForMenu ?? folderContextMenu.folder)} onRename={() => { setFolderRenameValue(activeFolderForMenu?.name ?? ''); setFolderRenameColor(normalizeFolderColor(activeFolderForMenu?.color)); setFolderRenameIconUrl(activeFolderForMenu?.iconUrl ?? defaultFolderIconUrl); setFolderRenameOpen(true); setFolderContextMenu({ x: 0, y: 0, folder: null }) }} onShare={() => shareFolder(folderContextMenu.folder ?? activeFolderForMenu)} onCopyLink={() => copyFolderLink(folderContextMenu.folder ?? activeFolderForMenu)} onDelete={() => { setFolderDeleteOpen(true); setFolderContextMenu({ x: 0, y: 0, folder: null }) }} />
+      <FolderContextMenu x={folderContextMenu.x} y={folderContextMenu.y} folder={folderContextMenu.folder} onClose={() => setFolderContextMenu({ x: 0, y: 0, folder: null })} onCut={() => cutSelectedFolder(activeFolderForMenu ?? folderContextMenu.folder)} onRename={() => { setFolderRenameValue(activeFolderForMenu?.name ?? ''); setFolderRenameColor(normalizeFolderColor(activeFolderForMenu?.color)); setFolderRenameIconUrl(activeFolderForMenu?.iconUrl ?? defaultFolderIconUrl); setFolderRenameOpen(true); setFolderContextMenu({ x: 0, y: 0, folder: null }) }} onShare={() => shareFolder(folderContextMenu.folder ?? activeFolderForMenu)} onCopyLink={() => copyFolderLink(folderContextMenu.folder ?? activeFolderForMenu)} onDelete={() => { setFolderDeleteOpen(true); setFolderContextMenu({ x: 0, y: 0, folder: null }) }} onAskAi={(f) => { setTanyaAiTargetFolder({ id: f.id ?? null, name: f.name }); setTanyaAiOpen(true) }} />
+      <TanyaAiDrawer isOpen={tanyaAiOpen} onClose={() => setTanyaAiOpen(false)} currentFolderId={tanyaAiTargetFolder.id} currentFolderName={tanyaAiTargetFolder.name} />
       <FileDetailsDrawer open={detailOpen} file={activeFile} onClose={() => setDetailOpen(false)} onShare={shareFile} />
 
       <DummyModal open={uploadOpen} title={t('modal.upload_title', 'Upload File')} description={t('modal.upload_desc', 'Stream file directly to selected Google Drive account.')} onClose={() => setUploadOpen(false)}>
