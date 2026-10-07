@@ -1,6 +1,6 @@
 {
   "name": "9drive",
-  "version": "1.1.4",
+  "version": "1.1.6",
   "description": "9Drive - Personal Cloud Storage & Universal API Gateway",
   "main": "bin/9drive.js",
   "bin": "bin/9drive.js",
